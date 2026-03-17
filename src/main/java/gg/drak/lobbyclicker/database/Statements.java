@@ -15,18 +15,20 @@ public class Statements {
                 "Name VARCHAR(16) NOT NULL, " +
                 "Cookies DOUBLE NOT NULL DEFAULT 0, " +
                 "TotalCookiesEarned DOUBLE NOT NULL DEFAULT 0, " +
+                "TimesClicked BIGINT NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
                 "PRIMARY KEY (Uuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
         PUSH_PLAYER_MAIN("INSERT INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, Upgrades " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
                 "Name = VALUES(Name), " +
                 "Cookies = VALUES(Cookies), " +
                 "TotalCookiesEarned = VALUES(TotalCookiesEarned), " +
+                "TimesClicked = VALUES(TimesClicked), " +
                 "Upgrades = VALUES(Upgrades)" +
                 ";"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
@@ -51,14 +53,15 @@ public class Statements {
                 "Name TEXT NOT NULL, " +
                 "Cookies REAL NOT NULL DEFAULT 0, " +
                 "TotalCookiesEarned REAL NOT NULL DEFAULT 0, " +
+                "TimesClicked INTEGER NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
                 "PRIMARY KEY (Uuid) " +
                 ");;"
         ),
         PUSH_PLAYER_MAIN("INSERT OR REPLACE INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, Upgrades " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ? " +
                 ");"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),

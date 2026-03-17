@@ -20,6 +20,7 @@ public class PlayerData implements Identifiable {
     private String name;
     private double cookies;
     private double totalCookiesEarned;
+    private long timesClicked;
     private EnumMap<UpgradeType, Integer> upgrades;
     private AtomicBoolean fullyLoaded;
     private boolean soundEnabled = true;
@@ -29,6 +30,7 @@ public class PlayerData implements Identifiable {
         this.name = name;
         this.cookies = 0;
         this.totalCookiesEarned = 0;
+        this.timesClicked = 0;
         this.upgrades = new EnumMap<>(UpgradeType.class);
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
@@ -36,10 +38,11 @@ public class PlayerData implements Identifiable {
         this.fullyLoaded = new AtomicBoolean(false);
     }
 
-    public PlayerData(String identifier, String name, double cookies, double totalCookiesEarned, String upgradeData) {
+    public PlayerData(String identifier, String name, double cookies, double totalCookiesEarned, long timesClicked, String upgradeData) {
         this(identifier, name);
         this.cookies = cookies;
         this.totalCookiesEarned = totalCookiesEarned;
+        this.timesClicked = timesClicked;
         this.upgrades = deserializeUpgrades(upgradeData);
     }
 
@@ -78,6 +81,15 @@ public class PlayerData implements Identifiable {
             cpc += type.getCpcPerLevel() * getUpgradeCount(type);
         }
         return cpc;
+    }
+
+    public long getClickerEntropy() {
+        long entropy = timesClicked;
+        for (UpgradeType type : UpgradeType.values()) {
+            entropy += (long) getUpgradeCount(type) * type.getEntropyWeight();
+        }
+        entropy += (long) (totalCookiesEarned / 100.0);
+        return entropy;
     }
 
     public int getUpgradeCount(UpgradeType type) {
@@ -177,6 +189,7 @@ public class PlayerData implements Identifiable {
                 this.name = newData.getName();
                 this.cookies = newData.getCookies();
                 this.totalCookiesEarned = newData.getTotalCookiesEarned();
+                this.timesClicked = newData.getTimesClicked();
                 this.upgrades = newData.getUpgrades();
             } else {
                 if (!isGet) {

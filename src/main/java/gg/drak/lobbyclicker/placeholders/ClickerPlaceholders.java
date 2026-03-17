@@ -48,6 +48,14 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
                 return FormatUtils.format(data.getCps());
             case "cpc":
                 return FormatUtils.format(data.getCpc());
+            case "entropy":
+                return FormatUtils.format(data.getClickerEntropy());
+            case "entropy_raw":
+                return String.valueOf(data.getClickerEntropy());
+            case "clicks":
+                return FormatUtils.format(data.getTimesClicked());
+            case "clicks_raw":
+                return String.valueOf(data.getTimesClicked());
             default:
                 return null;
         }

@@ -6,6 +6,7 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 
 import host.plas.bou.sql.ConnectorSet;
+import host.plas.bou.sql.DatabaseType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,26 @@ public class ClickerOperator extends DBOperator {
     public void ensureTables() {
         String s1 = Statements.getStatement(Statements.StatementType.CREATE_TABLES, getConnectorSet());
         execute(s1, stmt -> {});
+
+        // Migrate schema: add any columns that may be missing from older versions.
+        // ALTER TABLE ... ADD COLUMN is safe: it errors if the column exists, which we catch and ignore.
+        String prefix = getConnectorSet().getTablePrefix();
+        boolean mysql = getConnectorSet().getType() == DatabaseType.MYSQL;
+
+        String[][] migrations = {
+                {"Cookies",           mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
+                {"TotalCookiesEarned", mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
+                {"TimesClicked",      mysql ? "BIGINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
+                {"Upgrades",          "TEXT NOT NULL DEFAULT ''"},
+        };
+
+        for (String[] col : migrations) {
+            try {
+                execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `" + col[0] + "` " + col[1] + ";", stmt -> {});
+            } catch (Throwable ignored) {
+                // Column already exists — expected, safe to ignore
+            }
+        }
     }
 
     @Override
@@ -58,7 +79,8 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(2, playerData.getName());
                     stmt.setDouble(3, playerData.getCookies());
                     stmt.setDouble(4, playerData.getTotalCookiesEarned());
-                    stmt.setString(5, playerData.serializeUpgrades());
+                    stmt.setLong(5, playerData.getTimesClicked());
+                    stmt.setString(6, playerData.serializeUpgrades());
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to set values for statement: " + s1, e);
                 }
@@ -86,9 +108,10 @@ public class ClickerOperator extends DBOperator {
                         String name = rs.getString("Name");
                         double cookies = rs.getDouble("Cookies");
                         double totalEarned = rs.getDouble("TotalCookiesEarned");
+                        long timesClicked = rs.getLong("TimesClicked");
                         String upgrades = rs.getString("Upgrades");
 
-                        PlayerData playerData = new PlayerData(uuid, name, cookies, totalEarned, upgrades);
+                        PlayerData playerData = new PlayerData(uuid, name, cookies, totalEarned, timesClicked, upgrades);
                         ref.set(Optional.of(playerData));
                     }
                 } catch (Throwable e) {
@@ -115,9 +138,10 @@ public class ClickerOperator extends DBOperator {
                         String name = rs.getString("Name");
                         double cookies = rs.getDouble("Cookies");
                         double totalEarned = rs.getDouble("TotalCookiesEarned");
+                        long timesClicked = rs.getLong("TimesClicked");
                         String upgrades = rs.getString("Upgrades");
 
-                        players.add(new PlayerData(uuid, name, cookies, totalEarned, upgrades));
+                        players.add(new PlayerData(uuid, name, cookies, totalEarned, timesClicked, upgrades));
                     }
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to pull all players", e);
@@ -143,7 +167,7 @@ public class ClickerOperator extends DBOperator {
                         String name = rs.getString("Name");
                         double totalEarned = rs.getDouble("TotalCookiesEarned");
 
-                        PlayerData data = new PlayerData(uuid, name, 0, totalEarned, "");
+                        PlayerData data = new PlayerData(uuid, name, 0, totalEarned, 0, "");
                         entries.add(data);
                     }
                 } catch (Throwable e) {

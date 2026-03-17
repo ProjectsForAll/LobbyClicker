@@ -31,9 +31,17 @@ public class ClickerGui extends Gui {
     };
 
     private static final Random RANDOM = new Random();
+
+    // Golden cookie state
     private int goldenCookieSlot = -1;
     private int goldenCookieTicksLeft = 0;
     private BukkitTask goldenCookieTask;
+
+    // Timing state (all in seconds)
+    private int nextSpawnCountdown;
+    private int frenzyCountdown;
+    private int frenzyRemaining = -1; // -1 = not in frenzy
+    private int frenzySpawnInterval;  // fixed for duration of a frenzy
 
     public ClickerGui(Player player, PlayerData data) {
         super(player, "clicker-main", ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie Clicker", 6);
@@ -44,17 +52,11 @@ public class ClickerGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
 
-        // Fill background
         fillGui(createIcon(Material.GRAY_STAINED_GLASS_PANE, " ", null));
 
-        // Stats display + digit display
         updateStats();
         updateDigitDisplay();
-
-        // Cookie - the main clickable item
         addCookieItem(player);
-
-        // Sound toggle button
         updateSoundToggle(player);
 
         // Upgrades button
@@ -94,7 +96,8 @@ public class ClickerGui extends Gui {
         });
         addItem(53, close);
 
-        // Start golden cookie spawner
+        // Initialize timers and start golden cookie task
+        initGoldenCookieTimers();
         startGoldenCookieTask(player);
     }
 
@@ -107,6 +110,7 @@ public class ClickerGui extends Gui {
                 });
         cookie.onClick(e -> {
             data.addCookies(data.getCpc());
+            data.setTimesClicked(data.getTimesClicked() + 1);
             updateStats();
             updateDigitDisplay();
             addCookieItem(player);
@@ -126,6 +130,8 @@ public class ClickerGui extends Gui {
                         "",
                         ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(data.getCpc()),
                         ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(data.getCps()),
+                        "",
+                        ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(data.getClickerEntropy()),
                 });
         addItem(4, stats);
     }
@@ -138,11 +144,27 @@ public class ClickerGui extends Gui {
             digits = "0" + digits;
         }
 
+        String cookieDisplay = ChatColor.GRAY + "Current Cookies: " + ChatColor.WHITE + FormatUtils.format(data.getCookies());
+        boolean seenNonZero = false;
+
         for (int i = 0; i < 4; i++) {
             char digit = digits.charAt(i);
             int digitValue = digit - '0';
-            Material pane = digitValue > 0 ? Material.LIME_STAINED_GLASS_PANE : Material.RED_STAINED_GLASS_PANE;
-            addItem(5 + i, createIcon(pane, ChatColor.WHITE + "" + digit, null));
+
+            if (digitValue > 0) seenNonZero = true;
+
+            // Red only for leading zeros (no non-zero digit to the left)
+            Material pane = (digitValue == 0 && !seenNonZero) ? Material.RED_STAINED_GLASS_PANE : Material.LIME_STAINED_GLASS_PANE;
+            int amount = Math.max(1, digitValue); // item count: at least 1 (can't have 0-count stack)
+
+            ItemStack item = new ItemStack(pane, amount);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName(ChatColor.WHITE + "" + digit);
+                meta.setLore(Arrays.asList(cookieDisplay));
+                item.setItemMeta(meta);
+            }
+            addItem(5 + i, new Icon(item));
         }
     }
 
@@ -165,7 +187,25 @@ public class ClickerGui extends Gui {
         addItem(46, toggle);
     }
 
-    // --- Golden Cookie ---
+    // --- Golden Cookie System ---
+
+    private void initGoldenCookieTimers() {
+        nextSpawnCountdown = rollNormalSpawnDelay();
+        frenzyCountdown = rollFrenzyDelay();
+        frenzyRemaining = -1;
+    }
+
+    private int rollNormalSpawnDelay() {
+        return 300 + RANDOM.nextInt(301); // 5-10 minutes (300-600 seconds)
+    }
+
+    private int rollFrenzyDelay() {
+        return 1800 + RANDOM.nextInt(901); // 30-45 minutes (1800-2700 seconds)
+    }
+
+    private int rollFrenzySpawnInterval() {
+        return 10 + RANDOM.nextInt(21); // 10-30 seconds
+    }
 
     private void startGoldenCookieTask(Player player) {
         goldenCookieTask = Bukkit.getScheduler().runTaskTimer(LobbyClicker.getInstance(), () -> {
@@ -173,20 +213,57 @@ public class ClickerGui extends Gui {
                 stopGoldenCookieTask();
                 return;
             }
-
-            if (goldenCookieSlot >= 0) {
-                goldenCookieTicksLeft--;
-                if (goldenCookieTicksLeft <= 0) {
-                    removeGoldenCookie();
-                }
-                return;
-            }
-
-            // ~8% chance per second = roughly one every 12 seconds
-            if (RANDOM.nextDouble() < 0.08) {
-                spawnGoldenCookie(player);
-            }
+            tickGoldenCookie(player);
         }, 20L, 20L);
+    }
+
+    private void tickGoldenCookie(Player player) {
+        // Handle active golden cookie expiry
+        if (goldenCookieSlot >= 0) {
+            goldenCookieTicksLeft--;
+            if (goldenCookieTicksLeft <= 0) {
+                removeGoldenCookie();
+            }
+            return; // don't tick timers while a golden cookie is on screen
+        }
+
+        if (frenzyRemaining > 0) {
+            // In frenzy mode
+            frenzyRemaining--;
+            nextSpawnCountdown--;
+
+            if (nextSpawnCountdown <= 0) {
+                spawnGoldenCookie(player);
+                nextSpawnCountdown = frenzySpawnInterval; // fixed interval during frenzy
+            }
+
+            if (frenzyRemaining <= 0) {
+                frenzyRemaining = -1;
+                nextSpawnCountdown = rollNormalSpawnDelay();
+                frenzyCountdown = rollFrenzyDelay();
+                player.sendMessage(ChatColor.GOLD + "Cookie Frenzy has ended!");
+            }
+        } else {
+            // Normal mode
+            nextSpawnCountdown--;
+            frenzyCountdown--;
+
+            if (nextSpawnCountdown <= 0) {
+                spawnGoldenCookie(player);
+                nextSpawnCountdown = rollNormalSpawnDelay(); // re-roll after each cookie
+            }
+
+            if (frenzyCountdown <= 0) {
+                frenzyRemaining = 300; // 5 minutes
+                frenzySpawnInterval = rollFrenzySpawnInterval(); // fixed for this frenzy
+                nextSpawnCountdown = frenzySpawnInterval;
+                player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "COOKIE FRENZY! " +
+                        ChatColor.YELLOW + "Golden cookies will appear rapidly for 5 minutes!");
+                if (data.isSoundEnabled()) {
+                    player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                }
+            }
+        }
     }
 
     private void stopGoldenCookieTask() {
@@ -199,10 +276,11 @@ public class ClickerGui extends Gui {
     private void spawnGoldenCookie(Player player) {
         int slot = GOLDEN_COOKIE_SLOTS[RANDOM.nextInt(GOLDEN_COOKIE_SLOTS.length)];
         goldenCookieSlot = slot;
-        goldenCookieTicksLeft = 3;
+        goldenCookieTicksLeft = 3; // 3 seconds
 
-        double multiplier = 0.5 + RANDOM.nextDouble() * 9.5; // 50% to 1000%
-        double bonus = data.getCookies() * multiplier;
+        // Bonus based on Clicker Entropy: small amount
+        double multiplier = 0.1 + RANDOM.nextDouble() * 1.9; // 0.1x to 2.0x
+        double bonus = data.getClickerEntropy() * multiplier;
 
         Icon golden = createIcon(Material.GOLDEN_APPLE, ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie!",
                 new String[]{
@@ -211,24 +289,21 @@ public class ClickerGui extends Gui {
                         ChatColor.GRAY + "Hurry, it won't last long!"
                 });
         golden.onClick(e -> {
-            if (goldenCookieSlot < 0) return; // already collected or expired
+            if (goldenCookieSlot < 0) return;
 
             data.addCookies(bonus);
-            int slot2 = goldenCookieSlot;
+            int clickedSlot = goldenCookieSlot;
             goldenCookieSlot = -1;
             goldenCookieTicksLeft = 0;
 
-            // Restore gray glass
-            addItem(slot2, createIcon(Material.GRAY_STAINED_GLASS_PANE, " ", null));
+            addItem(clickedSlot, createIcon(Material.GRAY_STAINED_GLASS_PANE, " ", null));
 
             updateStats();
             updateDigitDisplay();
             addCookieItem(player);
 
-            int percent = (int) (multiplier * 100);
             player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie! " +
-                    ChatColor.YELLOW + "+" + FormatUtils.format(bonus) + " cookies " +
-                    ChatColor.GRAY + "(" + percent + "% of your cookies)");
+                    ChatColor.YELLOW + "+" + FormatUtils.format(bonus) + " cookies");
 
             if (data.isSoundEnabled()) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);

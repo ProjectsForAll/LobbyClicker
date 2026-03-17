@@ -2,6 +2,7 @@ package gg.drak.lobbyclicker.commands;
 
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
+import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.database.ClickerOperator;
 import host.plas.bou.sql.ConnectorSet;
 import host.plas.bou.sql.DatabaseType;
@@ -60,14 +61,6 @@ public class ClickerDataCommand implements CommandExecutor, TabCompleter {
         // Pull all players from the current database
         LobbyClicker.getDatabase().pullAllPlayersThreaded().thenAccept(players -> {
             try {
-                if (players.isEmpty()) {
-                    Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
-                        sender.sendMessage(ChatColor.YELLOW + "No player data found to migrate.");
-                        migrating = false;
-                    });
-                    return;
-                }
-
                 // Create a connector set for the target database
                 ConnectorSet targetSet = new ConnectorSet(
                         targetType,
@@ -80,21 +73,32 @@ public class ClickerDataCommand implements CommandExecutor, TabCompleter {
                         currentSet.getSqliteFileName()
                 );
 
-                // Create a temporary operator for the target
+                // Create a new operator for the target and push all data
                 ClickerOperator targetOp = new ClickerOperator(targetSet);
 
-                // Push all players to the target
                 for (PlayerData p : players) {
                     targetOp.putPlayer(p, false);
                 }
 
                 int count = players.size();
+
+                // Switch the active database operator immediately
                 Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
-                    sender.sendMessage(ChatColor.GREEN + "Migration complete! " + count + " player(s) migrated to " + targetType.name() + ".");
+                    LobbyClicker.setDatabase(targetOp);
+
+                    // Re-save all currently loaded (in-memory) players to the new DB
+                    for (PlayerData loaded : PlayerManager.getLoadedPlayers()) {
+                        if (loaded.isFullyLoaded()) {
+                            loaded.save(true);
+                        }
+                    }
+
+                    sender.sendMessage(ChatColor.GREEN + "Migration complete! " + count + " player(s) migrated.");
+                    sender.sendMessage(ChatColor.GREEN + "Database switched to " + ChatColor.WHITE + targetType.name() + ChatColor.GREEN + " immediately.");
                     sender.sendMessage(ChatColor.YELLOW + "Update " + ChatColor.WHITE + "database.type" +
                             ChatColor.YELLOW + " in " + ChatColor.WHITE + "database-config.yml" +
                             ChatColor.YELLOW + " to " + ChatColor.WHITE + targetType.name() +
-                            ChatColor.YELLOW + " and restart the server.");
+                            ChatColor.YELLOW + " so this persists across restarts.");
                     migrating = false;
                 });
             } catch (Throwable e) {

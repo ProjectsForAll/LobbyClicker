@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.Player;
 
 @Getter @Setter
 public final class LobbyClicker extends BetterPlugin {
@@ -73,6 +74,11 @@ public final class LobbyClicker extends BetterPlugin {
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new ClickerPlaceholders().register();
             logInfo("PlaceholderAPI expansion registered.");
+        }
+
+        // Load data for any players already online (handles plugin reload)
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            PlayerManager.getOrCreatePlayer(player);
         }
     }
 
