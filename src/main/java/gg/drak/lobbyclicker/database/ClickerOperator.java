@@ -8,9 +8,7 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import host.plas.bou.sql.ConnectorSet;
 import host.plas.bou.sql.DatabaseType;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -28,23 +26,33 @@ public class ClickerOperator extends DBOperator {
         String s1 = Statements.getStatement(Statements.StatementType.CREATE_TABLES, getConnectorSet());
         execute(s1, stmt -> {});
 
-        // Migrate schema: add any columns that may be missing from older versions.
-        // ALTER TABLE ... ADD COLUMN is safe: it errors if the column exists, which we catch and ignore.
+        // Discover existing columns, then only ALTER for missing ones (avoids error spam)
         String prefix = getConnectorSet().getTablePrefix();
         boolean mysql = getConnectorSet().getType() == DatabaseType.MYSQL;
 
+        Set<String> existing = new HashSet<>();
+        executeQuery("SELECT * FROM `" + prefix + "Players` LIMIT 0;", stmt -> {}, rs -> {
+            try {
+                java.sql.ResultSetMetaData meta = rs.getMetaData();
+                for (int i = 1; i <= meta.getColumnCount(); i++) {
+                    existing.add(meta.getColumnName(i));
+                }
+            } catch (Throwable e) {
+                LobbyClicker.getInstance().logWarning("Failed to read table metadata", e);
+            }
+        });
+
         String[][] migrations = {
-                {"Cookies",           mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
+                {"Cookies",            mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
                 {"TotalCookiesEarned", mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
-                {"TimesClicked",      mysql ? "BIGINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
-                {"Upgrades",          "TEXT NOT NULL DEFAULT ''"},
+                {"TimesClicked",       mysql ? "BIGINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
+                {"Upgrades",           "TEXT NOT NULL DEFAULT ''"},
         };
 
         for (String[] col : migrations) {
-            try {
+            if (!existing.contains(col[0])) {
                 execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `" + col[0] + "` " + col[1] + ";", stmt -> {});
-            } catch (Throwable ignored) {
-                // Column already exists — expected, safe to ignore
+                LobbyClicker.getInstance().logInfo("Added missing column: " + col[0]);
             }
         }
     }
