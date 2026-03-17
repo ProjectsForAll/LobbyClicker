@@ -1,0 +1,21 @@
+ext {
+    IMPL = [
+    ]
+    SHADOW = [
+    ]
+    ANNO = [
+            'org.spigotmc:spigot:1.21.11-R0.1-SNAPSHOT',
+            'gg.drak:BukkitOfUtils:1.18.0',
+            'dev.folia:folia-api:1.21.5-R0.1-SNAPSHOT',
+    ]
+    COMP_ONLY = [
+            'org.spigotmc:spigot:1.21.11-R0.1-SNAPSHOT',
+            'gg.drak:BukkitOfUtils:1.18.0',
+            'dev.folia:folia-api:1.21.5-R0.1-SNAPSHOT',
+    ]
+    FILES = [
+    ]
+    OTHER_PLUGINS = [
+            'me.clip:placeholderapi:2.11.7',
+    ]
+}

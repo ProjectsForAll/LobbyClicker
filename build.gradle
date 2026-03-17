@@ -1,0 +1,108 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version "8.3.6" // for shadowing
+    id "io.freefair.lombok" version "8.6"
+}
+
+apply from: rootDir.toString() + '/dependencies.gradle'
+
+group = properties['group']
+version = properties['version']
+
+//java.sourceCompatibility = JavaVersion.VERSION_11
+//java.targetCompatibility = JavaVersion.VERSION_11
+
+ext {
+    pluginMain = properties['plugin.main'] == 'default' ?
+            "${project.group}.${project.name.toLowerCase()}.${project.name}" :
+            properties['plugin.main']
+}
+
+repositories {
+    // Maven Defaults
+    mavenCentral()
+    mavenLocal()
+    // Spigot / Bukkit
+    maven {
+        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+
+        // As of Gradle 5.1, you can limit this to only those
+        // dependencies you expect from it
+        content {
+            includeGroup 'org.bukkit'
+            includeGroup 'org.spigotmc'
+        }
+    }
+    // Sonatype
+    maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }
+    maven { url = 'https://oss.sonatype.org/content/repositories/central' }
+    maven {
+        name = "sonatype"
+        url = "https://oss.sonatype.org/content/groups/public/"
+    }
+    // NMS
+    maven {
+        url = uri("https://repo.codemc.org/repository/nms/")
+    }
+    // Streamline Essentials
+    maven {
+        url = uri("https://repo.codemc.org/repository/streamline-essentials/")
+    }
+    // PlaceholderAPI
+    maven {
+        name = "placeholderapi"
+        url = "https://repo.extendedclip.com/content/repositories/placeholderapi/"
+    }
+    // PaperMC
+    maven { url 'https://repo.papermc.io/repository/maven-snapshots/' }
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    // Defaults.
+    compileOnly(files(FILES))
+    annotationProcessor(ANNO)
+    implementation(IMPL)
+    compileOnly(COMP_ONLY)
+    shadow(SHADOW)
+
+    // Other Plugins
+    compileOnly(OTHER_PLUGINS)
+}
+
+processResources {
+    // Debugging: Print values
+    doFirst {
+        println "Version: ${project.version}, Name: ${project.name}, Main: ${project.ext.pluginMain}"
+    }
+
+    inputs.property('name', "${project.name}")
+    inputs.property('version', "${project.version}")
+    inputs.property('main', "${project.ext.pluginMain}")
+
+    filesMatching('**/plugin.yml') {
+        expand (
+                'name': "${project.name}",
+                'version': "${project.version}",
+                'main': "${project.ext.pluginMain}",
+        )
+    }
+}
+
+shadowJar {
+    archiveClassifier.set('')
+
+    buildDir = "target/"
+    archiveFileName = "${project.name}-${project.version}.jar"
+
+    minimize()
+}
+
+artifacts {
+    archives shadowJar
+}
+
+wrapper {
+    gradleVersion = '8.9'
+    distributionType = Wrapper.DistributionType.ALL
+}
