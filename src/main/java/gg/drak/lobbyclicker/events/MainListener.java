@@ -1,7 +1,7 @@
-package host.plas.exampleproject.events;
+package gg.drak.lobbyclicker.events;
 
-import host.plas.exampleproject.data.PlayerData;
-import host.plas.exampleproject.data.PlayerManager;
+import gg.drak.lobbyclicker.data.PlayerData;
+import gg.drak.lobbyclicker.data.PlayerManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerJoinEvent;

@@ -1,5 +1,5 @@
-# ExampleProject - BukkitOfUtils Example Project
-This is an example project for using BukkitOfUtils in your projects.
+# LobbyClicker
+Cookie Clicker, but for lobbies.
 
-## Wiki
-You can find the wiki [**here**](https://wiki.plas.host/bukkitofutils).
+## General Info
+It's just Cookie Clicker, but in Minecraft 1.21.11 as a Minecraft plugin using BukkitOfUtils.

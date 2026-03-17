@@ -1,4 +1,4 @@
-package host.plas.exampleproject.database;
+package gg.drak.lobbyclicker.database;
 
 import host.plas.bou.sql.ConnectorSet;
 import lombok.Getter;
@@ -13,18 +13,26 @@ public class Statements {
                 "CREATE TABLE IF NOT EXISTS `%table_prefix%Players` ( " +
                 "Uuid VARCHAR(36) NOT NULL, " +
                 "Name VARCHAR(16) NOT NULL, " +
+                "Cookies DOUBLE NOT NULL DEFAULT 0, " +
+                "TotalCookiesEarned DOUBLE NOT NULL DEFAULT 0, " +
+                "Upgrades TEXT NOT NULL DEFAULT '', " +
                 "PRIMARY KEY (Uuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
         PUSH_PLAYER_MAIN("INSERT INTO `%table_prefix%Players` ( " +
-                "Uuid, Name " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, Upgrades " +
                 ") VALUES ( " +
-                "?, ? " +
+                "?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
-                "Name = ?" +
+                "Name = VALUES(Name), " +
+                "Cookies = VALUES(Cookies), " +
+                "TotalCookiesEarned = VALUES(TotalCookiesEarned), " +
+                "Upgrades = VALUES(Upgrades)" +
                 ";"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
+        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesEarned DESC LIMIT 10;"),
+        PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
         ;
 
         private final String statement;
@@ -41,16 +49,21 @@ public class Statements {
                 "CREATE TABLE IF NOT EXISTS `%table_prefix%Players` ( " +
                 "Uuid TEXT NOT NULL, " +
                 "Name TEXT NOT NULL, " +
+                "Cookies REAL NOT NULL DEFAULT 0, " +
+                "TotalCookiesEarned REAL NOT NULL DEFAULT 0, " +
+                "Upgrades TEXT NOT NULL DEFAULT '', " +
                 "PRIMARY KEY (Uuid) " +
                 ");;"
         ),
         PUSH_PLAYER_MAIN("INSERT OR REPLACE INTO `%table_prefix%Players` ( " +
-                "Uuid, Name " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, Upgrades " +
                 ") VALUES ( " +
-                "?, ? " +
+                "?, ?, ?, ?, ? " +
                 ");"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
+        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesEarned DESC LIMIT 10;"),
+        PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
         ;
 
         private final String statement;
@@ -66,6 +79,8 @@ public class Statements {
         PUSH_PLAYER_MAIN,
         PULL_PLAYER_MAIN,
         PLAYER_EXISTS,
+        PULL_LEADERBOARD,
+        PULL_ALL_PLAYERS,
         ;
     }
 

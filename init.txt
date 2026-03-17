@@ -1,0 +1,11 @@
+this project is just a template project.
+
+the real goal of this project is what the README.md says
+
+# how this will work:
+literally just copy the cookie clicker game, but put it in a gui using BukkitOfUtils' obliviateinvs.
+make the playerdata save to the database with the player's information about cookies and bought upgrades.
+add placeholderapi support
+and add a leaderboard
+
+add any useful commands you think would be good to have

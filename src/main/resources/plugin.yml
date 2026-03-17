@@ -9,3 +9,33 @@ folia-supported: true
 
 depend:
   - BukkitOfUtils
+
+softdepend:
+  - PlaceholderAPI
+
+commands:
+  clicker:
+    description: Open the Cookie Clicker GUI
+    usage: /<command>
+    permission: lobbyclicker.use
+  leaderboard:
+    description: View the Cookie Clicker leaderboard
+    usage: /<command>
+    aliases: [lb, clickerlb]
+    permission: lobbyclicker.use
+  clickeradmin:
+    description: Admin commands for LobbyClicker
+    usage: /<command> <set|add|reset|info|save> <player> [amount]
+    permission: lobbyclicker.admin
+  clickerdata:
+    description: Data management for LobbyClicker
+    usage: /<command> migrate <to-db|to-sqlite>
+    permission: lobbyclicker.admin
+
+permissions:
+  lobbyclicker.use:
+    description: Allows using the clicker GUI and leaderboard
+    default: true
+  lobbyclicker.admin:
+    description: Allows admin commands for LobbyClicker
+    default: op

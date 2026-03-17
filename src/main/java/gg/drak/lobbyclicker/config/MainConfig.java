@@ -1,11 +1,11 @@
-package host.plas.exampleproject.config;
+package gg.drak.lobbyclicker.config;
 
 import gg.drak.thebase.storage.resources.flat.simple.SimpleConfiguration;
-import host.plas.exampleproject.ExampleProject;
+import gg.drak.lobbyclicker.LobbyClicker;
 
 public class MainConfig extends SimpleConfiguration {
     public MainConfig() {
-        super("config.yml", ExampleProject.getInstance(), false);
+        super("config.yml", LobbyClicker.getInstance(), false);
     }
 
     @Override

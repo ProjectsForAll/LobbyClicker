@@ -1,6 +1,6 @@
-package host.plas.exampleproject.events.own;
+package gg.drak.lobbyclicker.events.own;
 
-import host.plas.exampleproject.data.PlayerData;
+import gg.drak.lobbyclicker.data.PlayerData;
 import lombok.Getter;
 import lombok.Setter;
 

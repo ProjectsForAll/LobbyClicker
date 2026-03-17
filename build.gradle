@@ -56,6 +56,8 @@ repositories {
     // PaperMC
     maven { url 'https://repo.papermc.io/repository/maven-snapshots/' }
     maven { url 'https://repo.papermc.io/repository/maven-public/' }
+    // JitPack (for transitive deps: TheBase, UniversalScheduler, obliviate-invs)
+    maven { url 'https://jitpack.io' }
 }
 
 dependencies {

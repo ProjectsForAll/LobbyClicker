@@ -1,13 +1,13 @@
-package host.plas.exampleproject.config;
+package gg.drak.lobbyclicker.config;
 
 import gg.drak.thebase.storage.resources.flat.simple.SimpleConfiguration;
 import host.plas.bou.sql.ConnectorSet;
 import host.plas.bou.sql.DatabaseType;
-import host.plas.exampleproject.ExampleProject;
+import gg.drak.lobbyclicker.LobbyClicker;
 
 public class DatabaseConfig extends SimpleConfiguration {
     public DatabaseConfig() {
-        super("database-config.yml", ExampleProject.getInstance(), false);
+        super("database-config.yml", LobbyClicker.getInstance(), false);
     }
 
     @Override
@@ -49,13 +49,13 @@ public class DatabaseConfig extends SimpleConfiguration {
     public String getDatabaseDatabase() {
         reloadResource();
 
-        return getOrSetDefault("database.database", "example");
+        return getOrSetDefault("database.database", "lobbyclicker");
     }
 
     public String getDatabaseTablePrefix() {
         reloadResource();
 
-        return getOrSetDefault("database.table-prefix", "example_");
+        return getOrSetDefault("database.table-prefix", "lobbyclicker_");
     }
 
     public DatabaseType getDatabaseType() {
@@ -67,7 +67,7 @@ public class DatabaseConfig extends SimpleConfiguration {
     public String getSqliteFileName() {
         reloadResource();
 
-        return getOrSetDefault("database.sqlite-file-name", "example.db");
+        return getOrSetDefault("database.sqlite-file-name", "lobbyclicker.db");
     }
 
     public ConnectorSet getConnectorSet() {

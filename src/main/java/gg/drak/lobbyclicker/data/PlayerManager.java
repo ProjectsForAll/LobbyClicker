@@ -1,7 +1,7 @@
-package host.plas.exampleproject.data;
+package gg.drak.lobbyclicker.data;
 
 import host.plas.bou.utils.UuidUtils;
-import host.plas.exampleproject.ExampleProject;
+import gg.drak.lobbyclicker.LobbyClicker;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Bukkit;
@@ -39,11 +39,11 @@ public class PlayerManager {
     }
 
     public static void savePlayer(PlayerData player) {
-        ExampleProject.getDatabase().putPlayer(player);
+        LobbyClicker.getDatabase().putPlayer(player);
     }
 
     public static void savePlayer(PlayerData player, boolean async) {
-        ExampleProject.getDatabase().putPlayer(player, async);
+        LobbyClicker.getDatabase().putPlayer(player, async);
     }
 
     public static PlayerData createPlayer(Player player) {
@@ -63,7 +63,7 @@ public class PlayerManager {
         PlayerData d = createPlayer(player);
         d.load();
 
-        d.augment(ExampleProject.getDatabase().pullPlayerThreaded(uuid), false);
+        d.augment(LobbyClicker.getDatabase().pullPlayerThreaded(uuid), false);
 
         return d;
     }
@@ -80,7 +80,7 @@ public class PlayerManager {
         d.setName(player.getName());
         d.load();
 
-        d.augment(ExampleProject.getDatabase().pullPlayerThreaded(uuid), true);
+        d.augment(LobbyClicker.getDatabase().pullPlayerThreaded(uuid), true);
 
         return Optional.of(d);
     }
