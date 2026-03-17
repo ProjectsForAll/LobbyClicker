@@ -2,6 +2,9 @@ package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
+import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.settings.SettingType;
+import gg.drak.lobbyclicker.social.RealmManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
@@ -17,146 +20,199 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Arrays;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ClickerGui extends Gui {
-    private final PlayerData data;
+    private final PlayerData viewerData;
+    private final PlayerData ownerData;
+    private final boolean isVisiting;
 
     private static final int[] GOLDEN_COOKIE_SLOTS = {
-            0, 1, 2, 3,
-            9, 10, 11, 12,
-            18, 19, 20, 21,
-            27, 28, 29, 30,
-            36, 37, 38, 39,
-            45, 47
+            0, 1, 2, 3, 9, 10, 11, 12, 18, 19, 20, 21,
+            27, 28, 29, 30, 36, 37, 38, 39, 47
     };
-
     private static final Random RANDOM = new Random();
+    private static final ConcurrentHashMap<UUID, ClickerGui> OPEN_GUIS = new ConcurrentHashMap<>();
 
-    // Golden cookie state
+    public static ConcurrentHashMap<UUID, ClickerGui> getOpenGuis() { return OPEN_GUIS; }
+    public static void registerGui(UUID uuid, ClickerGui gui) { OPEN_GUIS.put(uuid, gui); }
+    public static void unregisterGui(UUID uuid) { OPEN_GUIS.remove(uuid); }
+
     private int goldenCookieSlot = -1;
     private int goldenCookieTicksLeft = 0;
     private BukkitTask goldenCookieTask;
-
-    // Timing state (all in seconds)
     private int nextSpawnCountdown;
     private int frenzyCountdown;
-    private int frenzyRemaining = -1; // -1 = not in frenzy
-    private int frenzySpawnInterval;  // fixed for duration of a frenzy
+    private int frenzyRemaining = -1;
+    private int frenzySpawnInterval;
 
+    // Own realm constructor
     public ClickerGui(Player player, PlayerData data) {
-        super(player, "clicker-main", ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie Clicker", 6);
-        this.data = data;
+        this(player, data, data);
+    }
+
+    // Visiting constructor
+    public ClickerGui(Player viewer, PlayerData viewerData, PlayerData ownerData) {
+        super(viewer, "clicker-main",
+                ownerData.getIdentifier().equals(viewerData.getIdentifier())
+                        ? ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie Clicker"
+                        : ChatColor.GOLD + "" + ChatColor.BOLD + ownerData.getName() + "'s Realm",
+                6);
+        this.viewerData = viewerData;
+        this.ownerData = ownerData;
+        this.isVisiting = !viewerData.getIdentifier().equals(ownerData.getIdentifier());
     }
 
     @Override
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
 
-        fillGui(createIcon(Material.GRAY_STAINED_GLASS_PANE, " ", null));
-
+        fillGui(GuiHelper.filler());
         updateStats();
         updateDigitDisplay();
         addCookieItem(player);
-        updateSoundToggle(player);
 
-        // Upgrades button
-        Icon upgrades = createIcon(Material.CHEST, ChatColor.GREEN + "" + ChatColor.BOLD + "Upgrades",
-                new String[]{
-                        "",
-                        ChatColor.GRAY + "Buy upgrades to earn",
-                        ChatColor.GRAY + "more cookies!",
-                        "",
-                        ChatColor.YELLOW + "Click to open"
-                });
-        upgrades.onClick(e -> {
+        if (!isVisiting) {
+            // Settings button
+            Icon settings = GuiHelper.createIcon(Material.COMPARATOR,
+                    ChatColor.YELLOW + "" + ChatColor.BOLD + "Settings",
+                    "", ChatColor.GRAY + "Configure your preferences", "", ChatColor.YELLOW + "Click to open");
+            settings.onClick(e -> {
+                stopGoldenCookieTask();
+                new SettingsMainGui(player, viewerData).open();
+            });
+            addItem(46, settings);
+
+            // Upgrades button
+            Icon upgrades = GuiHelper.createIcon(Material.CHEST,
+                    ChatColor.GREEN + "" + ChatColor.BOLD + "Upgrades",
+                    "", ChatColor.GRAY + "Buy upgrades to earn", ChatColor.GRAY + "more cookies!", "", ChatColor.YELLOW + "Click to open");
+            upgrades.onClick(e -> {
+                stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                new UpgradeGui(player, ownerData).open();
+            });
+            addItem(48, upgrades);
+        } else {
+            // Visitor: gray out upgrades
+            addItem(48, GuiHelper.createIcon(Material.IRON_BARS,
+                    ChatColor.GRAY + "" + ChatColor.BOLD + "Upgrades Locked",
+                    "", ChatColor.GRAY + "Visitors cannot buy upgrades"));
+
+            // Register as viewer
+            RealmManager.addViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+        }
+
+        // Social menu button (viewer's head)
+        Icon social = GuiHelper.playerHead(player,
+                ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Social",
+                "", ChatColor.GRAY + "Friends, realms, players", "", ChatColor.YELLOW + "Click to open");
+        social.onClick(e -> {
             stopGoldenCookieTask();
-            new UpgradeGui(player, data).open();
+            unregisterGui(player.getUniqueId());
+            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+            new SocialMainGui(player, viewerData).open();
         });
-        addItem(48, upgrades);
+        addItem(45, social);
 
         // Leaderboard button
-        Icon leaderboard = createIcon(Material.OAK_SIGN, ChatColor.AQUA + "" + ChatColor.BOLD + "Leaderboard",
-                new String[]{
-                        "",
-                        ChatColor.GRAY + "See the top cookie earners!",
-                        "",
-                        ChatColor.YELLOW + "Click to view"
-                });
+        Icon leaderboard = GuiHelper.createIcon(Material.OAK_SIGN,
+                ChatColor.AQUA + "" + ChatColor.BOLD + "Leaderboard",
+                "", ChatColor.GRAY + "See the top cookie earners!", "", ChatColor.YELLOW + "Click to view");
         leaderboard.onClick(e -> {
             stopGoldenCookieTask();
-            new LeaderboardGui(player, data).open();
+            unregisterGui(player.getUniqueId());
+            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+            new LeaderboardGui(player, viewerData).open();
         });
         addItem(50, leaderboard);
 
         // Close button
-        Icon close = createIcon(Material.BARRIER, ChatColor.RED + "Close", new String[]{});
+        Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
         close.onClick(e -> {
             stopGoldenCookieTask();
+            unregisterGui(player.getUniqueId());
+            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
             player.closeInventory();
         });
         addItem(53, close);
 
-        // Initialize timers and start golden cookie task
         initGoldenCookieTimers();
         startGoldenCookieTask(player);
+
+        // Register for global refresh
+        registerGui(player.getUniqueId(), this);
+    }
+
+    public void refreshDisplay() {
+        updateStats();
+        updateDigitDisplay();
     }
 
     private void addCookieItem(Player player) {
-        Icon cookie = createIcon(Material.COOKIE, ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie",
-                new String[]{
-                        "",
-                        ChatColor.YELLOW + "Click to earn cookies!",
-                        ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(data.getCpc())
-                });
+        Icon cookie = GuiHelper.createIcon(Material.COOKIE,
+                ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie",
+                "", ChatColor.YELLOW + "Click to earn cookies!",
+                ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()));
         cookie.onClick(e -> {
-            data.addCookies(data.getCpc());
-            data.setTimesClicked(data.getTimesClicked() + 1);
+            ownerData.addCookies(ownerData.getCpc());
+            ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
             updateStats();
             updateDigitDisplay();
             addCookieItem(player);
-            if (data.isSoundEnabled()) {
-                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 2.0f);
+
+            if (viewerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
+                float vol = viewerData.getSettings().getVolume(SettingType.VOLUME_CLICKER);
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, vol, 2.0f);
+            }
+
+            // Notify realm owner if visitor is clicking
+            if (isVisiting) {
+                Player owner = Bukkit.getPlayer(java.util.UUID.fromString(ownerData.getIdentifier()));
+                if (owner != null) {
+                    boolean isFriend = ownerData.getFriends().contains(viewerData.getIdentifier());
+                    SettingType st = isFriend ? SettingType.SOUND_FRIEND_CLICKER : SettingType.SOUND_RANDO_CLICKER;
+                    SettingType vt = isFriend ? SettingType.VOLUME_FRIEND_CLICKER : SettingType.VOLUME_RANDO_CLICKER;
+                    if (ownerData.getSettings().isSoundEnabled(st)) {
+                        owner.playSound(owner.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, ownerData.getSettings().getVolume(vt), 1.5f);
+                    }
+                }
             }
         });
         addItem(22, cookie);
     }
 
     private void updateStats() {
-        Icon stats = createIcon(Material.NETHER_STAR, ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie Stats",
-                new String[]{
-                        "",
-                        ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(data.getCookies()),
-                        ChatColor.GRAY + "Total Earned: " + ChatColor.WHITE + FormatUtils.format(data.getTotalCookiesEarned()),
-                        "",
-                        ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(data.getCpc()),
-                        ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(data.getCps()),
-                        "",
-                        ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(data.getClickerEntropy()),
-                });
+        String title = isVisiting
+                ? ChatColor.GOLD + "" + ChatColor.BOLD + ownerData.getName() + "'s Stats"
+                : ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie Stats";
+        Icon stats = GuiHelper.createIcon(Material.NETHER_STAR, title,
+                "",
+                ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies()),
+                ChatColor.GRAY + "Total Earned: " + ChatColor.WHITE + FormatUtils.format(ownerData.getTotalCookiesEarned()),
+                "",
+                ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
+                ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCps()),
+                "",
+                ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(ownerData.getClickerEntropy()));
         addItem(4, stats);
     }
 
     private void updateDigitDisplay() {
-        long cookieCount = (long) data.getCookies();
+        long cookieCount = (long) ownerData.getCookies();
         String digits = String.valueOf(cookieCount);
+        while (digits.length() < 4) digits = "0" + digits;
 
-        while (digits.length() < 4) {
-            digits = "0" + digits;
-        }
-
-        String cookieDisplay = ChatColor.GRAY + "Current Cookies: " + ChatColor.WHITE + FormatUtils.format(data.getCookies());
+        String cookieDisplay = ChatColor.GRAY + "Current Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies());
         boolean seenNonZero = false;
 
         for (int i = 0; i < 4; i++) {
             char digit = digits.charAt(i);
             int digitValue = digit - '0';
-
             if (digitValue > 0) seenNonZero = true;
-
-            // Red only for leading zeros (no non-zero digit to the left)
             Material pane = (digitValue == 0 && !seenNonZero) ? Material.RED_STAINED_GLASS_PANE : Material.LIME_STAINED_GLASS_PANE;
-            int amount = Math.max(1, digitValue); // item count: at least 1 (can't have 0-count stack)
-
+            int amount = Math.max(1, digitValue);
             ItemStack item = new ItemStack(pane, amount);
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
@@ -168,49 +224,20 @@ public class ClickerGui extends Gui {
         }
     }
 
-    private void updateSoundToggle(Player player) {
-        boolean enabled = data.isSoundEnabled();
-        Material mat = enabled ? Material.NOTE_BLOCK : Material.COBWEB;
-        String status = enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF";
-        Icon toggle = createIcon(mat, ChatColor.YELLOW + "" + ChatColor.BOLD + "Sound: " + status,
-                new String[]{
-                        "",
-                        ChatColor.GRAY + "Click to toggle click sound",
-                });
-        toggle.onClick(e -> {
-            data.setSoundEnabled(!data.isSoundEnabled());
-            updateSoundToggle(player);
-            if (data.isSoundEnabled()) {
-                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 2.0f);
-            }
-        });
-        addItem(46, toggle);
-    }
-
     // --- Golden Cookie System ---
 
     private void initGoldenCookieTimers() {
-        nextSpawnCountdown = rollNormalSpawnDelay();
-        frenzyCountdown = rollFrenzyDelay();
+        nextSpawnCountdown = 300 + RANDOM.nextInt(301);
+        frenzyCountdown = 1800 + RANDOM.nextInt(901);
         frenzyRemaining = -1;
-    }
-
-    private int rollNormalSpawnDelay() {
-        return 300 + RANDOM.nextInt(301); // 5-10 minutes (300-600 seconds)
-    }
-
-    private int rollFrenzyDelay() {
-        return 1800 + RANDOM.nextInt(901); // 30-45 minutes (1800-2700 seconds)
-    }
-
-    private int rollFrenzySpawnInterval() {
-        return 10 + RANDOM.nextInt(21); // 10-30 seconds
     }
 
     private void startGoldenCookieTask(Player player) {
         goldenCookieTask = Bukkit.getScheduler().runTaskTimer(LobbyClicker.getInstance(), () -> {
             if (!player.isOnline() || !player.getOpenInventory().getTopInventory().equals(getInventory())) {
                 stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
                 return;
             }
             tickGoldenCookie(player);
@@ -218,48 +245,39 @@ public class ClickerGui extends Gui {
     }
 
     private void tickGoldenCookie(Player player) {
-        // Handle active golden cookie expiry
         if (goldenCookieSlot >= 0) {
             goldenCookieTicksLeft--;
-            if (goldenCookieTicksLeft <= 0) {
-                removeGoldenCookie();
-            }
-            return; // don't tick timers while a golden cookie is on screen
+            if (goldenCookieTicksLeft <= 0) removeGoldenCookie();
+            return;
         }
 
         if (frenzyRemaining > 0) {
-            // In frenzy mode
             frenzyRemaining--;
             nextSpawnCountdown--;
-
             if (nextSpawnCountdown <= 0) {
                 spawnGoldenCookie(player);
-                nextSpawnCountdown = frenzySpawnInterval; // fixed interval during frenzy
+                nextSpawnCountdown = frenzySpawnInterval;
             }
-
             if (frenzyRemaining <= 0) {
                 frenzyRemaining = -1;
-                nextSpawnCountdown = rollNormalSpawnDelay();
-                frenzyCountdown = rollFrenzyDelay();
+                nextSpawnCountdown = 300 + RANDOM.nextInt(301);
+                frenzyCountdown = 1800 + RANDOM.nextInt(901);
                 player.sendMessage(ChatColor.GOLD + "Cookie Frenzy has ended!");
             }
         } else {
-            // Normal mode
             nextSpawnCountdown--;
             frenzyCountdown--;
-
             if (nextSpawnCountdown <= 0) {
                 spawnGoldenCookie(player);
-                nextSpawnCountdown = rollNormalSpawnDelay(); // re-roll after each cookie
+                nextSpawnCountdown = 300 + RANDOM.nextInt(301);
             }
-
             if (frenzyCountdown <= 0) {
-                frenzyRemaining = 300; // 5 minutes
-                frenzySpawnInterval = rollFrenzySpawnInterval(); // fixed for this frenzy
+                frenzyRemaining = 300;
+                frenzySpawnInterval = 10 + RANDOM.nextInt(21);
                 nextSpawnCountdown = frenzySpawnInterval;
                 player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "COOKIE FRENZY! " +
                         ChatColor.YELLOW + "Golden cookies will appear rapidly for 5 minutes!");
-                if (data.isSoundEnabled()) {
+                if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
                     player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
                 }
             }
@@ -276,62 +294,41 @@ public class ClickerGui extends Gui {
     private void spawnGoldenCookie(Player player) {
         int slot = GOLDEN_COOKIE_SLOTS[RANDOM.nextInt(GOLDEN_COOKIE_SLOTS.length)];
         goldenCookieSlot = slot;
-        goldenCookieTicksLeft = 3; // 3 seconds
+        goldenCookieTicksLeft = 3;
 
-        // Bonus based on Clicker Entropy: small amount
-        double multiplier = 0.1 + RANDOM.nextDouble() * 1.9; // 0.1x to 2.0x
-        double bonus = data.getClickerEntropy() * multiplier;
+        double multiplier = 0.1 + RANDOM.nextDouble() * 1.9;
+        double bonus = ownerData.getClickerEntropy() * multiplier;
 
-        Icon golden = createIcon(Material.GOLDEN_APPLE, ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie!",
-                new String[]{
-                        "",
-                        ChatColor.YELLOW + "Click for a cookie bonus!",
-                        ChatColor.GRAY + "Hurry, it won't last long!"
-                });
+        Icon golden = GuiHelper.createIcon(Material.GOLDEN_APPLE,
+                ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie!",
+                "", ChatColor.YELLOW + "Click for a cookie bonus!", ChatColor.GRAY + "Hurry, it won't last long!");
         golden.onClick(e -> {
             if (goldenCookieSlot < 0) return;
-
-            data.addCookies(bonus);
+            ownerData.addCookies(bonus);
             int clickedSlot = goldenCookieSlot;
             goldenCookieSlot = -1;
             goldenCookieTicksLeft = 0;
-
-            addItem(clickedSlot, createIcon(Material.GRAY_STAINED_GLASS_PANE, " ", null));
-
+            addItem(clickedSlot, GuiHelper.filler());
             updateStats();
             updateDigitDisplay();
             addCookieItem(player);
-
             player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie! " +
                     ChatColor.YELLOW + "+" + FormatUtils.format(bonus) + " cookies");
-
-            if (data.isSoundEnabled()) {
+            if (viewerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
             }
         });
         addItem(slot, golden);
-
-        if (data.isSoundEnabled()) {
+        if (viewerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.5f, 1.5f);
         }
     }
 
     private void removeGoldenCookie() {
         if (goldenCookieSlot >= 0) {
-            addItem(goldenCookieSlot, createIcon(Material.GRAY_STAINED_GLASS_PANE, " ", null));
+            addItem(goldenCookieSlot, GuiHelper.filler());
             goldenCookieSlot = -1;
             goldenCookieTicksLeft = 0;
         }
-    }
-
-    private static Icon createIcon(Material material, String name, String[] lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            if (lore != null) meta.setLore(Arrays.asList(lore));
-            item.setItemMeta(meta);
-        }
-        return new Icon(item);
     }
 }

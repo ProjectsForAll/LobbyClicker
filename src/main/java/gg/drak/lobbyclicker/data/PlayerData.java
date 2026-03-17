@@ -3,6 +3,7 @@ package gg.drak.lobbyclicker.data;
 import gg.drak.thebase.objects.Identifiable;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.events.own.PlayerCreationEvent;
+import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,6 +13,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Getter @Setter
@@ -22,8 +24,22 @@ public class PlayerData implements Identifiable {
     private double totalCookiesEarned;
     private long timesClicked;
     private EnumMap<UpgradeType, Integer> upgrades;
+    private PlayerSettings settings;
+    private boolean realmPublic;
     private AtomicBoolean fullyLoaded;
-    private boolean soundEnabled = true;
+
+    // Social data (loaded from DB on join)
+    private Set<String> friends;
+    private Set<String> bans;
+    private Set<String> blocks;
+    private Set<String> incomingFriendRequests;
+    private Set<String> outgoingFriendRequests;
+
+    // Milestone tracking (not persisted) - tracks digit counts for instant detection
+    private int lastCurrentDigitCount;
+    private int lastTotalDigitCount;
+    private int lastEntropyDigitCount;
+    private int lastEntropyLeadDigit;
 
     public PlayerData(String identifier, String name) {
         this.identifier = identifier;
@@ -35,15 +51,34 @@ public class PlayerData implements Identifiable {
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
         }
+        this.settings = new PlayerSettings();
+        this.realmPublic = false;
         this.fullyLoaded = new AtomicBoolean(false);
+        this.friends = ConcurrentHashMap.newKeySet();
+        this.bans = ConcurrentHashMap.newKeySet();
+        this.blocks = ConcurrentHashMap.newKeySet();
+        this.incomingFriendRequests = ConcurrentHashMap.newKeySet();
+        this.outgoingFriendRequests = ConcurrentHashMap.newKeySet();
+        this.lastCurrentDigitCount = 0;
+        this.lastTotalDigitCount = 0;
+        this.lastEntropyDigitCount = 0;
+        this.lastEntropyLeadDigit = 0;
     }
 
-    public PlayerData(String identifier, String name, double cookies, double totalCookiesEarned, long timesClicked, String upgradeData) {
+    public PlayerData(String identifier, String name, double cookies, double totalCookiesEarned,
+                      long timesClicked, String upgradeData, String settingsData, boolean realmPublic) {
         this(identifier, name);
         this.cookies = cookies;
         this.totalCookiesEarned = totalCookiesEarned;
         this.timesClicked = timesClicked;
         this.upgrades = deserializeUpgrades(upgradeData);
+        this.settings = new PlayerSettings(settingsData);
+        this.realmPublic = realmPublic;
+        this.lastCurrentDigitCount = digitCount(cookies);
+        this.lastTotalDigitCount = digitCount(totalCookiesEarned);
+        long entropy = this.getClickerEntropy();
+        this.lastEntropyDigitCount = digitCount(entropy);
+        this.lastEntropyLeadDigit = leadDigit(entropy);
     }
 
     public PlayerData(Player player) {
@@ -191,6 +226,13 @@ public class PlayerData implements Identifiable {
                 this.totalCookiesEarned = newData.getTotalCookiesEarned();
                 this.timesClicked = newData.getTimesClicked();
                 this.upgrades = newData.getUpgrades();
+                this.settings = newData.getSettings();
+                this.realmPublic = newData.isRealmPublic();
+                this.lastCurrentDigitCount = digitCount(this.cookies);
+                this.lastTotalDigitCount = digitCount(this.totalCookiesEarned);
+                long ent = this.getClickerEntropy();
+                this.lastEntropyDigitCount = digitCount(ent);
+                this.lastEntropyLeadDigit = leadDigit(ent);
             } else {
                 if (!isGet) {
                     new PlayerCreationEvent(this).fire();
@@ -198,8 +240,20 @@ public class PlayerData implements Identifiable {
                 }
             }
 
-            this.fullyLoaded.set(true);
+            // Load social data async
+            loadSocialData().thenRun(() -> this.fullyLoaded.set(true));
         });
+    }
+
+    private CompletableFuture<Void> loadSocialData() {
+        String uuid = this.identifier;
+        return CompletableFuture.allOf(
+                LobbyClicker.getDatabase().pullFriendsThreaded(uuid).thenAccept(this.friends::addAll),
+                LobbyClicker.getDatabase().pullBansThreaded(uuid).thenAccept(this.bans::addAll),
+                LobbyClicker.getDatabase().pullBlocksThreaded(uuid).thenAccept(this.blocks::addAll),
+                LobbyClicker.getDatabase().pullIncomingRequestsThreaded(uuid).thenAccept(this.incomingFriendRequests::addAll),
+                LobbyClicker.getDatabase().pullOutgoingRequestsThreaded(uuid).thenAccept(this.outgoingFriendRequests::addAll)
+        );
     }
 
     public boolean isFullyLoaded() {
@@ -213,6 +267,22 @@ public class PlayerData implements Identifiable {
 
     public void saveAndUnload() {
         saveAndUnload(true);
+    }
+
+    public static int digitCount(double value) {
+        if (value < 1) return 0;
+        return (int) Math.log10(value) + 1;
+    }
+
+    public static int digitCount(long value) {
+        if (value < 1) return 0;
+        return (int) Math.log10(value) + 1;
+    }
+
+    public static int leadDigit(long value) {
+        if (value < 1) return 0;
+        while (value >= 10) value /= 10;
+        return (int) value;
     }
 
     public PlayerData waitUntilFullyLoaded() {

@@ -3,6 +3,9 @@ package gg.drak.lobbyclicker.commands;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
+import gg.drak.lobbyclicker.gui.GambleAcceptGui;
+import gg.drak.lobbyclicker.social.PendingTransaction;
+import gg.drak.lobbyclicker.social.TransactionType;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -22,6 +25,13 @@ public class ClickerCommand implements CommandExecutor {
 
         if (data == null || !data.isFullyLoaded()) {
             player.sendMessage(ChatColor.RED + "Your data is still loading. Please try again in a moment.");
+            return true;
+        }
+
+        // Check for pending gamble bet
+        PendingTransaction pendingBet = PendingTransaction.getForReceiver(data.getIdentifier());
+        if (pendingBet != null && pendingBet.getType() == TransactionType.GAMBLE) {
+            new GambleAcceptGui(player, data, pendingBet).open();
             return true;
         }
 

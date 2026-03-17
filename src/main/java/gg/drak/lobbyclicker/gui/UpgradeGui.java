@@ -84,7 +84,10 @@ public class UpgradeGui extends Gui {
 
         icon.onClick(e -> {
             if (data.buyUpgrade(type)) {
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+                if (data.getSettings().isSoundEnabled(gg.drak.lobbyclicker.settings.SettingType.SOUND_BUY)) {
+                    float vol = data.getSettings().getVolume(gg.drak.lobbyclicker.settings.SettingType.VOLUME_BUY);
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, vol, 1.5f);
+                }
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
             }

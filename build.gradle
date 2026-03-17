@@ -97,7 +97,12 @@ shadowJar {
     buildDir = "target/"
     archiveFileName = "${project.name}-${project.version}.jar"
 
-    minimize()
+    minimize {
+        exclude(dependency('io.lettuce:.*'))
+        exclude(dependency('io.netty:.*'))
+        exclude(dependency('org.reactivestreams:.*'))
+        exclude(dependency('reactor.core:.*'))
+    }
 }
 
 artifacts {

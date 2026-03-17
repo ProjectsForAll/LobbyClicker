@@ -27,7 +27,7 @@ commands:
     permission: lobbyclicker.use
   clickeradmin:
     description: Admin commands for LobbyClicker
-    usage: /<command> <set|add|reset|info|save> <player> [amount]
+    usage: /<command> <set|add|reset|info|save|openfor> <player> [amount]
     permission: lobbyclicker.admin
   clickerdata:
     description: Data management for LobbyClicker

@@ -1,5 +1,6 @@
 package gg.drak.lobbyclicker.placeholders;
 
+import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
@@ -30,6 +31,14 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
 
     @Override
     public String onPlaceholderRequest(Player player, @NotNull String params) {
+        // Server-level placeholders (no player needed)
+        switch (params.toLowerCase()) {
+            case "server_id":
+                return LobbyClicker.getMainConfig().getServerId();
+            case "server_prettyname":
+                return LobbyClicker.getMainConfig().getServerPrettyName();
+        }
+
         if (player == null) return "";
 
         PlayerData data = PlayerManager.getPlayer(player.getUniqueId().toString()).orElse(null);
@@ -56,6 +65,10 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
                 return FormatUtils.format(data.getTimesClicked());
             case "clicks_raw":
                 return String.valueOf(data.getTimesClicked());
+            case "friends":
+                return String.valueOf(data.getFriends().size());
+            case "realm_public":
+                return data.isRealmPublic() ? "Public" : "Private";
             default:
                 return null;
         }

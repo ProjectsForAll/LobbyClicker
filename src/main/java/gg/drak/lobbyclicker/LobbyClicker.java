@@ -11,7 +11,9 @@ import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.database.ClickerOperator;
 import gg.drak.lobbyclicker.events.MainListener;
 import gg.drak.lobbyclicker.placeholders.ClickerPlaceholders;
+import gg.drak.lobbyclicker.redis.RedisManager;
 import gg.drak.lobbyclicker.tasks.CookieTask;
+import gg.drak.lobbyclicker.tasks.GuiRefreshTask;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Bukkit;
@@ -32,6 +34,10 @@ public final class LobbyClicker extends BetterPlugin {
     private static MainListener mainListener;
     @Getter @Setter
     private static CookieTask cookieTask;
+    @Getter @Setter
+    private static GuiRefreshTask guiRefreshTask;
+    @Getter @Setter
+    private static RedisManager redisManager;
 
     public LobbyClicker() {
         super();
@@ -70,6 +76,16 @@ public final class LobbyClicker extends BetterPlugin {
         setCookieTask(new CookieTask());
         getCookieTask().runTaskTimer(this, 20L, 20L);
 
+        // Start GUI refresh task - runs every second
+        setGuiRefreshTask(new GuiRefreshTask());
+        getGuiRefreshTask().runTaskTimer(this, 20L, 20L);
+
+        // Initialize Redis if enabled
+        if (getMainConfig().isRedisEnabled()) {
+            setRedisManager(new RedisManager());
+            getRedisManager().connect();
+        }
+
         // Register PlaceholderAPI expansion if available
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new ClickerPlaceholders().register();
@@ -84,9 +100,9 @@ public final class LobbyClicker extends BetterPlugin {
 
     @Override
     public void onBaseDisable() {
-        if (getCookieTask() != null) {
-            getCookieTask().cancel();
-        }
+        if (getCookieTask() != null) getCookieTask().cancel();
+        if (getGuiRefreshTask() != null) getGuiRefreshTask().cancel();
+        if (getRedisManager() != null) getRedisManager().shutdown();
 
         PlayerManager.getLoadedPlayers().forEach(playerData -> {
             playerData.saveAndUnload(false);

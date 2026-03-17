@@ -1,7 +1,11 @@
 package gg.drak.lobbyclicker.commands;
 
+import gg.drak.lobbyclicker.LobbyClicker;
+import gg.drak.lobbyclicker.config.MainConfig;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.gui.ClickerGui;
+import gg.drak.lobbyclicker.redis.RedisManager;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import org.bukkit.Bukkit;
@@ -27,7 +31,7 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
 
         String action = args[0].toLowerCase();
 
-        // Handle save (no player argument needed)
+        // No-arg actions
         if (action.equals("save")) {
             int count = 0;
             for (PlayerData data : PlayerManager.getLoadedPlayers()) {
@@ -37,6 +41,27 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                 }
             }
             sender.sendMessage(ChatColor.GREEN + "Force-saved " + count + " player(s).");
+            return true;
+        }
+
+        if (action.equals("reload")) {
+            // Reload configs
+            LobbyClicker.setMainConfig(new MainConfig());
+            sender.sendMessage(ChatColor.GREEN + "Config reloaded.");
+
+            // Reconnect Redis
+            if (LobbyClicker.getRedisManager() != null) {
+                LobbyClicker.getRedisManager().shutdown();
+                LobbyClicker.setRedisManager(null);
+            }
+            if (LobbyClicker.getMainConfig().isRedisEnabled()) {
+                RedisManager rm = new RedisManager();
+                rm.connect();
+                LobbyClicker.setRedisManager(rm);
+                sender.sendMessage(ChatColor.GREEN + "Redis reconnected.");
+            } else {
+                sender.sendMessage(ChatColor.YELLOW + "Redis is disabled in config.");
+            }
             return true;
         }
 
@@ -59,6 +84,11 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
         }
 
         switch (action) {
+            case "openfor": {
+                new ClickerGui(target, data).open();
+                sender.sendMessage(ChatColor.GREEN + "Opened clicker GUI for " + target.getName());
+                break;
+            }
             case "set": {
                 if (args.length < 3) {
                     sender.sendMessage(ChatColor.RED + "Usage: /clickeradmin set <player> <cookies>");
@@ -133,6 +163,8 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin reset <player>" + ChatColor.GRAY + " - Reset all data");
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin info <player>" + ChatColor.GRAY + " - View player stats");
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin save" + ChatColor.GRAY + " - Force save all players");
+        sender.sendMessage(ChatColor.YELLOW + "/clickeradmin openfor <player>" + ChatColor.GRAY + " - Open clicker GUI for player");
+        sender.sendMessage(ChatColor.YELLOW + "/clickeradmin reload" + ChatColor.GRAY + " - Reload config & reconnect Redis");
     }
 
     @Override
@@ -140,8 +172,8 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("set", "add", "reset", "info", "save"));
-        } else if (args.length == 2 && !args[0].equalsIgnoreCase("save")) {
+            completions.addAll(Arrays.asList("set", "add", "reset", "info", "save", "openfor", "reload"));
+        } else if (args.length == 2 && !args[0].equalsIgnoreCase("save") && !args[0].equalsIgnoreCase("reload")) {
             completions.addAll(Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
                     .collect(Collectors.toList()));

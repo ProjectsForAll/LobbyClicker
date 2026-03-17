@@ -17,24 +17,79 @@ public class Statements {
                 "TotalCookiesEarned DOUBLE NOT NULL DEFAULT 0, " +
                 "TimesClicked BIGINT NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
+                "Settings TEXT NOT NULL DEFAULT '', " +
+                "RealmPublic TINYINT NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (Uuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
+        CREATE_FRIENDS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Friends` ( " +
+                "Uuid1 VARCHAR(36) NOT NULL, " +
+                "Uuid2 VARCHAR(36) NOT NULL, " +
+                "Since BIGINT NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (Uuid1, Uuid2) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
+        CREATE_FRIEND_REQUESTS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%FriendRequests` ( " +
+                "Sender VARCHAR(36) NOT NULL, " +
+                "Receiver VARCHAR(36) NOT NULL, " +
+                "SentAt BIGINT NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (Sender, Receiver) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
+        CREATE_BANS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Bans` ( " +
+                "Owner VARCHAR(36) NOT NULL, " +
+                "Banned VARCHAR(36) NOT NULL, " +
+                "PRIMARY KEY (Owner, Banned) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
+        CREATE_BLOCKS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Blocks` ( " +
+                "Owner VARCHAR(36) NOT NULL, " +
+                "Blocked VARCHAR(36) NOT NULL, " +
+                "PRIMARY KEY (Owner, Blocked) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
         PUSH_PLAYER_MAIN("INSERT INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades, Settings, RealmPublic " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
                 "Name = VALUES(Name), " +
                 "Cookies = VALUES(Cookies), " +
                 "TotalCookiesEarned = VALUES(TotalCookiesEarned), " +
                 "TimesClicked = VALUES(TimesClicked), " +
-                "Upgrades = VALUES(Upgrades)" +
+                "Upgrades = VALUES(Upgrades), " +
+                "Settings = VALUES(Settings), " +
+                "RealmPublic = VALUES(RealmPublic)" +
                 ";"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesEarned DESC LIMIT 10;"),
         PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
+
+        // Friends
+        PUSH_FRIEND("INSERT IGNORE INTO `%table_prefix%Friends` (Uuid1, Uuid2, Since) VALUES (?, ?, ?);"),
+        DELETE_FRIEND("DELETE FROM `%table_prefix%Friends` WHERE Uuid1 = ? AND Uuid2 = ?;"),
+        PULL_FRIENDS("SELECT Uuid2 FROM `%table_prefix%Friends` WHERE Uuid1 = ?;"),
+
+        // Friend Requests
+        PUSH_FRIEND_REQUEST("INSERT IGNORE INTO `%table_prefix%FriendRequests` (Sender, Receiver, SentAt) VALUES (?, ?, ?);"),
+        DELETE_FRIEND_REQUEST("DELETE FROM `%table_prefix%FriendRequests` WHERE Sender = ? AND Receiver = ?;"),
+        PULL_INCOMING_REQUESTS("SELECT Sender FROM `%table_prefix%FriendRequests` WHERE Receiver = ?;"),
+        PULL_OUTGOING_REQUESTS("SELECT Receiver FROM `%table_prefix%FriendRequests` WHERE Sender = ?;"),
+
+        // Bans
+        PUSH_BAN("INSERT IGNORE INTO `%table_prefix%Bans` (Owner, Banned) VALUES (?, ?);"),
+        DELETE_BAN("DELETE FROM `%table_prefix%Bans` WHERE Owner = ? AND Banned = ?;"),
+        PULL_BANS("SELECT Banned FROM `%table_prefix%Bans` WHERE Owner = ?;"),
+
+        // Blocks
+        PUSH_BLOCK("INSERT IGNORE INTO `%table_prefix%Blocks` (Owner, Blocked) VALUES (?, ?);"),
+        DELETE_BLOCK("DELETE FROM `%table_prefix%Blocks` WHERE Owner = ? AND Blocked = ?;"),
+        PULL_BLOCKS("SELECT Blocked FROM `%table_prefix%Blocks` WHERE Owner = ?;"),
         ;
 
         private final String statement;
@@ -55,18 +110,71 @@ public class Statements {
                 "TotalCookiesEarned REAL NOT NULL DEFAULT 0, " +
                 "TimesClicked INTEGER NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
+                "Settings TEXT NOT NULL DEFAULT '', " +
+                "RealmPublic INTEGER NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (Uuid) " +
                 ");;"
         ),
+        CREATE_FRIENDS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Friends` ( " +
+                "Uuid1 TEXT NOT NULL, " +
+                "Uuid2 TEXT NOT NULL, " +
+                "Since INTEGER NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (Uuid1, Uuid2) " +
+                ");;"
+        ),
+        CREATE_FRIEND_REQUESTS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%FriendRequests` ( " +
+                "Sender TEXT NOT NULL, " +
+                "Receiver TEXT NOT NULL, " +
+                "SentAt INTEGER NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (Sender, Receiver) " +
+                ");;"
+        ),
+        CREATE_BANS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Bans` ( " +
+                "Owner TEXT NOT NULL, " +
+                "Banned TEXT NOT NULL, " +
+                "PRIMARY KEY (Owner, Banned) " +
+                ");;"
+        ),
+        CREATE_BLOCKS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Blocks` ( " +
+                "Owner TEXT NOT NULL, " +
+                "Blocked TEXT NOT NULL, " +
+                "PRIMARY KEY (Owner, Blocked) " +
+                ");;"
+        ),
         PUSH_PLAYER_MAIN("INSERT OR REPLACE INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades, Settings, RealmPublic " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ? " +
                 ");"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesEarned DESC LIMIT 10;"),
         PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
+
+        // Friends
+        PUSH_FRIEND("INSERT OR IGNORE INTO `%table_prefix%Friends` (Uuid1, Uuid2, Since) VALUES (?, ?, ?);"),
+        DELETE_FRIEND("DELETE FROM `%table_prefix%Friends` WHERE Uuid1 = ? AND Uuid2 = ?;"),
+        PULL_FRIENDS("SELECT Uuid2 FROM `%table_prefix%Friends` WHERE Uuid1 = ?;"),
+
+        // Friend Requests
+        PUSH_FRIEND_REQUEST("INSERT OR IGNORE INTO `%table_prefix%FriendRequests` (Sender, Receiver, SentAt) VALUES (?, ?, ?);"),
+        DELETE_FRIEND_REQUEST("DELETE FROM `%table_prefix%FriendRequests` WHERE Sender = ? AND Receiver = ?;"),
+        PULL_INCOMING_REQUESTS("SELECT Sender FROM `%table_prefix%FriendRequests` WHERE Receiver = ?;"),
+        PULL_OUTGOING_REQUESTS("SELECT Receiver FROM `%table_prefix%FriendRequests` WHERE Sender = ?;"),
+
+        // Bans
+        PUSH_BAN("INSERT OR IGNORE INTO `%table_prefix%Bans` (Owner, Banned) VALUES (?, ?);"),
+        DELETE_BAN("DELETE FROM `%table_prefix%Bans` WHERE Owner = ? AND Banned = ?;"),
+        PULL_BANS("SELECT Banned FROM `%table_prefix%Bans` WHERE Owner = ?;"),
+
+        // Blocks
+        PUSH_BLOCK("INSERT OR IGNORE INTO `%table_prefix%Blocks` (Owner, Blocked) VALUES (?, ?);"),
+        DELETE_BLOCK("DELETE FROM `%table_prefix%Blocks` WHERE Owner = ? AND Blocked = ?;"),
+        PULL_BLOCKS("SELECT Blocked FROM `%table_prefix%Blocks` WHERE Owner = ?;"),
         ;
 
         private final String statement;
@@ -79,11 +187,28 @@ public class Statements {
     public enum StatementType {
         CREATE_DATABASE,
         CREATE_TABLES,
+        CREATE_FRIENDS_TABLE,
+        CREATE_FRIEND_REQUESTS_TABLE,
+        CREATE_BANS_TABLE,
+        CREATE_BLOCKS_TABLE,
         PUSH_PLAYER_MAIN,
         PULL_PLAYER_MAIN,
         PLAYER_EXISTS,
         PULL_LEADERBOARD,
         PULL_ALL_PLAYERS,
+        PUSH_FRIEND,
+        DELETE_FRIEND,
+        PULL_FRIENDS,
+        PUSH_FRIEND_REQUEST,
+        DELETE_FRIEND_REQUEST,
+        PULL_INCOMING_REQUESTS,
+        PULL_OUTGOING_REQUESTS,
+        PUSH_BAN,
+        DELETE_BAN,
+        PULL_BANS,
+        PUSH_BLOCK,
+        DELETE_BLOCK,
+        PULL_BLOCKS,
         ;
     }
 

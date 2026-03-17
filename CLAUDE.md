@@ -4,67 +4,81 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LobbyClicker is a Minecraft Bukkit/Spigot plugin — "Cookie Clicker, but for Minecraft lobbies." Players click a cookie in a GUI to earn cookies, buy upgrades for cookies-per-click (CPC) and cookies-per-second (CPS), and compete on a leaderboard. Targets Spigot 1.21.11 with Folia support, depends on [BukkitOfUtils](https://github.com/Streamline-Essentials/BukkitOfUtils) (1.18.0).
+LobbyClicker is a Minecraft Bukkit/Spigot plugin — "Cookie Clicker, but for Minecraft lobbies." Players click a cookie in a GUI to earn cookies, buy upgrades, compete on a leaderboard, visit friends' realms, gamble, and trade cookies. Targets Spigot 1.21.11, depends on BukkitOfUtils (1.18.0).
+
+**Important context:** Everything non-admin should be done via the `/clicker` GUI — no new player-facing commands.
 
 ## Build Commands
 
 ```bash
-# Build the plugin JAR (output: target/LobbyClicker-<version>.jar)
-./gradlew shadowJar
-
-# Clean build
-./gradlew clean shadowJar
+./gradlew shadowJar          # output: target/LobbyClicker-<version>.jar
+./gradlew clean shadowJar    # clean build
 ```
 
-There are no tests or linting configured in this project.
+No tests or linting configured.
 
 ## Architecture
 
 ### Framework Dependency
-
-The plugin extends `BetterPlugin` (from BukkitOfUtils/TheBase), not Bukkit's `JavaPlugin` directly. Configuration classes extend `SimpleConfiguration`, event listeners implement `ListenerConglomerate`, database operations extend `DBOperator`, and GUIs extend ObliviateInvs' `Gui` class (`mc.obliviate.inventory.Gui`).
+Extends `BetterPlugin` (BukkitOfUtils/TheBase). Configs extend `SimpleConfiguration`, event listeners implement `ListenerConglomerate`, DB operations extend `DBOperator`, GUIs extend `mc.obliviate.inventory.Gui`. All GUI icons use the shared `GuiHelper` utility class.
 
 ### Component Wiring
-
-`LobbyClicker.java` is the entry point with static references to all components, wired in `onEnable()`:
+`LobbyClicker.java` is the entry point with static references:
 - **MainConfig / DatabaseConfig** — YAML-backed configs
-- **ClickerOperator** — database layer for player cookie/upgrade data
-- **MainListener** — player join/quit lifecycle
-- **CookieTask** — repeating task (every 1s) that adds CPS cookies and auto-saves every 5 minutes
-- **Commands** — `/clicker`, `/leaderboard`, `/clickeradmin`
-- **ClickerPlaceholders** — PlaceholderAPI expansion (registered if PAPI is present)
+- **ClickerOperator** — DB layer for all data (player, friends, bans, blocks)
+- **MainListener** — player join/quit lifecycle + social cleanup
+- **CookieTask** — 1s repeating task: CPS cookies, auto-save, milestone notifications, transaction cleanup
+
+### Database Schema (5 tables)
+- **Players** — Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades, Settings, RealmPublic
+- **Friends** — Uuid1, Uuid2, Since (bidirectional — A→B and B→A rows)
+- **FriendRequests** — Sender, Receiver, SentAt
+- **Bans** — Owner, Banned
+- **Blocks** — Owner, Blocked
+
+Schema migration runs in `ensureTables()` — checks existing columns via ResultSetMetaData before ALTER.
 
 ### Player Data Flow
+1. Join → `PlayerManager.getOrCreatePlayer()` → loads from DB → `augment()` chains social data loading (friends/bans/blocks/requests)
+2. In-memory: `ConcurrentSkipListSet<PlayerData>` in PlayerManager, social sets are `ConcurrentHashMap.newKeySet()`
+3. Quit → save + unload + cleanup realm viewers + cleanup pending transactions
 
-1. `PlayerJoinEvent` → `PlayerManager.getOrCreatePlayer()` → loads from DB or creates new `PlayerData`
-2. Player data lives in a `ConcurrentSkipListSet` in `PlayerManager`
-3. `CookieTask` runs every second: adds CPS cookies to online players, auto-saves every 5 min
-4. `PlayerQuitEvent` → `saveAndUnload()` → persists to DB and removes from memory
+### Settings System
+- `SettingType` enum: 27 settings (12 sound toggles, 11 volumes, 4 other)
+- `PlayerSettings` class: EnumMap with serialize/deserialize, only stores non-default values
+- Master sound toggle controls all sounds; individual toggles are AND'd with master
 
-### Cookie Clicker Game System
+### GUI Navigation (from `/clicker`)
+```
+ClickerGui (main clicker + golden cookies)
+├── [45] Social → SocialMainGui
+│   ├── Friends → FriendsListGui → PlayerActionGui (visit/unfriend/pay/gamble)
+│   ├── Realm Viewers → RealmViewersGui → PlayerActionGui
+│   ├── All Players → AllPlayersGui → PlayerActionGui
+│   ├── Bans → BanListGui (unban)
+│   └── Blocks → BlockListGui (unblock)
+├── [46] Settings → SettingsMainGui → Sound/Volume/Other GUIs
+├── [48] Upgrades → UpgradeGui
+├── [50] Leaderboard → LeaderboardGui
+└── [53] Close
+```
 
-- **PlayerData** holds: cookies, totalCookiesEarned, and an `EnumMap<UpgradeType, Integer>` of upgrade counts
-- **UpgradeType** enum defines 8 upgrades (Cursor, Grandma, Farm, Mine, Factory, Bank, Temple, Click Power) with base costs, cost multipliers (cost = baseCost * multiplier^owned), CPS and CPC per level
-- **Upgrades** are serialized as semicolon-separated `TYPE:count` strings for DB storage
+### Realm System
+A "realm" = another player's ClickerGui in visitor mode. Visitors can only click (credits go to owner), upgrades/settings are hidden. Access: public realm OR (friend + allow_friend_joins), not banned/blocked. `RealmManager` tracks viewers in `ConcurrentHashMap<ownerUuid, Set<viewerUuid>>`.
 
-### GUI System (ObliviateInvs)
+### Gambling & Payments
+- `PaymentGui` / `GambleGui` — amount picker with ±1/10/100/1K/10K buttons
+- `PendingTransaction` — in-memory with 60s expiry, auto-cleaned by CookieTask
+- Opening `/clicker` with a pending bet shows `GambleAcceptGui` first
 
-- **ClickerGui** — Main screen: clickable cookie center, stats display, upgrade/leaderboard buttons
-- **UpgradeGui** — Shows all 8 upgrades with costs, owned count, effects; click to buy
-- **LeaderboardGui** — Async-fetched top 10 players with player heads
-
-### Database Layer
-
-`Statements.java` contains dual SQL dialects (MySQL and SQLite) with template variables (`%database%`, `%table_prefix%`). Players table stores: Uuid, Name, Cookies, TotalCookiesEarned, Upgrades (TEXT).
-
-### PlaceholderAPI
-
-Placeholders: `%lobbyclicker_cookies%`, `%lobbyclicker_cookies_raw%`, `%lobbyclicker_total_cookies%`, `%lobbyclicker_total_cookies_raw%`, `%lobbyclicker_cps%`, `%lobbyclicker_cpc%`
+### Notifications (CookieTask)
+- 10s milestone: every 10 ticks, compares digit count of cookies/totalCookies to snapshot
+- Realm join/leave sounds via RealmManager
+- Click-on-realm sounds for owner
+- All respect individual settings + master toggle + volume
 
 ## Build Configuration Notes
-
-- `build.gradle` uses Shadow plugin for fat JAR in `target/`
-- `dependencies.gradle` declares all dependencies separately
-- `plugin.yml` uses Gradle property tokens (`${name}`, `${version}`, `${main}`) replaced at build time
-- Plugin main class auto-derived from `group` + `name` in `gradle.properties` when set to "default"
-- JitPack repo required for transitive deps (TheBase, UniversalScheduler, obliviate-invs)
+- Shadow plugin for fat JAR in `target/`
+- `dependencies.gradle` declares deps separately
+- `plugin.yml` uses Gradle property tokens, api-version 1.21
+- JitPack repo required for transitive deps
