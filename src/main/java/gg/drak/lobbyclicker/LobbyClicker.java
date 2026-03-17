@@ -102,6 +102,14 @@ public final class LobbyClicker extends BetterPlugin {
     public void onBaseDisable() {
         if (getCookieTask() != null) getCookieTask().cancel();
         if (getGuiRefreshTask() != null) getGuiRefreshTask().cancel();
+
+        // Close all open GUIs
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof mc.obliviate.inventory.Gui) {
+                player.closeInventory();
+            }
+        }
+
         if (getRedisManager() != null) getRedisManager().shutdown();
 
         PlayerManager.getLoadedPlayers().forEach(playerData -> {
