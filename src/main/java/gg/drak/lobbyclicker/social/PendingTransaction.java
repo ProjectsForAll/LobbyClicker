@@ -3,6 +3,7 @@ package gg.drak.lobbyclicker.social;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -13,11 +14,11 @@ public class PendingTransaction {
 
     private final String senderUuid;
     private final String receiverUuid;
-    private final double amount;
+    private final BigDecimal amount;
     private final TransactionType type;
     private final long createdAt;
 
-    public PendingTransaction(String senderUuid, String receiverUuid, double amount, TransactionType type) {
+    public PendingTransaction(String senderUuid, String receiverUuid, BigDecimal amount, TransactionType type) {
         this.senderUuid = senderUuid;
         this.receiverUuid = receiverUuid;
         this.amount = amount;

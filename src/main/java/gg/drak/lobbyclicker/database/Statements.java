@@ -13,12 +13,15 @@ public class Statements {
                 "CREATE TABLE IF NOT EXISTS `%table_prefix%Players` ( " +
                 "Uuid VARCHAR(36) NOT NULL, " +
                 "Name VARCHAR(16) NOT NULL, " +
-                "Cookies DOUBLE NOT NULL DEFAULT 0, " +
-                "TotalCookiesEarned DOUBLE NOT NULL DEFAULT 0, " +
+                "Cookies TEXT NOT NULL DEFAULT '0', " +
+                "TotalCookiesEarned TEXT NOT NULL DEFAULT '0', " +
+                "TotalCookiesDigits INT NOT NULL DEFAULT 0, " +
                 "TimesClicked BIGINT NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
                 "Settings TEXT NOT NULL DEFAULT '', " +
                 "RealmPublic TINYINT NOT NULL DEFAULT 0, " +
+                "PrestigeLevel INT NOT NULL DEFAULT 0, " +
+                "Aura TEXT NOT NULL DEFAULT '0', " +
                 "PRIMARY KEY (Uuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
@@ -53,21 +56,24 @@ public class Statements {
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
         PUSH_PLAYER_MAIN("INSERT INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades, Settings, RealmPublic " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, TotalCookiesDigits, TimesClicked, Upgrades, Settings, RealmPublic, PrestigeLevel, Aura " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
                 "Name = VALUES(Name), " +
                 "Cookies = VALUES(Cookies), " +
                 "TotalCookiesEarned = VALUES(TotalCookiesEarned), " +
+                "TotalCookiesDigits = VALUES(TotalCookiesDigits), " +
                 "TimesClicked = VALUES(TimesClicked), " +
                 "Upgrades = VALUES(Upgrades), " +
                 "Settings = VALUES(Settings), " +
-                "RealmPublic = VALUES(RealmPublic)" +
+                "RealmPublic = VALUES(RealmPublic), " +
+                "PrestigeLevel = VALUES(PrestigeLevel), " +
+                "Aura = VALUES(Aura)" +
                 ";"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
-        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesEarned DESC LIMIT 10;"),
+        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesDigits DESC, TotalCookiesEarned DESC LIMIT 10;"),
         PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
 
         // Friends
@@ -106,12 +112,15 @@ public class Statements {
                 "CREATE TABLE IF NOT EXISTS `%table_prefix%Players` ( " +
                 "Uuid TEXT NOT NULL, " +
                 "Name TEXT NOT NULL, " +
-                "Cookies REAL NOT NULL DEFAULT 0, " +
-                "TotalCookiesEarned REAL NOT NULL DEFAULT 0, " +
+                "Cookies TEXT NOT NULL DEFAULT '0', " +
+                "TotalCookiesEarned TEXT NOT NULL DEFAULT '0', " +
+                "TotalCookiesDigits INTEGER NOT NULL DEFAULT 0, " +
                 "TimesClicked INTEGER NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
                 "Settings TEXT NOT NULL DEFAULT '', " +
                 "RealmPublic INTEGER NOT NULL DEFAULT 0, " +
+                "PrestigeLevel INTEGER NOT NULL DEFAULT 0, " +
+                "Aura TEXT NOT NULL DEFAULT '0', " +
                 "PRIMARY KEY (Uuid) " +
                 ");;"
         ),
@@ -146,13 +155,13 @@ public class Statements {
                 ");;"
         ),
         PUSH_PLAYER_MAIN("INSERT OR REPLACE INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, TimesClicked, Upgrades, Settings, RealmPublic " +
+                "Uuid, Name, Cookies, TotalCookiesEarned, TotalCookiesDigits, TimesClicked, Upgrades, Settings, RealmPublic, PrestigeLevel, Aura " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ");"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
-        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesEarned DESC LIMIT 10;"),
+        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesDigits DESC, TotalCookiesEarned DESC LIMIT 10;"),
         PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
 
         // Friends

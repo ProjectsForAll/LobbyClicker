@@ -13,6 +13,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,7 +57,7 @@ public class UpgradeGui extends Gui {
 
     private Icon createUpgradeIcon(Player player, UpgradeType type) {
         int owned = data.getUpgradeCount(type);
-        double cost = type.getCost(owned);
+        BigDecimal cost = type.getCost(owned);
         boolean canAfford = data.canAfford(cost);
 
         List<String> lore = new ArrayList<>();
@@ -65,13 +66,13 @@ public class UpgradeGui extends Gui {
         lore.add("");
         lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
 
-        if (type.getCpsPerLevel() > 0) {
+        if (type.getCpsPerLevel().signum() > 0) {
             lore.add(ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpsPerLevel()));
-            lore.add(ChatColor.GRAY + "Total CPS: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpsPerLevel() * owned));
+            lore.add(ChatColor.GRAY + "Total CPS: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpsPerLevel().multiply(BigDecimal.valueOf(owned))));
         }
-        if (type.getCpcPerLevel() > 0) {
+        if (type.getCpcPerLevel().signum() > 0) {
             lore.add(ChatColor.GRAY + "CPC each: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpcPerLevel()));
-            lore.add(ChatColor.GRAY + "Total CPC: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpcPerLevel() * owned));
+            lore.add(ChatColor.GRAY + "Total CPC: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpcPerLevel().multiply(BigDecimal.valueOf(owned))));
         }
 
         lore.add("");

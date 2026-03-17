@@ -16,6 +16,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -95,10 +96,10 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 try {
-                    double amount = Double.parseDouble(args[2]);
-                    double diff = amount - data.getCookies();
+                    BigDecimal amount = new BigDecimal(args[2]);
+                    BigDecimal diff = amount.subtract(data.getCookies());
                     data.setCookies(amount);
-                    if (diff > 0) data.setTotalCookiesEarned(data.getTotalCookiesEarned() + diff);
+                    if (diff.signum() > 0) data.setTotalCookiesEarned(data.getTotalCookiesEarned().add(diff));
                     data.save(true);
                     sender.sendMessage(ChatColor.GREEN + "Set " + target.getName() + "'s cookies to " + FormatUtils.format(amount));
                 } catch (NumberFormatException e) {
@@ -112,7 +113,7 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 try {
-                    double amount = Double.parseDouble(args[2]);
+                    BigDecimal amount = new BigDecimal(args[2]);
                     data.addCookies(amount);
                     data.save(true);
                     sender.sendMessage(ChatColor.GREEN + "Added " + FormatUtils.format(amount) + " cookies to " + target.getName()
@@ -123,8 +124,8 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                 break;
             }
             case "reset": {
-                data.setCookies(0);
-                data.setTotalCookiesEarned(0);
+                data.setCookies(BigDecimal.ZERO);
+                data.setTotalCookiesEarned(BigDecimal.ZERO);
                 for (UpgradeType type : UpgradeType.values()) {
                     data.setUpgradeCount(type, 0);
                 }
@@ -140,6 +141,8 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.GRAY + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(data.getClickerEntropy()));
                 sender.sendMessage(ChatColor.GRAY + "CPS: " + ChatColor.WHITE + FormatUtils.format(data.getCps()));
                 sender.sendMessage(ChatColor.GRAY + "CPC: " + ChatColor.WHITE + FormatUtils.format(data.getCpc()));
+                sender.sendMessage(ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + data.getPrestigeLevel());
+                sender.sendMessage(ChatColor.GRAY + "Aura: " + ChatColor.WHITE + FormatUtils.format(data.getAura()));
                 for (UpgradeType type : UpgradeType.values()) {
                     int count = data.getUpgradeCount(type);
                     if (count > 0) {

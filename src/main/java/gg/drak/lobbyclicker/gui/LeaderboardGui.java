@@ -52,7 +52,7 @@ public class LeaderboardGui extends Gui {
 
         List<PlayerData> entries = PlayerManager.getLoadedPlayers().stream()
                 .filter(PlayerData::isFullyLoaded)
-                .sorted(Comparator.comparingDouble(PlayerData::getTotalCookiesEarned).reversed())
+                .sorted((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()))
                 .limit(LEADERBOARD_SLOTS.length)
                 .collect(Collectors.toList());
 

@@ -3,6 +3,7 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.math.CookieMath;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.RealmManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.UUID;
@@ -83,6 +85,19 @@ public class ClickerGui extends Gui {
                 new SettingsMainGui(player, viewerData).open();
             });
             addItem(46, settings);
+
+            // Prestige button
+            Icon prestige = GuiHelper.createIcon(Material.BEACON,
+                    ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige",
+                    "", ChatColor.GRAY + "Level: " + ChatColor.WHITE + viewerData.getPrestigeLevel(),
+                    ChatColor.GRAY + "Aura: " + ChatColor.WHITE + FormatUtils.format(viewerData.getAura()),
+                    "", ChatColor.YELLOW + "Click to open");
+            prestige.onClick(e -> {
+                stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                new PrestigeGui(player, viewerData).open();
+            });
+            addItem(49, prestige);
 
             // Upgrades button
             Icon upgrades = GuiHelper.createIcon(Material.CHEST,
@@ -195,14 +210,18 @@ public class ClickerGui extends Gui {
                 ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
                 ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCps()),
                 "",
+                ChatColor.LIGHT_PURPLE + "Prestige: " + ChatColor.WHITE + ownerData.getPrestigeLevel(),
+                ChatColor.LIGHT_PURPLE + "Aura: " + ChatColor.WHITE + FormatUtils.format(ownerData.getAura()),
                 ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(ownerData.getClickerEntropy()));
         addItem(4, stats);
     }
 
     private void updateDigitDisplay() {
-        long cookieCount = (long) ownerData.getCookies();
-        String digits = String.valueOf(cookieCount);
-        while (digits.length() < 4) digits = "0" + digits;
+        String cookieStr = ownerData.getCookies().toBigInteger().toString();
+        // Show last 4 digits (ones through thousands)
+        while (cookieStr.length() < 4) cookieStr = "0" + cookieStr;
+        // Take last 4 digits for display
+        String digits = cookieStr.substring(cookieStr.length() - 4);
 
         String cookieDisplay = ChatColor.GRAY + "Current Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies());
         boolean seenNonZero = false;
@@ -296,8 +315,8 @@ public class ClickerGui extends Gui {
         goldenCookieSlot = slot;
         goldenCookieTicksLeft = 3;
 
-        double multiplier = 0.1 + RANDOM.nextDouble() * 1.9;
-        double bonus = ownerData.getClickerEntropy() * multiplier;
+        BigDecimal multiplier = BigDecimal.valueOf(0.1 + RANDOM.nextDouble() * 1.9);
+        BigDecimal bonus = ownerData.getClickerEntropy().multiply(multiplier);
 
         Icon golden = GuiHelper.createIcon(Material.GOLDEN_APPLE,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie!",

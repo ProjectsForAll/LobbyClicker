@@ -13,6 +13,7 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
+import java.math.BigDecimal;
 import java.util.Random;
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ public class GambleAcceptGui extends Gui {
         String senderName = transaction.getSenderUuid().substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(transaction.getSenderUuid())).getName(); if (n != null) senderName = n; } catch (Exception ignored) {}
 
-        double betAmount = transaction.getAmount();
+        BigDecimal betAmount = transaction.getAmount();
         boolean canAfford = receiverData.canAfford(betAmount);
 
         addItem(13, GuiHelper.createIcon(Material.EMERALD,

@@ -2,11 +2,14 @@ package gg.drak.lobbyclicker.tasks;
 
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.math.CookieMath;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+
+import java.math.BigDecimal;
 
 public class CookieTask extends BukkitRunnable {
     private int tickCounter = 0;
@@ -20,8 +23,8 @@ public class CookieTask extends BukkitRunnable {
             if (!data.isOnline()) continue;
             if (!data.isFullyLoaded()) continue;
 
-            double cps = data.getCps();
-            if (cps > 0) {
+            BigDecimal cps = data.getCps();
+            if (cps.signum() > 0) {
                 data.addCookies(cps);
             }
 
@@ -49,7 +52,7 @@ public class CookieTask extends BukkitRunnable {
         if (player == null) return;
 
         // Current cookies milestone (new digit = sound)
-        int currentDigits = PlayerData.digitCount(data.getCookies());
+        int currentDigits = CookieMath.digitCount(data.getCookies());
         int prevCurrentDigits = data.getLastCurrentDigitCount();
         if (currentDigits > prevCurrentDigits && prevCurrentDigits > 0
                 && data.getSettings().isSoundEnabled(SettingType.SOUND_MILESTONE_CURRENT)) {
@@ -59,7 +62,7 @@ public class CookieTask extends BukkitRunnable {
         data.setLastCurrentDigitCount(currentDigits);
 
         // Total cookies milestone (new digit = sound)
-        int totalDigits = PlayerData.digitCount(data.getTotalCookiesEarned());
+        int totalDigits = CookieMath.digitCount(data.getTotalCookiesEarned());
         int prevTotalDigits = data.getLastTotalDigitCount();
         if (totalDigits > prevTotalDigits && prevTotalDigits > 0
                 && data.getSettings().isSoundEnabled(SettingType.SOUND_MILESTONE_TOTAL)) {
@@ -69,10 +72,10 @@ public class CookieTask extends BukkitRunnable {
         data.setLastTotalDigitCount(totalDigits);
 
         // Clicker Entropy milestones
-        long entropy = data.getClickerEntropy();
-        int entropyDigits = PlayerData.digitCount(entropy);
+        BigDecimal entropy = data.getClickerEntropy();
+        int entropyDigits = CookieMath.digitCount(entropy);
         int prevEntropyDigits = data.getLastEntropyDigitCount();
-        int entropyLead = PlayerData.leadDigit(entropy);
+        int entropyLead = CookieMath.leadDigit(entropy);
         int prevEntropyLead = data.getLastEntropyLeadDigit();
 
         if (data.getSettings().isSoundEnabled(SettingType.SOUND_MILESTONE_ENTROPY)) {
@@ -82,7 +85,7 @@ public class CookieTask extends BukkitRunnable {
                 // New digit = legendary sound (best sound)
                 player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, vol, 1.0f);
                 player.sendMessage("\u00a76\u00a7l\u2B50 Entropy Milestone! \u00a7eNew digit reached!");
-            } else if (entropy >= 100 && entropyLead > prevEntropyLead && prevEntropyLead > 0
+            } else if (entropy.compareTo(BigDecimal.valueOf(100)) >= 0 && entropyLead > prevEntropyLead && prevEntropyLead > 0
                     && entropyDigits == prevEntropyDigits) {
                 // Leftmost digit increased (same digit count, above 100) = epic sound
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, vol, 0.8f);

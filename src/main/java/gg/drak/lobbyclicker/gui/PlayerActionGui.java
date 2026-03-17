@@ -15,6 +15,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -168,13 +169,13 @@ public class PlayerActionGui extends Gui {
         // Pay
         Icon pay = GuiHelper.createIcon(Material.GOLD_INGOT, ChatColor.GOLD + "Pay Cookies",
                 "", ChatColor.GRAY + "Send cookies to this player");
-        pay.onClick(e -> new PaymentGui(player, viewerData, targetUuid, 0).open());
+        pay.onClick(e -> new PaymentGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
         addItem(13, pay);
 
         // Gamble
         Icon gamble = GuiHelper.createIcon(Material.EMERALD, ChatColor.GREEN + "Gamble",
                 "", ChatColor.GRAY + "Bet cookies against this player");
-        gamble.onClick(e -> new GambleGui(player, viewerData, targetUuid, 0).open());
+        gamble.onClick(e -> new GambleGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
         addItem(14, gamble);
 
         // Ban / Unban

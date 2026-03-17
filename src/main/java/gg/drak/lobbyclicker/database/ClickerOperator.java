@@ -4,10 +4,12 @@ import gg.drak.thebase.async.AsyncUtils;
 import host.plas.bou.sql.DBOperator;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
+import gg.drak.lobbyclicker.math.CookieMath;
 
 import host.plas.bou.sql.ConnectorSet;
 import host.plas.bou.sql.DatabaseType;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,11 +37,13 @@ public class ClickerOperator extends DBOperator {
         boolean mysql = getConnectorSet().getType() == DatabaseType.MYSQL;
 
         Set<String> existing = new HashSet<>();
+        Map<String, String> columnTypes = new HashMap<>();
         executeQuery("SELECT * FROM `" + prefix + "Players` LIMIT 0;", stmt -> {}, rs -> {
             try {
                 java.sql.ResultSetMetaData meta = rs.getMetaData();
                 for (int i = 1; i <= meta.getColumnCount(); i++) {
                     existing.add(meta.getColumnName(i));
+                    columnTypes.put(meta.getColumnName(i), meta.getColumnTypeName(i));
                 }
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Failed to read table metadata", e);
@@ -47,12 +51,15 @@ public class ClickerOperator extends DBOperator {
         });
 
         String[][] migrations = {
-                {"Cookies",            mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
-                {"TotalCookiesEarned", mysql ? "DOUBLE NOT NULL DEFAULT 0" : "REAL NOT NULL DEFAULT 0"},
+                {"Cookies",            "TEXT NOT NULL DEFAULT '0'"},
+                {"TotalCookiesEarned", "TEXT NOT NULL DEFAULT '0'"},
+                {"TotalCookiesDigits", mysql ? "INT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
                 {"TimesClicked",       mysql ? "BIGINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
                 {"Upgrades",           "TEXT NOT NULL DEFAULT ''"},
                 {"Settings",           "TEXT NOT NULL DEFAULT ''"},
                 {"RealmPublic",        mysql ? "TINYINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
+                {"PrestigeLevel",      mysql ? "INT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
+                {"Aura",               "TEXT NOT NULL DEFAULT '0'"},
         };
 
         for (String[] col : migrations) {
@@ -60,6 +67,30 @@ public class ClickerOperator extends DBOperator {
                 execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `" + col[0] + "` " + col[1] + ";", stmt -> {});
                 LobbyClicker.getInstance().logInfo("Added missing column: " + col[0]);
             }
+        }
+
+        // Migrate Cookies/TotalCookiesEarned from DOUBLE/REAL to TEXT if needed (MySQL only for column type change)
+        if (mysql) {
+            String cookiesType = columnTypes.getOrDefault("Cookies", "");
+            if (cookiesType.equalsIgnoreCase("DOUBLE") || cookiesType.equalsIgnoreCase("FLOAT")) {
+                LobbyClicker.getInstance().logInfo("Migrating Cookies column from DOUBLE to TEXT...");
+                execute("ALTER TABLE `" + prefix + "Players` MODIFY COLUMN `Cookies` TEXT NOT NULL DEFAULT '0';", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Cookies column migrated to TEXT.");
+            }
+            String totalType = columnTypes.getOrDefault("TotalCookiesEarned", "");
+            if (totalType.equalsIgnoreCase("DOUBLE") || totalType.equalsIgnoreCase("FLOAT")) {
+                LobbyClicker.getInstance().logInfo("Migrating TotalCookiesEarned column from DOUBLE to TEXT...");
+                execute("ALTER TABLE `" + prefix + "Players` MODIFY COLUMN `TotalCookiesEarned` TEXT NOT NULL DEFAULT '0';", stmt -> {});
+                LobbyClicker.getInstance().logInfo("TotalCookiesEarned column migrated to TEXT.");
+            }
+        }
+        // SQLite: TEXT affinity accepts any value, so no migration needed for column type.
+        // Old REAL values stored as numbers will be read as strings via getString() and parsed.
+
+        // Populate TotalCookiesDigits for existing rows that have 0
+        if (existing.contains("TotalCookiesEarned") && existing.contains("TotalCookiesDigits")) {
+            // Update any rows with default TotalCookiesDigits
+            execute("UPDATE `" + prefix + "Players` SET TotalCookiesDigits = LENGTH(CAST(TotalCookiesEarned AS CHAR)) WHERE TotalCookiesDigits = 0 AND TotalCookiesEarned != '0';", stmt -> {});
         }
     }
 
@@ -91,12 +122,15 @@ public class ClickerOperator extends DBOperator {
                 try {
                     stmt.setString(1, playerData.getIdentifier());
                     stmt.setString(2, playerData.getName());
-                    stmt.setDouble(3, playerData.getCookies());
-                    stmt.setDouble(4, playerData.getTotalCookiesEarned());
-                    stmt.setLong(5, playerData.getTimesClicked());
-                    stmt.setString(6, playerData.serializeUpgrades());
-                    stmt.setString(7, playerData.getSettings().serialize());
-                    stmt.setInt(8, playerData.isRealmPublic() ? 1 : 0);
+                    stmt.setString(3, playerData.getCookies().toPlainString());
+                    stmt.setString(4, playerData.getTotalCookiesEarned().toPlainString());
+                    stmt.setInt(5, playerData.getTotalCookiesDigits());
+                    stmt.setLong(6, playerData.getTimesClicked());
+                    stmt.setString(7, playerData.serializeUpgrades());
+                    stmt.setString(8, playerData.getSettings().serialize());
+                    stmt.setInt(9, playerData.isRealmPublic() ? 1 : 0);
+                    stmt.setInt(10, playerData.getPrestigeLevel());
+                    stmt.setString(11, playerData.getAura().toPlainString());
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to set values for push statement", e);
                 }
@@ -117,13 +151,17 @@ public class ClickerOperator extends DBOperator {
                 try {
                     if (rs.next()) {
                         String name = rs.getString("Name");
-                        double cookies = rs.getDouble("Cookies");
-                        double totalEarned = rs.getDouble("TotalCookiesEarned");
+                        BigDecimal cookies = CookieMath.parse(rs.getString("Cookies"));
+                        BigDecimal totalEarned = CookieMath.parse(rs.getString("TotalCookiesEarned"));
                         long timesClicked = rs.getLong("TimesClicked");
                         String upgrades = rs.getString("Upgrades");
                         String settings = rs.getString("Settings");
                         boolean realmPublic = rs.getInt("RealmPublic") != 0;
-                        ref.set(Optional.of(new PlayerData(uuid, name, cookies, totalEarned, timesClicked, upgrades, settings, realmPublic)));
+                        int prestigeLevel = 0;
+                        BigDecimal aura = BigDecimal.ZERO;
+                        try { prestigeLevel = rs.getInt("PrestigeLevel"); } catch (Throwable ignored) {}
+                        try { aura = CookieMath.parse(rs.getString("Aura")); } catch (Throwable ignored) {}
+                        ref.set(Optional.of(new PlayerData(uuid, name, cookies, totalEarned, timesClicked, upgrades, settings, realmPublic, prestigeLevel, aura)));
                     }
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to read player result set", e);
@@ -141,11 +179,17 @@ public class ClickerOperator extends DBOperator {
             executeQuery(s1, stmt -> {}, rs -> {
                 try {
                     while (rs.next()) {
+                        int pl = 0;
+                        BigDecimal au = BigDecimal.ZERO;
+                        try { pl = rs.getInt("PrestigeLevel"); } catch (Throwable ignored) {}
+                        try { au = CookieMath.parse(rs.getString("Aura")); } catch (Throwable ignored) {}
                         players.add(new PlayerData(
                                 rs.getString("Uuid"), rs.getString("Name"),
-                                rs.getDouble("Cookies"), rs.getDouble("TotalCookiesEarned"),
+                                CookieMath.parse(rs.getString("Cookies")),
+                                CookieMath.parse(rs.getString("TotalCookiesEarned")),
                                 rs.getLong("TimesClicked"), rs.getString("Upgrades"),
-                                rs.getString("Settings"), rs.getInt("RealmPublic") != 0
+                                rs.getString("Settings"), rs.getInt("RealmPublic") != 0,
+                                pl, au
                         ));
                     }
                 } catch (Throwable e) {
@@ -165,7 +209,8 @@ public class ClickerOperator extends DBOperator {
                 try {
                     while (rs.next()) {
                         entries.add(new PlayerData(rs.getString("Uuid"), rs.getString("Name"),
-                                0, rs.getDouble("TotalCookiesEarned"), 0, "", "", false));
+                                BigDecimal.ZERO, CookieMath.parse(rs.getString("TotalCookiesEarned")),
+                                0, "", "", false));
                     }
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to pull leaderboard", e);

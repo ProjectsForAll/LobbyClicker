@@ -3,6 +3,8 @@ package gg.drak.lobbyclicker.data;
 import gg.drak.thebase.objects.Identifiable;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.events.own.PlayerCreationEvent;
+import gg.drak.lobbyclicker.math.CookieMath;
+import gg.drak.lobbyclicker.prestige.PrestigeManager;
 import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import lombok.Getter;
@@ -11,6 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,12 +23,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PlayerData implements Identifiable {
     private String identifier;
     private String name;
-    private double cookies;
-    private double totalCookiesEarned;
+    private BigDecimal cookies;
+    private BigDecimal totalCookiesEarned;
     private long timesClicked;
     private EnumMap<UpgradeType, Integer> upgrades;
     private PlayerSettings settings;
     private boolean realmPublic;
+    private int prestigeLevel;
+    private BigDecimal aura;
     private AtomicBoolean fullyLoaded;
 
     // Social data (loaded from DB on join)
@@ -44,8 +49,8 @@ public class PlayerData implements Identifiable {
     public PlayerData(String identifier, String name) {
         this.identifier = identifier;
         this.name = name;
-        this.cookies = 0;
-        this.totalCookiesEarned = 0;
+        this.cookies = BigDecimal.ZERO;
+        this.totalCookiesEarned = BigDecimal.ZERO;
         this.timesClicked = 0;
         this.upgrades = new EnumMap<>(UpgradeType.class);
         for (UpgradeType type : UpgradeType.values()) {
@@ -53,6 +58,8 @@ public class PlayerData implements Identifiable {
         }
         this.settings = new PlayerSettings();
         this.realmPublic = false;
+        this.prestigeLevel = 0;
+        this.aura = BigDecimal.ZERO;
         this.fullyLoaded = new AtomicBoolean(false);
         this.friends = ConcurrentHashMap.newKeySet();
         this.bans = ConcurrentHashMap.newKeySet();
@@ -65,8 +72,14 @@ public class PlayerData implements Identifiable {
         this.lastEntropyLeadDigit = 0;
     }
 
-    public PlayerData(String identifier, String name, double cookies, double totalCookiesEarned,
+    public PlayerData(String identifier, String name, BigDecimal cookies, BigDecimal totalCookiesEarned,
                       long timesClicked, String upgradeData, String settingsData, boolean realmPublic) {
+        this(identifier, name, cookies, totalCookiesEarned, timesClicked, upgradeData, settingsData, realmPublic, 0, BigDecimal.ZERO);
+    }
+
+    public PlayerData(String identifier, String name, BigDecimal cookies, BigDecimal totalCookiesEarned,
+                      long timesClicked, String upgradeData, String settingsData, boolean realmPublic,
+                      int prestigeLevel, BigDecimal aura) {
         this(identifier, name);
         this.cookies = cookies;
         this.totalCookiesEarned = totalCookiesEarned;
@@ -74,11 +87,13 @@ public class PlayerData implements Identifiable {
         this.upgrades = deserializeUpgrades(upgradeData);
         this.settings = new PlayerSettings(settingsData);
         this.realmPublic = realmPublic;
-        this.lastCurrentDigitCount = digitCount(cookies);
-        this.lastTotalDigitCount = digitCount(totalCookiesEarned);
-        long entropy = this.getClickerEntropy();
-        this.lastEntropyDigitCount = digitCount(entropy);
-        this.lastEntropyLeadDigit = leadDigit(entropy);
+        this.prestigeLevel = prestigeLevel;
+        this.aura = aura;
+        this.lastCurrentDigitCount = CookieMath.digitCount(cookies);
+        this.lastTotalDigitCount = CookieMath.digitCount(totalCookiesEarned);
+        BigDecimal entropy = this.getClickerEntropy();
+        this.lastEntropyDigitCount = CookieMath.digitCount(entropy);
+        this.lastEntropyLeadDigit = CookieMath.leadDigit(entropy);
     }
 
     public PlayerData(Player player) {
@@ -89,41 +104,45 @@ public class PlayerData implements Identifiable {
         this(uuid, "");
     }
 
-    public void addCookies(double amount) {
-        this.cookies += amount;
-        this.totalCookiesEarned += amount;
+    public void addCookies(BigDecimal amount) {
+        this.cookies = this.cookies.add(amount);
+        this.totalCookiesEarned = this.totalCookiesEarned.add(amount);
     }
 
-    public void removeCookies(double amount) {
-        this.cookies -= amount;
+    public void removeCookies(BigDecimal amount) {
+        this.cookies = this.cookies.subtract(amount);
     }
 
-    public boolean canAfford(double amount) {
-        return this.cookies >= amount;
+    public boolean canAfford(BigDecimal amount) {
+        return this.cookies.compareTo(amount) >= 0;
     }
 
-    public double getCps() {
-        double cps = 0;
+    public BigDecimal getCps() {
+        BigDecimal baseCps = BigDecimal.ZERO;
         for (UpgradeType type : UpgradeType.values()) {
-            cps += type.getCpsPerLevel() * getUpgradeCount(type);
+            baseCps = baseCps.add(type.getCpsPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type))));
         }
-        return cps;
+        return baseCps.multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel));
     }
 
-    public double getCpc() {
-        double cpc = 1;
+    public BigDecimal getCpc() {
+        BigDecimal baseCpc = BigDecimal.ONE;
         for (UpgradeType type : UpgradeType.values()) {
-            cpc += type.getCpcPerLevel() * getUpgradeCount(type);
+            baseCpc = baseCpc.add(type.getCpcPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type))));
         }
-        return cpc;
+        return baseCpc.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura))
+                .add(PrestigeManager.getBaseClickAdditive(prestigeLevel));
     }
 
-    public long getClickerEntropy() {
-        long entropy = timesClicked;
+    public BigDecimal getClickerEntropy() {
+        BigDecimal entropy = BigDecimal.valueOf(timesClicked);
         for (UpgradeType type : UpgradeType.values()) {
-            entropy += (long) getUpgradeCount(type) * type.getEntropyWeight();
+            entropy = entropy.add(BigDecimal.valueOf((long) getUpgradeCount(type) * type.getEntropyWeight()));
         }
-        entropy += (long) (totalCookiesEarned / 100.0);
+        entropy = entropy.add(totalCookiesEarned.divide(CookieMath.ONE_HUNDRED, 0, java.math.RoundingMode.FLOOR));
+        // Factor in aura and prestige
+        entropy = entropy.add(aura.multiply(BigDecimal.TEN));
+        entropy = entropy.add(BigDecimal.valueOf((long) prestigeLevel * 1000));
         return entropy;
     }
 
@@ -136,7 +155,7 @@ public class PlayerData implements Identifiable {
     }
 
     public boolean buyUpgrade(UpgradeType type) {
-        double cost = type.getCost(getUpgradeCount(type));
+        BigDecimal cost = type.getCost(getUpgradeCount(type));
         if (!canAfford(cost)) return false;
         removeCookies(cost);
         setUpgradeCount(type, getUpgradeCount(type) + 1);
@@ -228,11 +247,13 @@ public class PlayerData implements Identifiable {
                 this.upgrades = newData.getUpgrades();
                 this.settings = newData.getSettings();
                 this.realmPublic = newData.isRealmPublic();
-                this.lastCurrentDigitCount = digitCount(this.cookies);
-                this.lastTotalDigitCount = digitCount(this.totalCookiesEarned);
-                long ent = this.getClickerEntropy();
-                this.lastEntropyDigitCount = digitCount(ent);
-                this.lastEntropyLeadDigit = leadDigit(ent);
+                this.prestigeLevel = newData.getPrestigeLevel();
+                this.aura = newData.getAura();
+                this.lastCurrentDigitCount = CookieMath.digitCount(this.cookies);
+                this.lastTotalDigitCount = CookieMath.digitCount(this.totalCookiesEarned);
+                BigDecimal ent = this.getClickerEntropy();
+                this.lastEntropyDigitCount = CookieMath.digitCount(ent);
+                this.lastEntropyLeadDigit = CookieMath.leadDigit(ent);
             } else {
                 if (!isGet) {
                     new PlayerCreationEvent(this).fire();
@@ -269,20 +290,11 @@ public class PlayerData implements Identifiable {
         saveAndUnload(true);
     }
 
-    public static int digitCount(double value) {
-        if (value < 1) return 0;
-        return (int) Math.log10(value) + 1;
-    }
-
-    public static int digitCount(long value) {
-        if (value < 1) return 0;
-        return (int) Math.log10(value) + 1;
-    }
-
-    public static int leadDigit(long value) {
-        if (value < 1) return 0;
-        while (value >= 10) value /= 10;
-        return (int) value;
+    /**
+     * Returns the digit count used for leaderboard sorting in the database.
+     */
+    public int getTotalCookiesDigits() {
+        return CookieMath.digitCount(totalCookiesEarned);
     }
 
     public PlayerData waitUntilFullyLoaded() {

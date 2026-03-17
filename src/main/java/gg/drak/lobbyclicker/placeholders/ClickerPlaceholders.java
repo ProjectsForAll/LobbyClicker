@@ -48,11 +48,11 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
             case "cookies":
                 return FormatUtils.format(data.getCookies());
             case "cookies_raw":
-                return String.valueOf((long) data.getCookies());
+                return data.getCookies().toPlainString();
             case "total_cookies":
                 return FormatUtils.format(data.getTotalCookiesEarned());
             case "total_cookies_raw":
-                return String.valueOf((long) data.getTotalCookiesEarned());
+                return data.getTotalCookiesEarned().toPlainString();
             case "cps":
                 return FormatUtils.format(data.getCps());
             case "cpc":
@@ -60,7 +60,7 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
             case "entropy":
                 return FormatUtils.format(data.getClickerEntropy());
             case "entropy_raw":
-                return String.valueOf(data.getClickerEntropy());
+                return data.getClickerEntropy().toPlainString();
             case "clicks":
                 return FormatUtils.format(data.getTimesClicked());
             case "clicks_raw":
@@ -69,6 +69,12 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
                 return String.valueOf(data.getFriends().size());
             case "realm_public":
                 return data.isRealmPublic() ? "Public" : "Private";
+            case "prestige":
+                return String.valueOf(data.getPrestigeLevel());
+            case "aura":
+                return FormatUtils.format(data.getAura());
+            case "aura_raw":
+                return data.getAura().toPlainString();
             default:
                 return null;
         }

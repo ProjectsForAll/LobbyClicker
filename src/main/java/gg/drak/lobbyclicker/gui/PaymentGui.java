@@ -12,18 +12,19 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public class PaymentGui extends Gui {
     private final PlayerData senderData;
     private final String targetUuid;
-    private final double amount;
+    private final BigDecimal amount;
 
-    public PaymentGui(Player player, PlayerData senderData, String targetUuid, double amount) {
+    public PaymentGui(Player player, PlayerData senderData, String targetUuid, BigDecimal amount) {
         super(player, "payment", ChatColor.GOLD + "" + ChatColor.BOLD + "Pay Cookies", 3);
         this.senderData = senderData;
         this.targetUuid = targetUuid;
-        this.amount = Math.max(0, amount);
+        this.amount = amount.max(BigDecimal.ZERO);
     }
 
     @Override
@@ -35,7 +36,7 @@ public class PaymentGui extends Gui {
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
         // Amount display
-        boolean canAfford = senderData.canAfford(amount) && amount > 0;
+        boolean canAfford = senderData.canAfford(amount) && amount.signum() > 0;
         addItem(13, GuiHelper.createIcon(Material.SUNFLOWER,
                 ChatColor.GOLD + "" + ChatColor.BOLD + FormatUtils.format(amount) + " cookies",
                 "",
@@ -63,7 +64,7 @@ public class PaymentGui extends Gui {
             Icon confirm = GuiHelper.createIcon(Material.LIME_WOOL, ChatColor.GREEN + "" + ChatColor.BOLD + "Confirm Payment",
                     "", ChatColor.GRAY + "Send " + ChatColor.GOLD + FormatUtils.format(amount) + ChatColor.GRAY + " to " + finalTargetName);
             confirm.onClick(e -> {
-                if (!senderData.canAfford(amount) || amount <= 0) {
+                if (!senderData.canAfford(amount) || amount.signum() <= 0) {
                     player.sendMessage(ChatColor.RED + "Cannot afford this payment.");
                     return;
                 }
@@ -91,10 +92,10 @@ public class PaymentGui extends Gui {
         addItem(18, cancel);
     }
 
-    private void addAdjustButton(Player player, int slot, double change, Material mat) {
+    private void addAdjustButton(Player player, int slot, long change, Material mat) {
         String prefix = change > 0 ? ChatColor.GREEN + "+" : ChatColor.RED + "";
         Icon icon = GuiHelper.createIcon(mat, prefix + FormatUtils.format(Math.abs(change)));
-        icon.onClick(e -> new PaymentGui(player, senderData, targetUuid, amount + change).open());
+        icon.onClick(e -> new PaymentGui(player, senderData, targetUuid, amount.add(BigDecimal.valueOf(change))).open());
         addItem(slot, icon);
     }
 }

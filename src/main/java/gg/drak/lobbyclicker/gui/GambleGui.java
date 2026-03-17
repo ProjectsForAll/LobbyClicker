@@ -13,18 +13,19 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public class GambleGui extends Gui {
     private final PlayerData senderData;
     private final String targetUuid;
-    private final double amount;
+    private final BigDecimal amount;
 
-    public GambleGui(Player player, PlayerData senderData, String targetUuid, double amount) {
+    public GambleGui(Player player, PlayerData senderData, String targetUuid, BigDecimal amount) {
         super(player, "gamble", ChatColor.GREEN + "" + ChatColor.BOLD + "Gamble", 3);
         this.senderData = senderData;
         this.targetUuid = targetUuid;
-        this.amount = Math.max(0, amount);
+        this.amount = amount.max(BigDecimal.ZERO);
     }
 
     @Override
@@ -35,7 +36,7 @@ public class GambleGui extends Gui {
         String targetName = targetUuid.substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
-        boolean canAfford = senderData.canAfford(amount) && amount > 0;
+        boolean canAfford = senderData.canAfford(amount) && amount.signum() > 0;
 
         addItem(13, GuiHelper.createIcon(Material.EMERALD,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Bet: " + FormatUtils.format(amount) + " cookies",
@@ -64,7 +65,7 @@ public class GambleGui extends Gui {
             Icon send = GuiHelper.createIcon(Material.LIME_WOOL, ChatColor.GREEN + "" + ChatColor.BOLD + "Send Bet Request",
                     "", ChatColor.GRAY + "Bet " + ChatColor.GOLD + FormatUtils.format(amount) + ChatColor.GRAY + " against " + finalTargetName);
             send.onClick(e -> {
-                if (!senderData.canAfford(amount) || amount <= 0) {
+                if (!senderData.canAfford(amount) || amount.signum() <= 0) {
                     player.sendMessage(ChatColor.RED + "Cannot afford this bet.");
                     return;
                 }
@@ -89,10 +90,10 @@ public class GambleGui extends Gui {
         addItem(18, cancel);
     }
 
-    private void addAdjustButton(Player player, int slot, double change, Material mat) {
+    private void addAdjustButton(Player player, int slot, long change, Material mat) {
         String prefix = change > 0 ? ChatColor.GREEN + "+" : ChatColor.RED + "";
         Icon icon = GuiHelper.createIcon(mat, prefix + FormatUtils.format(Math.abs(change)));
-        icon.onClick(e -> new GambleGui(player, senderData, targetUuid, amount + change).open());
+        icon.onClick(e -> new GambleGui(player, senderData, targetUuid, amount.add(BigDecimal.valueOf(change))).open());
         addItem(slot, icon);
     }
 }
