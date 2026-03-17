@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.prestige.PrestigeManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -13,7 +12,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 
 import java.math.BigDecimal;
 
-public class PrestigeGui extends Gui {
+public class PrestigeGui extends BaseGui {
     private final PlayerData data;
     private boolean confirmed = false;
 
@@ -26,6 +25,11 @@ public class PrestigeGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         BigDecimal cost = PrestigeManager.getPrestigeCost(data.getPrestigeLevel());
         boolean canPrestige = PrestigeManager.canPrestige(data);

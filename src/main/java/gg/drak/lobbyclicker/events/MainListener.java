@@ -4,6 +4,8 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
+import gg.drak.lobbyclicker.realm.ProfileManager;
+import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import gg.drak.lobbyclicker.social.RealmManager;
 import org.bukkit.entity.Player;
@@ -33,8 +35,16 @@ public class MainListener extends AbstractConglomerate {
             LobbyClicker.getRedisManager().publishQuit(player);
         }
 
-        PlayerData data = PlayerManager.getOrCreatePlayer(player);
-        data.saveAndUnload();
+        PlayerData data = PlayerManager.getPlayer(uuid).orElse(null);
+        if (data != null) {
+            // Save all profiles owned by this player
+            for (RealmProfile profile : ProfileManager.getProfilesForOwner(uuid)) {
+                LobbyClicker.getDatabase().putProfileThreaded(profile);
+            }
+            data.saveAndUnload();
+            // Unload profiles
+            ProfileManager.unloadAllForOwner(uuid);
+        }
 
         // Clean up realm viewers
         RealmManager.removeViewerFromAll(uuid);

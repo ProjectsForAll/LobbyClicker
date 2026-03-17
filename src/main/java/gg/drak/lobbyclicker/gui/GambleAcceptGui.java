@@ -4,7 +4,6 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -17,7 +16,7 @@ import java.math.BigDecimal;
 import java.util.Random;
 import java.util.UUID;
 
-public class GambleAcceptGui extends Gui {
+public class GambleAcceptGui extends BaseGui {
     private final PlayerData receiverData;
     private final PendingTransaction transaction;
     private static final Random RANDOM = new Random();
@@ -32,6 +31,11 @@ public class GambleAcceptGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, receiverData).open());
+        addItem(0, home);
 
         String senderName = transaction.getSenderUuid().substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(transaction.getSenderUuid())).getName(); if (n != null) senderName = n; } catch (Exception ignored) {}

@@ -1,8 +1,10 @@
 package gg.drak.lobbyclicker.tasks;
 
+import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.math.CookieMath;
+import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import org.bukkit.Sound;
@@ -30,6 +32,11 @@ public class CookieTask extends BukkitRunnable {
 
             // Milestone checks run every tick (every 1 second) for instant detection
             checkMilestones(data);
+
+            // Push data snapshot to Redis for cross-server sync
+            if (LobbyClicker.getRedisManager() != null) {
+                RedisSyncHandler.publishDataSync(data);
+            }
         }
 
         if (tickCounter >= AUTO_SAVE_INTERVAL) {

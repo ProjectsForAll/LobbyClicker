@@ -18,7 +18,9 @@ public class RedisManager {
     private RedisClient client;
     private StatefulRedisPubSubConnection<String, String> subConnection;
     private StatefulRedisPubSubConnection<String, String> pubConnection;
+    @Getter
     private String channelPrefix;
+    @Getter
     private String serverId;
     private String serverPrettyName;
     private BukkitTask heartbeatTask;
@@ -42,7 +44,7 @@ public class RedisManager {
 
             client = RedisClient.create(uriBuilder.build());
 
-            // Subscribe connection — listens to both online and social channels
+            // Subscribe connection — listens to online, social, and data channels
             subConnection = client.connectPubSub();
             subConnection.addListener(new RedisPubSubAdapter<>() {
                 @Override
@@ -50,14 +52,16 @@ public class RedisManager {
                     if (channel.equals(channelPrefix + "online")) {
                         handleOnlineMessage(message);
                     } else if (channel.equals(channelPrefix + "social")) {
-                        // Run social handler on main thread for safe Bukkit API access
                         Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () ->
                                 RedisSyncHandler.handleSocialMessage(message));
+                    } else if (channel.equals(channelPrefix + "data")) {
+                        Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () ->
+                                RedisSyncHandler.handleDataMessage(message, serverId));
                     }
                 }
             });
             RedisPubSubCommands<String, String> subSync = subConnection.sync();
-            subSync.subscribe(channelPrefix + "online", channelPrefix + "social");
+            subSync.subscribe(channelPrefix + "online", channelPrefix + "social", channelPrefix + "data");
 
             // Publish connection
             pubConnection = client.connectPubSub();
@@ -131,6 +135,17 @@ public class RedisManager {
         }
     }
 
+    // --- Data channel ---
+
+    public void publishData(String message) {
+        if (pubConnection == null) return;
+        try {
+            pubConnection.sync().publish(channelPrefix + "data", message);
+        } catch (Throwable e) {
+            LobbyClicker.getInstance().logWarning("Failed to publish data message to Redis", e);
+        }
+    }
+
     // --- Message handlers ---
 
     private void handleOnlineMessage(String message) {
@@ -172,6 +187,10 @@ public class RedisManager {
 
     public boolean isPlayerOnlineAnywhere(String uuid) {
         if (Bukkit.getPlayer(java.util.UUID.fromString(uuid)) != null) return true;
+        return crossServerPlayers.containsKey(uuid);
+    }
+
+    public boolean isPlayerOnlineRemotely(String uuid) {
         return crossServerPlayers.containsKey(uuid);
     }
 

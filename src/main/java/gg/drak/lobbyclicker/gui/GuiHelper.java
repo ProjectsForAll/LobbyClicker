@@ -14,6 +14,7 @@ import java.util.UUID;
 
 /**
  * Shared utility for building GUI icons across all GUIs.
+ * For banner displays, see {@link BannerUtil}.
  */
 public class GuiHelper {
 
@@ -38,6 +39,11 @@ public class GuiHelper {
 
     public static Icon backButton(String label) {
         return createIcon(Material.ARROW, ChatColor.RED + label, "", ChatColor.GRAY + "Go back");
+    }
+
+    public static Icon homeButton() {
+        return createIcon(Material.DARK_OAK_DOOR, ChatColor.GOLD + "Main Menu",
+                "", ChatColor.GRAY + "Return to Cookie Clicker");
     }
 
     public static Icon playerHead(Player player, String name, String... lore) {

@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -18,7 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class UpgradeGui extends Gui {
+public class UpgradeGui extends BaseGui {
     private final PlayerData data;
 
     private static final int[] UPGRADE_SLOTS = {19, 20, 21, 22, 28, 29, 30, 31};
@@ -34,6 +33,11 @@ public class UpgradeGui extends Gui {
 
         // Fill background
         fillGui(createFiller());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         // Cookie count display
         addItem(4, createCookieDisplay());

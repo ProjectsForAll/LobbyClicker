@@ -4,10 +4,13 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.math.CookieMath;
+import gg.drak.lobbyclicker.realm.RealmProfile;
+import gg.drak.lobbyclicker.realm.RealmRole;
+import gg.drak.lobbyclicker.redis.RedisManager;
+import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.RealmManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -25,7 +28,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ClickerGui extends Gui {
+public class ClickerGui extends BaseGui {
     private final PlayerData viewerData;
     private final PlayerData ownerData;
     private final boolean isVisiting;
@@ -109,14 +112,67 @@ public class ClickerGui extends Gui {
                 new UpgradeGui(player, ownerData).open();
             });
             addItem(48, upgrades);
+
+            // Profiles button
+            Icon profiles = GuiHelper.createIcon(Material.BOOK,
+                    ChatColor.GOLD + "" + ChatColor.BOLD + "Profiles",
+                    "", ChatColor.GRAY + "Switch realm profiles", "", ChatColor.YELLOW + "Click to open");
+            profiles.onClick(e -> {
+                stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                new ProfileSelectorGui(player, viewerData).open();
+            });
+            addItem(47, profiles);
         } else {
-            // Visitor: gray out upgrades
-            addItem(48, GuiHelper.createIcon(Material.IRON_BARS,
-                    ChatColor.GRAY + "" + ChatColor.BOLD + "Upgrades Locked",
-                    "", ChatColor.GRAY + "Visitors cannot buy upgrades"));
+            // Visitor: check role for upgrade access
+            RealmProfile ownerProfile = ownerData.getActiveProfile();
+            RealmRole viewerRole = ownerProfile != null
+                    ? ownerProfile.getRole(viewerData.getIdentifier())
+                    : RealmRole.VISITOR;
+
+            if (viewerRole.canBuyUpgrades()) {
+                // GARDENER+ can buy upgrades
+                Icon upgrades = GuiHelper.createIcon(Material.CHEST,
+                        ChatColor.GREEN + "" + ChatColor.BOLD + "Upgrades",
+                        "", ChatColor.GRAY + "Buy upgrades for this realm!",
+                        ChatColor.DARK_GREEN + "Role: " + viewerRole.getDisplayName(),
+                        "", ChatColor.YELLOW + "Click to open");
+                upgrades.onClick(e -> {
+                    stopGoldenCookieTask();
+                    unregisterGui(player.getUniqueId());
+                    new UpgradeGui(player, ownerData).open();
+                });
+                addItem(48, upgrades);
+            } else {
+                addItem(48, GuiHelper.createIcon(Material.IRON_BARS,
+                        ChatColor.GRAY + "" + ChatColor.BOLD + "Upgrades Locked",
+                        "", ChatColor.GRAY + "You need Gardener role or higher"));
+            }
 
             // Register as viewer
             RealmManager.addViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+
+            // Back button (return to own clicker)
+            Icon back = GuiHelper.createIcon(Material.ARROW,
+                    ChatColor.RED + "" + ChatColor.BOLD + "Back",
+                    "", ChatColor.GRAY + "Return to your realm");
+            back.onClick(e -> {
+                stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new ClickerGui(player, viewerData).open();
+            });
+            addItem(46, back);
+
+            // Main Menu button
+            Icon mainMenu = GuiHelper.homeButton();
+            mainMenu.onClick(e -> {
+                stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new ClickerGui(player, viewerData).open();
+            });
+            addItem(47, mainMenu);
         }
 
         // Social menu button (viewer's head)
@@ -171,8 +227,23 @@ public class ClickerGui extends Gui {
                 "", ChatColor.YELLOW + "Click to earn cookies!",
                 ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()));
         cookie.onClick(e -> {
-            ownerData.addCookies(ownerData.getCpc());
-            ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
+            // Click rate limiting (20 CPS max)
+            if (!viewerData.tryClick()) return;
+
+            // Check if the owner is on a remote server (OO player)
+            boolean ownerIsRemote = isVisiting && !ownerData.isOnline()
+                    && LobbyClicker.getRedisManager() != null
+                    && LobbyClicker.getRedisManager().isPlayerOnlineRemotely(ownerData.getIdentifier());
+
+            if (ownerIsRemote) {
+                // Forward click to home server via Redis — don't modify local data
+                RedisSyncHandler.publishClick(ownerData.getIdentifier(), viewerData.getName());
+            } else {
+                // Owner is local (or offline realm) — apply directly
+                ownerData.addCookies(ownerData.getCpc());
+                ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
+            }
+
             updateStats();
             updateDigitDisplay();
             addCookieItem(player);
@@ -182,8 +253,8 @@ public class ClickerGui extends Gui {
                 player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, vol, 2.0f);
             }
 
-            // Notify realm owner if visitor is clicking
-            if (isVisiting) {
+            // Notify realm owner if visitor is clicking (local owner only)
+            if (isVisiting && !ownerIsRemote) {
                 Player owner = Bukkit.getPlayer(java.util.UUID.fromString(ownerData.getIdentifier()));
                 if (owner != null) {
                     boolean isFriend = ownerData.getFriends().contains(viewerData.getIdentifier());
@@ -217,29 +288,10 @@ public class ClickerGui extends Gui {
     }
 
     private void updateDigitDisplay() {
-        String cookieStr = ownerData.getCookies().toBigInteger().toString();
-        // Show last 4 digits (ones through thousands)
-        while (cookieStr.length() < 4) cookieStr = "0" + cookieStr;
-        // Take last 4 digits for display
-        String digits = cookieStr.substring(cookieStr.length() - 4);
-
         String cookieDisplay = ChatColor.GRAY + "Current Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies());
-        boolean seenNonZero = false;
-
+        String[] display = BannerUtil.parseBannerDisplay(ownerData.getCookies());
         for (int i = 0; i < 4; i++) {
-            char digit = digits.charAt(i);
-            int digitValue = digit - '0';
-            if (digitValue > 0) seenNonZero = true;
-            Material pane = (digitValue == 0 && !seenNonZero) ? Material.RED_STAINED_GLASS_PANE : Material.LIME_STAINED_GLASS_PANE;
-            int amount = Math.max(1, digitValue);
-            ItemStack item = new ItemStack(pane, amount);
-            ItemMeta meta = item.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName(ChatColor.WHITE + "" + digit);
-                meta.setLore(Arrays.asList(cookieDisplay));
-                item.setItemMeta(meta);
-            }
-            addItem(5 + i, new Icon(item));
+            addItem(5 + i, BannerUtil.charBannerIcon(display[i], cookieDisplay));
         }
     }
 
@@ -323,6 +375,8 @@ public class ClickerGui extends Gui {
                 "", ChatColor.YELLOW + "Click for a cookie bonus!", ChatColor.GRAY + "Hurry, it won't last long!");
         golden.onClick(e -> {
             if (goldenCookieSlot < 0) return;
+            // Golden cookies always apply locally (bonus is entropy-based, computed at spawn time)
+            // For OO realms, the DATA_SYNC from home server will reconcile
             ownerData.addCookies(bonus);
             int clickedSlot = goldenCookieSlot;
             goldenCookieSlot = -1;

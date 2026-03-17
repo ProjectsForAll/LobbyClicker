@@ -5,6 +5,8 @@ import host.plas.bou.sql.DBOperator;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.math.CookieMath;
+import gg.drak.lobbyclicker.realm.RealmProfile;
+import gg.drak.lobbyclicker.realm.RealmRole;
 
 import host.plas.bou.sql.ConnectorSet;
 import host.plas.bou.sql.DatabaseType;
@@ -25,73 +27,155 @@ public class ClickerOperator extends DBOperator {
 
     @Override
     public void ensureTables() {
-        // Create all tables
+        // Create new-schema tables
         execute(Statements.getStatement(Statements.StatementType.CREATE_TABLES, getConnectorSet()), stmt -> {});
+        execute(Statements.getStatement(Statements.StatementType.CREATE_PROFILES_TABLE, getConnectorSet()), stmt -> {});
+        execute(Statements.getStatement(Statements.StatementType.CREATE_PROFILE_ROLES_TABLE, getConnectorSet()), stmt -> {});
+        execute(Statements.getStatement(Statements.StatementType.CREATE_PROFILE_BANS_TABLE, getConnectorSet()), stmt -> {});
         execute(Statements.getStatement(Statements.StatementType.CREATE_FRIENDS_TABLE, getConnectorSet()), stmt -> {});
         execute(Statements.getStatement(Statements.StatementType.CREATE_FRIEND_REQUESTS_TABLE, getConnectorSet()), stmt -> {});
         execute(Statements.getStatement(Statements.StatementType.CREATE_BANS_TABLE, getConnectorSet()), stmt -> {});
         execute(Statements.getStatement(Statements.StatementType.CREATE_BLOCKS_TABLE, getConnectorSet()), stmt -> {});
 
-        // Migrate Players table: add any missing columns
+        // Add missing columns to Players table (for migration)
         String prefix = getConnectorSet().getTablePrefix();
-        boolean mysql = getConnectorSet().getType() == DatabaseType.MYSQL;
+        Set<String> existingPlayerCols = getColumnNames(prefix + "Players");
 
-        Set<String> existing = new HashSet<>();
-        Map<String, String> columnTypes = new HashMap<>();
-        executeQuery("SELECT * FROM `" + prefix + "Players` LIMIT 0;", stmt -> {}, rs -> {
+        if (!existingPlayerCols.contains("ActiveProfileId")) {
+            execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `ActiveProfileId` " +
+                    (getConnectorSet().getType() == DatabaseType.MYSQL ? "VARCHAR(36)" : "TEXT") +
+                    " NOT NULL DEFAULT '';", stmt -> {});
+            LobbyClicker.getInstance().logInfo("Added ActiveProfileId column to Players table.");
+        }
+        if (!existingPlayerCols.contains("Settings") && existingPlayerCols.contains("Cookies")) {
+            // Old schema had Settings in Players table already, but just in case
+            execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `Settings` TEXT NOT NULL DEFAULT '';", stmt -> {});
+        }
+
+        // --- AUTO-MIGRATION: old Players table (with Cookies column) to new Profiles table ---
+        if (existingPlayerCols.contains("Cookies")) {
+            migrateOldPlayersToProfiles(prefix);
+        }
+    }
+
+    /**
+     * Migrates data from the old flat Players table (which had Cookies, Upgrades, etc. inline)
+     * into the new Profiles table. Creates one "Main" profile per player.
+     */
+    private void migrateOldPlayersToProfiles(String prefix) {
+        // Check if any profiles exist already — if so, migration was done
+        boolean[] hasProfiles = {false};
+        executeQuery("SELECT COUNT(*) as cnt FROM `" + prefix + "Profiles`;", stmt -> {}, rs -> {
+            try { if (rs.next() && rs.getInt("cnt") > 0) hasProfiles[0] = true; } catch (Throwable ignored) {}
+        });
+        if (hasProfiles[0]) return;
+
+        LobbyClicker.getInstance().logInfo("Migrating old Players table data to Profiles table...");
+
+        // Read all old player data
+        List<Map<String, String>> oldPlayers = new ArrayList<>();
+        executeQuery("SELECT * FROM `" + prefix + "Players`;", stmt -> {}, rs -> {
             try {
                 java.sql.ResultSetMetaData meta = rs.getMetaData();
-                for (int i = 1; i <= meta.getColumnCount(); i++) {
-                    existing.add(meta.getColumnName(i));
-                    columnTypes.put(meta.getColumnName(i), meta.getColumnTypeName(i));
+                while (rs.next()) {
+                    Map<String, String> row = new HashMap<>();
+                    for (int i = 1; i <= meta.getColumnCount(); i++) {
+                        row.put(meta.getColumnName(i), rs.getString(i));
+                    }
+                    oldPlayers.add(row);
                 }
             } catch (Throwable e) {
-                LobbyClicker.getInstance().logWarning("Failed to read table metadata", e);
+                LobbyClicker.getInstance().logWarning("Failed to read old players for migration", e);
             }
         });
 
-        String[][] migrations = {
-                {"Cookies",            "TEXT NOT NULL DEFAULT '0'"},
-                {"TotalCookiesEarned", "TEXT NOT NULL DEFAULT '0'"},
-                {"TotalCookiesDigits", mysql ? "INT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
-                {"TimesClicked",       mysql ? "BIGINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
-                {"Upgrades",           "TEXT NOT NULL DEFAULT ''"},
-                {"Settings",           "TEXT NOT NULL DEFAULT ''"},
-                {"RealmPublic",        mysql ? "TINYINT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
-                {"PrestigeLevel",      mysql ? "INT NOT NULL DEFAULT 0" : "INTEGER NOT NULL DEFAULT 0"},
-                {"Aura",               "TEXT NOT NULL DEFAULT '0'"},
-        };
+        int migrated = 0;
+        for (Map<String, String> row : oldPlayers) {
+            String uuid = row.get("Uuid");
+            if (uuid == null) continue;
 
-        for (String[] col : migrations) {
-            if (!existing.contains(col[0])) {
-                execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `" + col[0] + "` " + col[1] + ";", stmt -> {});
-                LobbyClicker.getInstance().logInfo("Added missing column: " + col[0]);
+            // Only migrate if this player has realm data (Cookies column exists in their row)
+            String cookies = row.getOrDefault("Cookies", "0");
+            String totalEarned = row.getOrDefault("TotalCookiesEarned", "0");
+            String timesClicked = row.getOrDefault("TimesClicked", "0");
+            String upgrades = row.getOrDefault("Upgrades", "");
+            String prestige = row.getOrDefault("PrestigeLevel", "0");
+            String aura = row.getOrDefault("Aura", "0");
+            String realmPublic = row.getOrDefault("RealmPublic", "0");
+            String settings = row.getOrDefault("Settings", "");
+
+            // Generate a profile ID for this player's "Main" profile
+            String profileId = UUID.randomUUID().toString();
+
+            // Insert profile
+            String pushProfile = Statements.getStatement(Statements.StatementType.PUSH_PROFILE, getConnectorSet());
+            execute(pushProfile, stmt -> {
+                try {
+                    stmt.setString(1, profileId);
+                    stmt.setString(2, uuid);
+                    stmt.setString(3, "Main");
+                    stmt.setString(4, cookies);
+                    stmt.setString(5, totalEarned);
+                    stmt.setInt(6, CookieMath.digitCount(CookieMath.parse(totalEarned)));
+                    stmt.setLong(7, Long.parseLong(timesClicked));
+                    stmt.setString(8, upgrades);
+                    stmt.setInt(9, Integer.parseInt(prestige));
+                    stmt.setString(10, aura);
+                    stmt.setInt(11, Integer.parseInt(realmPublic));
+                } catch (Throwable e) {
+                    LobbyClicker.getInstance().logWarning("Failed to migrate profile for " + uuid, e);
+                }
+            });
+
+            // Update player row with ActiveProfileId and slim down
+            String pushPlayer = Statements.getStatement(Statements.StatementType.PUSH_PLAYER_MAIN, getConnectorSet());
+            execute(pushPlayer, stmt -> {
+                try {
+                    stmt.setString(1, uuid);
+                    stmt.setString(2, row.getOrDefault("Name", ""));
+                    stmt.setString(3, settings);
+                    stmt.setString(4, profileId);
+                } catch (Throwable e) {
+                    LobbyClicker.getInstance().logWarning("Failed to update player row for " + uuid, e);
+                }
+            });
+
+            // Migrate old bans to profile bans
+            Set<String> bans = new HashSet<>();
+            String pullBans = Statements.getStatement(Statements.StatementType.PULL_BANS, getConnectorSet());
+            executeQuery(pullBans, stmt -> { try { stmt.setString(1, uuid); } catch (Throwable ignored) {} }, rs -> {
+                try { while (rs.next()) bans.add(rs.getString("Banned")); } catch (Throwable ignored) {}
+            });
+            for (String banned : bans) {
+                String pushBan = Statements.getStatement(Statements.StatementType.PUSH_PROFILE_BAN, getConnectorSet());
+                execute(pushBan, stmt -> {
+                    try {
+                        stmt.setString(1, profileId);
+                        stmt.setString(2, banned);
+                        stmt.setInt(3, 1); // shadow ban (preserves old behavior)
+                    } catch (Throwable ignored) {}
+                });
             }
+
+            migrated++;
         }
 
-        // Migrate Cookies/TotalCookiesEarned from DOUBLE/REAL to TEXT if needed (MySQL only for column type change)
-        if (mysql) {
-            String cookiesType = columnTypes.getOrDefault("Cookies", "");
-            if (cookiesType.equalsIgnoreCase("DOUBLE") || cookiesType.equalsIgnoreCase("FLOAT")) {
-                LobbyClicker.getInstance().logInfo("Migrating Cookies column from DOUBLE to TEXT...");
-                execute("ALTER TABLE `" + prefix + "Players` MODIFY COLUMN `Cookies` TEXT NOT NULL DEFAULT '0';", stmt -> {});
-                LobbyClicker.getInstance().logInfo("Cookies column migrated to TEXT.");
-            }
-            String totalType = columnTypes.getOrDefault("TotalCookiesEarned", "");
-            if (totalType.equalsIgnoreCase("DOUBLE") || totalType.equalsIgnoreCase("FLOAT")) {
-                LobbyClicker.getInstance().logInfo("Migrating TotalCookiesEarned column from DOUBLE to TEXT...");
-                execute("ALTER TABLE `" + prefix + "Players` MODIFY COLUMN `TotalCookiesEarned` TEXT NOT NULL DEFAULT '0';", stmt -> {});
-                LobbyClicker.getInstance().logInfo("TotalCookiesEarned column migrated to TEXT.");
-            }
+        if (migrated > 0) {
+            LobbyClicker.getInstance().logInfo("Migrated " + migrated + " player(s) to profile system.");
         }
-        // SQLite: TEXT affinity accepts any value, so no migration needed for column type.
-        // Old REAL values stored as numbers will be read as strings via getString() and parsed.
+    }
 
-        // Populate TotalCookiesDigits for existing rows that have 0
-        if (existing.contains("TotalCookiesEarned") && existing.contains("TotalCookiesDigits")) {
-            // Update any rows with default TotalCookiesDigits
-            execute("UPDATE `" + prefix + "Players` SET TotalCookiesDigits = LENGTH(CAST(TotalCookiesEarned AS CHAR)) WHERE TotalCookiesDigits = 0 AND TotalCookiesEarned != '0';", stmt -> {});
-        }
+    private Set<String> getColumnNames(String tableName) {
+        Set<String> cols = new HashSet<>();
+        executeQuery("SELECT * FROM `" + tableName + "` LIMIT 0;", stmt -> {}, rs -> {
+            try {
+                java.sql.ResultSetMetaData meta = rs.getMetaData();
+                for (int i = 1; i <= meta.getColumnCount(); i++) {
+                    cols.add(meta.getColumnName(i));
+                }
+            } catch (Throwable ignored) {}
+        });
+        return cols;
     }
 
     @Override
@@ -100,7 +184,7 @@ public class ClickerOperator extends DBOperator {
         execute(s1, stmt -> {});
     }
 
-    // --- Player CRUD ---
+    // ===================== PLAYER CRUD (slim: uuid, name, settings, activeProfileId) =====================
 
     public void putPlayer(PlayerData playerData) {
         putPlayer(playerData, true);
@@ -122,19 +206,18 @@ public class ClickerOperator extends DBOperator {
                 try {
                     stmt.setString(1, playerData.getIdentifier());
                     stmt.setString(2, playerData.getName());
-                    stmt.setString(3, playerData.getCookies().toPlainString());
-                    stmt.setString(4, playerData.getTotalCookiesEarned().toPlainString());
-                    stmt.setInt(5, playerData.getTotalCookiesDigits());
-                    stmt.setLong(6, playerData.getTimesClicked());
-                    stmt.setString(7, playerData.serializeUpgrades());
-                    stmt.setString(8, playerData.getSettings().serialize());
-                    stmt.setInt(9, playerData.isRealmPublic() ? 1 : 0);
-                    stmt.setInt(10, playerData.getPrestigeLevel());
-                    stmt.setString(11, playerData.getAura().toPlainString());
+                    stmt.setString(3, playerData.getSettings().serialize());
+                    stmt.setString(4, playerData.getActiveProfileId() != null ? playerData.getActiveProfileId() : "");
                 } catch (Throwable e) {
-                    LobbyClicker.getInstance().logWarning("Failed to set values for push statement", e);
+                    LobbyClicker.getInstance().logWarning("Failed to push player", e);
                 }
             });
+
+            // Also save active profile
+            RealmProfile profile = playerData.getActiveProfile();
+            if (profile != null) {
+                putProfileSync(profile);
+            }
         });
     }
 
@@ -151,17 +234,16 @@ public class ClickerOperator extends DBOperator {
                 try {
                     if (rs.next()) {
                         String name = rs.getString("Name");
-                        BigDecimal cookies = CookieMath.parse(rs.getString("Cookies"));
-                        BigDecimal totalEarned = CookieMath.parse(rs.getString("TotalCookiesEarned"));
-                        long timesClicked = rs.getLong("TimesClicked");
-                        String upgrades = rs.getString("Upgrades");
-                        String settings = rs.getString("Settings");
-                        boolean realmPublic = rs.getInt("RealmPublic") != 0;
-                        int prestigeLevel = 0;
-                        BigDecimal aura = BigDecimal.ZERO;
-                        try { prestigeLevel = rs.getInt("PrestigeLevel"); } catch (Throwable ignored) {}
-                        try { aura = CookieMath.parse(rs.getString("Aura")); } catch (Throwable ignored) {}
-                        ref.set(Optional.of(new PlayerData(uuid, name, cookies, totalEarned, timesClicked, upgrades, settings, realmPublic, prestigeLevel, aura)));
+                        String settings = "";
+                        try { settings = rs.getString("Settings"); } catch (Throwable ignored) {}
+                        String activeProfileId = "";
+                        try { activeProfileId = rs.getString("ActiveProfileId"); } catch (Throwable ignored) {}
+
+                        PlayerData data = new PlayerData(uuid, name);
+                        data.setSettings(new gg.drak.lobbyclicker.settings.PlayerSettings(settings));
+                        data.setActiveProfileId(activeProfileId != null && !activeProfileId.isEmpty() ? activeProfileId : null);
+
+                        ref.set(Optional.of(data));
                     }
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to read player result set", e);
@@ -171,6 +253,9 @@ public class ClickerOperator extends DBOperator {
         });
     }
 
+    /**
+     * Pull all players (slim data only). Used by migration commands.
+     */
     public CompletableFuture<List<PlayerData>> pullAllPlayersThreaded() {
         return CompletableFuture.supplyAsync(() -> {
             ensureUsable();
@@ -179,18 +264,16 @@ public class ClickerOperator extends DBOperator {
             executeQuery(s1, stmt -> {}, rs -> {
                 try {
                     while (rs.next()) {
-                        int pl = 0;
-                        BigDecimal au = BigDecimal.ZERO;
-                        try { pl = rs.getInt("PrestigeLevel"); } catch (Throwable ignored) {}
-                        try { au = CookieMath.parse(rs.getString("Aura")); } catch (Throwable ignored) {}
-                        players.add(new PlayerData(
-                                rs.getString("Uuid"), rs.getString("Name"),
-                                CookieMath.parse(rs.getString("Cookies")),
-                                CookieMath.parse(rs.getString("TotalCookiesEarned")),
-                                rs.getLong("TimesClicked"), rs.getString("Upgrades"),
-                                rs.getString("Settings"), rs.getInt("RealmPublic") != 0,
-                                pl, au
-                        ));
+                        String uuid = rs.getString("Uuid");
+                        String name = rs.getString("Name");
+                        String settings = "";
+                        try { settings = rs.getString("Settings"); } catch (Throwable ignored) {}
+                        String activeProfileId = "";
+                        try { activeProfileId = rs.getString("ActiveProfileId"); } catch (Throwable ignored) {}
+                        PlayerData data = new PlayerData(uuid, name);
+                        data.setSettings(new gg.drak.lobbyclicker.settings.PlayerSettings(settings));
+                        data.setActiveProfileId(activeProfileId);
+                        players.add(data);
                     }
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to pull all players", e);
@@ -200,27 +283,157 @@ public class ClickerOperator extends DBOperator {
         });
     }
 
-    public CompletableFuture<List<PlayerData>> pullLeaderboardThreaded() {
-        return CompletableFuture.supplyAsync(() -> {
-            ensureUsable();
-            String s1 = Statements.getStatement(Statements.StatementType.PULL_LEADERBOARD, getConnectorSet());
-            List<PlayerData> entries = new ArrayList<>();
-            executeQuery(s1, stmt -> {}, rs -> {
+    // ===================== PROFILE CRUD =====================
+
+    public void putProfileSync(RealmProfile profile) {
+        String s = Statements.getStatement(Statements.StatementType.PUSH_PROFILE, getConnectorSet());
+        execute(s, stmt -> {
+            try {
+                stmt.setString(1, profile.getProfileId());
+                stmt.setString(2, profile.getOwnerUuid());
+                stmt.setString(3, profile.getProfileName());
+                stmt.setString(4, profile.getCookies().toPlainString());
+                stmt.setString(5, profile.getTotalCookiesEarned().toPlainString());
+                stmt.setInt(6, profile.getTotalCookiesDigits());
+                stmt.setLong(7, profile.getTimesClicked());
+                stmt.setString(8, profile.serializeUpgrades());
+                stmt.setInt(9, profile.getPrestigeLevel());
+                stmt.setString(10, profile.getAura().toPlainString());
+                stmt.setInt(11, profile.isRealmPublic() ? 1 : 0);
+            } catch (Throwable e) {
+                LobbyClicker.getInstance().logWarning("Failed to push profile", e);
+            }
+        });
+
+        // Save roles
+        for (Map.Entry<String, RealmRole> entry : profile.getRoles().entrySet()) {
+            String rs = Statements.getStatement(Statements.StatementType.PUSH_PROFILE_ROLE, getConnectorSet());
+            execute(rs, st -> {
                 try {
-                    while (rs.next()) {
-                        entries.add(new PlayerData(rs.getString("Uuid"), rs.getString("Name"),
-                                BigDecimal.ZERO, CookieMath.parse(rs.getString("TotalCookiesEarned")),
-                                0, "", "", false));
-                    }
-                } catch (Throwable e) {
-                    LobbyClicker.getInstance().logWarning("Failed to pull leaderboard", e);
-                }
+                    st.setString(1, profile.getProfileId());
+                    st.setString(2, entry.getKey());
+                    st.setString(3, entry.getValue().name());
+                } catch (Throwable ignored) {}
             });
-            return entries;
+        }
+    }
+
+    public CompletableFuture<Void> putProfileThreaded(RealmProfile profile) {
+        return AsyncUtils.executeAsync(() -> {
+            ensureUsable();
+            putProfileSync(profile);
         });
     }
 
-    // --- Friends ---
+    public CompletableFuture<List<RealmProfile>> pullProfilesByOwnerThreaded(String ownerUuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            ensureUsable();
+            String s = Statements.getStatement(Statements.StatementType.PULL_PROFILES_BY_OWNER, getConnectorSet());
+            List<RealmProfile> profiles = new ArrayList<>();
+            executeQuery(s, stmt -> {
+                try { stmt.setString(1, ownerUuid); } catch (Throwable ignored) {}
+            }, rs -> {
+                try {
+                    while (rs.next()) {
+                        RealmProfile p = readProfileFromResultSet(rs);
+                        if (p != null) profiles.add(p);
+                    }
+                } catch (Throwable e) {
+                    LobbyClicker.getInstance().logWarning("Failed to pull profiles", e);
+                }
+            });
+
+            // Load roles and bans for each profile
+            for (RealmProfile p : profiles) {
+                loadProfileRolesSync(p);
+                loadProfileBansSync(p);
+            }
+
+            return profiles;
+        });
+    }
+
+    public CompletableFuture<Optional<RealmProfile>> pullProfileThreaded(String profileId) {
+        return CompletableFuture.supplyAsync(() -> {
+            ensureUsable();
+            String s = Statements.getStatement(Statements.StatementType.PULL_PROFILE, getConnectorSet());
+            AtomicReference<Optional<RealmProfile>> ref = new AtomicReference<>(Optional.empty());
+            executeQuery(s, stmt -> {
+                try { stmt.setString(1, profileId); } catch (Throwable ignored) {}
+            }, rs -> {
+                try {
+                    if (rs.next()) {
+                        RealmProfile p = readProfileFromResultSet(rs);
+                        if (p != null) ref.set(Optional.of(p));
+                    }
+                } catch (Throwable e) {
+                    LobbyClicker.getInstance().logWarning("Failed to pull profile", e);
+                }
+            });
+            ref.get().ifPresent(p -> {
+                loadProfileRolesSync(p);
+                loadProfileBansSync(p);
+            });
+            return ref.get();
+        });
+    }
+
+    private RealmProfile readProfileFromResultSet(java.sql.ResultSet rs) {
+        try {
+            String profileId = rs.getString("ProfileId");
+            String ownerUuid = rs.getString("OwnerUuid");
+            String profileName = rs.getString("ProfileName");
+            RealmProfile p = new RealmProfile(profileId, ownerUuid, profileName);
+            p.setCookies(CookieMath.parse(rs.getString("Cookies")));
+            p.setTotalCookiesEarned(CookieMath.parse(rs.getString("TotalCookiesEarned")));
+            p.setTimesClicked(rs.getLong("TimesClicked"));
+            p.setUpgrades(RealmProfile.deserializeUpgrades(rs.getString("Upgrades")));
+            p.setPrestigeLevel(rs.getInt("PrestigeLevel"));
+            p.setAura(CookieMath.parse(rs.getString("Aura")));
+            p.setRealmPublic(rs.getInt("RealmPublic") != 0);
+            p.setLastCurrentDigitCount(CookieMath.digitCount(p.getCookies()));
+            p.setLastTotalDigitCount(CookieMath.digitCount(p.getTotalCookiesEarned()));
+            BigDecimal entropy = p.getClickerEntropy();
+            p.setLastEntropyDigitCount(CookieMath.digitCount(entropy));
+            p.setLastEntropyLeadDigit(CookieMath.leadDigit(entropy));
+            return p;
+        } catch (Throwable e) {
+            LobbyClicker.getInstance().logWarning("Failed to read profile from result set", e);
+            return null;
+        }
+    }
+
+    private void loadProfileRolesSync(RealmProfile profile) {
+        String s = Statements.getStatement(Statements.StatementType.PULL_PROFILE_ROLES, getConnectorSet());
+        executeQuery(s, stmt -> {
+            try { stmt.setString(1, profile.getProfileId()); } catch (Throwable ignored) {}
+        }, rs -> {
+            try {
+                while (rs.next()) {
+                    String playerUuid = rs.getString("PlayerUuid");
+                    String roleName = rs.getString("Role");
+                    try {
+                        profile.setRole(playerUuid, RealmRole.valueOf(roleName));
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (Throwable ignored) {}
+        });
+    }
+
+    private void loadProfileBansSync(RealmProfile profile) {
+        String s = Statements.getStatement(Statements.StatementType.PULL_PROFILE_BANS, getConnectorSet());
+        executeQuery(s, stmt -> {
+            try { stmt.setString(1, profile.getProfileId()); } catch (Throwable ignored) {}
+        }, rs -> {
+            try {
+                while (rs.next()) {
+                    profile.getBans().add(rs.getString("BannedUuid"));
+                }
+            } catch (Throwable ignored) {}
+        });
+    }
+
+    // ===================== FRIENDS =====================
 
     public CompletableFuture<Set<String>> pullFriendsThreaded(String uuid) {
         return pullUuidSetThreaded(Statements.StatementType.PULL_FRIENDS, uuid, "Uuid2");
@@ -230,7 +443,6 @@ public class ClickerOperator extends DBOperator {
         return AsyncUtils.executeAsync(() -> {
             ensureUsable();
             String s = Statements.getStatement(Statements.StatementType.PUSH_FRIEND, getConnectorSet());
-            // Bidirectional
             execute(s, stmt -> { try { stmt.setString(1, uuid1); stmt.setString(2, uuid2); stmt.setLong(3, since); } catch (Throwable ignored) {} });
             execute(s, stmt -> { try { stmt.setString(1, uuid2); stmt.setString(2, uuid1); stmt.setLong(3, since); } catch (Throwable ignored) {} });
         });
@@ -245,7 +457,7 @@ public class ClickerOperator extends DBOperator {
         });
     }
 
-    // --- Friend Requests ---
+    // ===================== FRIEND REQUESTS =====================
 
     public CompletableFuture<Set<String>> pullIncomingRequestsThreaded(String uuid) {
         return pullUuidSetThreaded(Statements.StatementType.PULL_INCOMING_REQUESTS, uuid, "Sender");
@@ -271,7 +483,7 @@ public class ClickerOperator extends DBOperator {
         });
     }
 
-    // --- Bans ---
+    // ===================== BANS (legacy + profile) =====================
 
     public CompletableFuture<Set<String>> pullBansThreaded(String uuid) {
         return pullUuidSetThreaded(Statements.StatementType.PULL_BANS, uuid, "Banned");
@@ -285,7 +497,7 @@ public class ClickerOperator extends DBOperator {
         return pushPairThreaded(Statements.StatementType.DELETE_BAN, owner, banned);
     }
 
-    // --- Blocks ---
+    // ===================== BLOCKS =====================
 
     public CompletableFuture<Set<String>> pullBlocksThreaded(String uuid) {
         return pullUuidSetThreaded(Statements.StatementType.PULL_BLOCKS, uuid, "Blocked");
@@ -299,7 +511,7 @@ public class ClickerOperator extends DBOperator {
         return pushPairThreaded(Statements.StatementType.DELETE_BLOCK, owner, blocked);
     }
 
-    // --- Helpers ---
+    // ===================== HELPERS =====================
 
     private CompletableFuture<Set<String>> pullUuidSetThreaded(Statements.StatementType type, String uuid, String columnName) {
         return CompletableFuture.supplyAsync(() -> {

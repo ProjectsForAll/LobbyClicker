@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -20,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class LeaderboardGui extends Gui {
+public class LeaderboardGui extends BaseGui {
     private static final int[] LEADERBOARD_SLOTS = {10, 11, 12, 13, 14, 28, 29, 30, 31, 32};
 
     private final PlayerData data;
@@ -35,6 +34,11 @@ public class LeaderboardGui extends Gui {
         Player player = (Player) event.getPlayer();
 
         fillGui(createFiller(Material.BLACK_STAINED_GLASS_PANE));
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         addItem(4, createIcon(Material.GOLD_BLOCK, ChatColor.GOLD + "" + ChatColor.BOLD + "Top Cookie Earners",
                 new String[]{

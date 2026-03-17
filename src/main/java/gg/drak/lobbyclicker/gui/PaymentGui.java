@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -15,7 +14,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public class PaymentGui extends Gui {
+public class PaymentGui extends BaseGui {
     private final PlayerData senderData;
     private final String targetUuid;
     private final BigDecimal amount;
@@ -32,10 +31,25 @@ public class PaymentGui extends Gui {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
 
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, senderData).open());
+        addItem(0, home);
+
         String targetName = targetUuid.substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
-        // Amount display
+        // "+" banner at slot 2 (index 2)
+        String amountLore = ChatColor.GRAY + "Amount: " + ChatColor.GOLD + FormatUtils.format(amount);
+        addItem(2, BannerUtil.charBannerIcon("+", amountLore));
+
+        // Banner display at slots 3-6 (index 3-6)
+        String[] display = BannerUtil.parseBannerDisplay(amount);
+        for (int i = 0; i < 4; i++) {
+            addItem(3 + i, BannerUtil.charBannerIcon(display[i], amountLore));
+        }
+
+        // Amount info display
         boolean canAfford = senderData.canAfford(amount) && amount.signum() > 0;
         addItem(13, GuiHelper.createIcon(Material.SUNFLOWER,
                 ChatColor.GOLD + "" + ChatColor.BOLD + FormatUtils.format(amount) + " cookies",
@@ -48,13 +62,14 @@ public class PaymentGui extends Gui {
         addAdjustButton(player, 9, -1, Material.RED_STAINED_GLASS_PANE);
         addAdjustButton(player, 10, -10, Material.RED_STAINED_GLASS_PANE);
         addAdjustButton(player, 11, -100, Material.RED_STAINED_GLASS_PANE);
-        addAdjustButton(player, 0, -1000, Material.RED_STAINED_GLASS_PANE);
-        addAdjustButton(player, 1, -10000, Material.RED_STAINED_GLASS_PANE);
 
         // Increase buttons (right side)
         addAdjustButton(player, 15, 1, Material.LIME_STAINED_GLASS_PANE);
         addAdjustButton(player, 16, 10, Material.LIME_STAINED_GLASS_PANE);
         addAdjustButton(player, 17, 100, Material.LIME_STAINED_GLASS_PANE);
+
+        // Larger adjustments on row above
+        addAdjustButton(player, 1, -1000, Material.RED_STAINED_GLASS_PANE);
         addAdjustButton(player, 7, 1000, Material.LIME_STAINED_GLASS_PANE);
         addAdjustButton(player, 8, 10000, Material.LIME_STAINED_GLASS_PANE);
 

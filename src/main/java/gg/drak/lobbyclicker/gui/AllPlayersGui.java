@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.redis.RedisManager;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -17,7 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class AllPlayersGui extends Gui {
+public class AllPlayersGui extends BaseGui {
     private final PlayerData data;
     private final int page;
     private static final int ITEMS_PER_PAGE = 28;
@@ -38,6 +37,11 @@ public class AllPlayersGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         // Build combined list: local players + cross-server players
         List<PlayerEntry> entries = new ArrayList<>();

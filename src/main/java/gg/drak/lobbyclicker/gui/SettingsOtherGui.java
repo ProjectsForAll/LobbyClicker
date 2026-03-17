@@ -1,15 +1,15 @@
 package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.data.PlayerData;
+import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
-public class SettingsOtherGui extends Gui {
+public class SettingsOtherGui extends BaseGui {
     private final PlayerData data;
 
     public SettingsOtherGui(Player player, PlayerData data) {
@@ -21,6 +21,11 @@ public class SettingsOtherGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         SettingType[] settings = {
                 SettingType.ALLOW_FRIEND_REQUESTS,
@@ -55,13 +60,14 @@ public class SettingsOtherGui extends Gui {
                     data.setRealmPublic(data.getSettings().getBool(SettingType.PUBLIC_FARM));
                 }
                 data.save(true);
+                RedisSyncHandler.publishSettingsSync(data);
                 new SettingsOtherGui(player, data).open();
             });
             addItem(slots[i], icon);
         }
 
         Icon back = GuiHelper.backButton("Back");
-        back.onClick(e -> new SettingsMainGui(player, data).open());
+        back.onClick(e -> new PlayerSettingsGui(player, data).open());
         addItem(22, back);
     }
 }

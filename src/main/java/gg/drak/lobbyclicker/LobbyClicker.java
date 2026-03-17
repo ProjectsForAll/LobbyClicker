@@ -1,9 +1,12 @@
 package gg.drak.lobbyclicker;
 
+import gg.drak.lobbyclicker.gui.BaseGui;
+import gg.drak.lobbyclicker.gui.ClickerGui;
 import host.plas.bou.BetterPlugin;
 import gg.drak.lobbyclicker.commands.ClickerAdminCommand;
 import gg.drak.lobbyclicker.commands.ClickerCommand;
 import gg.drak.lobbyclicker.commands.ClickerDataCommand;
+import gg.drak.lobbyclicker.commands.ClickerTransferCommand;
 import gg.drak.lobbyclicker.commands.LeaderboardCommand;
 import gg.drak.lobbyclicker.config.DatabaseConfig;
 import gg.drak.lobbyclicker.config.MainConfig;
@@ -14,6 +17,7 @@ import gg.drak.lobbyclicker.placeholders.ClickerPlaceholders;
 import gg.drak.lobbyclicker.redis.RedisManager;
 import gg.drak.lobbyclicker.tasks.CookieTask;
 import gg.drak.lobbyclicker.tasks.GuiRefreshTask;
+import host.plas.bou.gui.ScreenManager;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Bukkit;
@@ -65,6 +69,13 @@ public final class LobbyClicker extends BetterPlugin {
             adminCmd.setTabCompleter(adminCommand);
         }
 
+        ClickerTransferCommand transferCommand = new ClickerTransferCommand();
+        PluginCommand transferCmd = getCommand("clickertransfer");
+        if (transferCmd != null) {
+            transferCmd.setExecutor(transferCommand);
+            transferCmd.setTabCompleter(transferCommand);
+        }
+
         ClickerDataCommand dataCommand = new ClickerDataCommand();
         PluginCommand dataCmd = getCommand("clickerdata");
         if (dataCmd != null) {
@@ -104,13 +115,21 @@ public final class LobbyClicker extends BetterPlugin {
         if (getGuiRefreshTask() != null) getGuiRefreshTask().cancel();
 
         // Close all open GUIs
+        ClickerGui.getOpenGuis().clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getOpenInventory().getTopInventory().getHolder() instanceof mc.obliviate.inventory.Gui) {
-                player.closeInventory();
-            }
+            ScreenManager.getScreen(player).ifPresent(screen -> {
+                if (screen.getType() instanceof BaseGui.SimpleGuiType) {
+                    screen.close();
+                }
+            });
         }
 
         if (getRedisManager() != null) getRedisManager().shutdown();
+
+        // Save all loaded profiles
+        for (gg.drak.lobbyclicker.realm.RealmProfile profile : gg.drak.lobbyclicker.realm.ProfileManager.getAllLoadedProfiles()) {
+            getDatabase().putProfileSync(profile);
+        }
 
         PlayerManager.getLoadedPlayers().forEach(playerData -> {
             playerData.saveAndUnload(false);

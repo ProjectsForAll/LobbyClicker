@@ -29,6 +29,10 @@ commands:
     description: Admin commands for LobbyClicker
     usage: /<command> <set|add|reset|info|save|openfor> <player> [amount]
     permission: lobbyclicker.admin
+  clickertransfer:
+    description: Transfer your clicker realm to another player
+    usage: /<command> <player>
+    permission: lobbyclicker.use
   clickerdata:
     description: Data management for LobbyClicker
     usage: /<command> migrate <to-db|to-sqlite>
@@ -40,4 +44,10 @@ permissions:
     default: true
   lobbyclicker.admin:
     description: Allows admin commands for LobbyClicker
+    default: op
+  lobbyclicker.profiles.max.1:
+    description: Allows 1 profile slot
+    default: true
+  lobbyclicker.profiles.max.3:
+    description: Allows 3 profile slots
     default: op

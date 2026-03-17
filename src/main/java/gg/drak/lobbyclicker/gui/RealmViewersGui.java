@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.social.RealmManager;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -15,7 +14,7 @@ import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.*;
 
-public class RealmViewersGui extends Gui {
+public class RealmViewersGui extends BaseGui {
     private final PlayerData data;
 
     public RealmViewersGui(Player player, PlayerData data) {
@@ -27,6 +26,11 @@ public class RealmViewersGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         Set<String> viewers = RealmManager.getViewers(data.getIdentifier());
 

@@ -1,14 +1,13 @@
 package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.data.PlayerData;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
-public class SettingsMainGui extends Gui {
+public class SettingsMainGui extends BaseGui {
     private final PlayerData data;
 
     public SettingsMainGui(Player player, PlayerData data) {
@@ -21,26 +20,33 @@ public class SettingsMainGui extends Gui {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
 
-        Icon sounds = GuiHelper.createIcon(Material.NOTE_BLOCK,
-                ChatColor.GREEN + "" + ChatColor.BOLD + "Sound Toggles",
-                "", ChatColor.GRAY + "Turn sounds on/off");
-        sounds.onClick(e -> new SettingsSoundGui(player, data).open());
-        addItem(11, sounds);
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
-        Icon volumes = GuiHelper.createIcon(Material.JUKEBOX,
-                ChatColor.AQUA + "" + ChatColor.BOLD + "Sound Volumes",
-                "", ChatColor.GRAY + "Adjust volume levels (0-2)");
-        volumes.onClick(e -> new SettingsVolumeGui(player, data).open());
-        addItem(13, volumes);
+        // Player Settings
+        Icon playerSettings = GuiHelper.createIcon(Material.COMPARATOR,
+                ChatColor.YELLOW + "" + ChatColor.BOLD + "Player Settings",
+                "", ChatColor.GRAY + "Sounds, volumes, preferences");
+        playerSettings.onClick(e -> new PlayerSettingsGui(player, data).open());
+        addItem(11, playerSettings);
 
-        Icon other = GuiHelper.createIcon(Material.REDSTONE,
-                ChatColor.RED + "" + ChatColor.BOLD + "Other Settings",
-                "", ChatColor.GRAY + "Friend requests, public farm, etc.");
-        other.onClick(e -> new SettingsOtherGui(player, data).open());
-        addItem(15, other);
+        // Realm Settings
+        Icon realmSettings = GuiHelper.createIcon(Material.BEACON,
+                ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Realm Settings",
+                "", ChatColor.GRAY + "Manage members, realm options");
+        realmSettings.onClick(e -> new RealmSettingsGui(player, data).open());
+        addItem(15, realmSettings);
 
+        // Back
         Icon back = GuiHelper.backButton("Back");
         back.onClick(e -> new ClickerGui(player, data).open());
         addItem(22, back);
+
+        // Close
+        Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
+        close.onClick(e -> player.closeInventory());
+        addItem(26, close);
     }
 }

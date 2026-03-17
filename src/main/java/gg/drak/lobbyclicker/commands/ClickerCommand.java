@@ -4,6 +4,8 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
 import gg.drak.lobbyclicker.gui.GambleAcceptGui;
+import gg.drak.lobbyclicker.gui.ProfileSelectorGui;
+import gg.drak.lobbyclicker.gui.TransferAcceptGui;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import gg.drak.lobbyclicker.social.TransactionType;
 import org.bukkit.ChatColor;
@@ -28,10 +30,23 @@ public class ClickerCommand implements CommandExecutor {
             return true;
         }
 
+        // Check for pending transfer
+        PendingTransaction pendingTransfer = PendingTransaction.getForReceiver(data.getIdentifier());
+        if (pendingTransfer != null && pendingTransfer.getType() == TransactionType.TRANSFER) {
+            new TransferAcceptGui(player, data, pendingTransfer).open();
+            return true;
+        }
+
         // Check for pending gamble bet
         PendingTransaction pendingBet = PendingTransaction.getForReceiver(data.getIdentifier());
         if (pendingBet != null && pendingBet.getType() == TransactionType.GAMBLE) {
             new GambleAcceptGui(player, data, pendingBet).open();
+            return true;
+        }
+
+        // If player has no active profile, show profile selector
+        if (!data.hasActiveProfile()) {
+            new ProfileSelectorGui(player, data).open();
             return true;
         }
 

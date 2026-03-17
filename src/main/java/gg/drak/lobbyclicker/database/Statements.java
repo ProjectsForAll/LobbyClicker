@@ -13,16 +13,42 @@ public class Statements {
                 "CREATE TABLE IF NOT EXISTS `%table_prefix%Players` ( " +
                 "Uuid VARCHAR(36) NOT NULL, " +
                 "Name VARCHAR(16) NOT NULL, " +
+                "Settings TEXT NOT NULL DEFAULT '', " +
+                "ActiveProfileId VARCHAR(36) NOT NULL DEFAULT '', " +
+                "PRIMARY KEY (Uuid) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
+        CREATE_PROFILES_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Profiles` ( " +
+                "ProfileId VARCHAR(36) NOT NULL, " +
+                "OwnerUuid VARCHAR(36) NOT NULL, " +
+                "ProfileName VARCHAR(32) NOT NULL DEFAULT 'Main', " +
                 "Cookies TEXT NOT NULL DEFAULT '0', " +
                 "TotalCookiesEarned TEXT NOT NULL DEFAULT '0', " +
                 "TotalCookiesDigits INT NOT NULL DEFAULT 0, " +
                 "TimesClicked BIGINT NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
-                "Settings TEXT NOT NULL DEFAULT '', " +
-                "RealmPublic TINYINT NOT NULL DEFAULT 0, " +
                 "PrestigeLevel INT NOT NULL DEFAULT 0, " +
                 "Aura TEXT NOT NULL DEFAULT '0', " +
-                "PRIMARY KEY (Uuid) " +
+                "RealmPublic TINYINT NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (ProfileId), " +
+                "INDEX idx_owner (OwnerUuid) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
+        CREATE_PROFILE_ROLES_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%ProfileRoles` ( " +
+                "ProfileId VARCHAR(36) NOT NULL, " +
+                "PlayerUuid VARCHAR(36) NOT NULL, " +
+                "Role VARCHAR(20) NOT NULL DEFAULT 'VISITOR', " +
+                "PRIMARY KEY (ProfileId, PlayerUuid) " +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
+        ),
+        CREATE_PROFILE_BANS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%ProfileBans` ( " +
+                "ProfileId VARCHAR(36) NOT NULL, " +
+                "BannedUuid VARCHAR(36) NOT NULL, " +
+                "IsShadowBan TINYINT NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (ProfileId, BannedUuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
         CREATE_FRIENDS_TABLE(
@@ -55,26 +81,55 @@ public class Statements {
                 "PRIMARY KEY (Owner, Blocked) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
+
+        // Player CRUD (slim: just UUID, name, settings, active profile)
         PUSH_PLAYER_MAIN("INSERT INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, TotalCookiesDigits, TimesClicked, Upgrades, Settings, RealmPublic, PrestigeLevel, Aura " +
+                "Uuid, Name, Settings, ActiveProfileId " +
+                ") VALUES ( " +
+                "?, ?, ?, ? " +
+                ") ON DUPLICATE KEY UPDATE " +
+                "Name = VALUES(Name), " +
+                "Settings = VALUES(Settings), " +
+                "ActiveProfileId = VALUES(ActiveProfileId)" +
+                ";"),
+        PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
+        PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
+        PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
+
+        // Profile CRUD
+        PUSH_PROFILE("INSERT INTO `%table_prefix%Profiles` ( " +
+                "ProfileId, OwnerUuid, ProfileName, Cookies, TotalCookiesEarned, TotalCookiesDigits, " +
+                "TimesClicked, Upgrades, PrestigeLevel, Aura, RealmPublic " +
                 ") VALUES ( " +
                 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
-                "Name = VALUES(Name), " +
+                "ProfileName = VALUES(ProfileName), " +
                 "Cookies = VALUES(Cookies), " +
                 "TotalCookiesEarned = VALUES(TotalCookiesEarned), " +
                 "TotalCookiesDigits = VALUES(TotalCookiesDigits), " +
                 "TimesClicked = VALUES(TimesClicked), " +
                 "Upgrades = VALUES(Upgrades), " +
-                "Settings = VALUES(Settings), " +
-                "RealmPublic = VALUES(RealmPublic), " +
                 "PrestigeLevel = VALUES(PrestigeLevel), " +
-                "Aura = VALUES(Aura)" +
+                "Aura = VALUES(Aura), " +
+                "RealmPublic = VALUES(RealmPublic)" +
                 ";"),
-        PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
-        PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
-        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesDigits DESC, TotalCookiesEarned DESC LIMIT 10;"),
-        PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
+        PULL_PROFILE("SELECT * FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
+        PULL_PROFILES_BY_OWNER("SELECT * FROM `%table_prefix%Profiles` WHERE OwnerUuid = ?;"),
+        DELETE_PROFILE("DELETE FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
+        PULL_LEADERBOARD("SELECT p.ProfileId, p.OwnerUuid, p.ProfileName, p.TotalCookiesEarned, pl.Name " +
+                "FROM `%table_prefix%Profiles` p LEFT JOIN `%table_prefix%Players` pl ON p.OwnerUuid = pl.Uuid " +
+                "ORDER BY p.TotalCookiesDigits DESC, p.TotalCookiesEarned DESC LIMIT 10;"),
+
+        // Profile Roles
+        PUSH_PROFILE_ROLE("INSERT INTO `%table_prefix%ProfileRoles` (ProfileId, PlayerUuid, Role) VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE Role = VALUES(Role);"),
+        DELETE_PROFILE_ROLE("DELETE FROM `%table_prefix%ProfileRoles` WHERE ProfileId = ? AND PlayerUuid = ?;"),
+        PULL_PROFILE_ROLES("SELECT PlayerUuid, Role FROM `%table_prefix%ProfileRoles` WHERE ProfileId = ?;"),
+
+        // Profile Bans
+        PUSH_PROFILE_BAN("INSERT IGNORE INTO `%table_prefix%ProfileBans` (ProfileId, BannedUuid, IsShadowBan) VALUES (?, ?, ?);"),
+        DELETE_PROFILE_BAN("DELETE FROM `%table_prefix%ProfileBans` WHERE ProfileId = ? AND BannedUuid = ?;"),
+        PULL_PROFILE_BANS("SELECT BannedUuid FROM `%table_prefix%ProfileBans` WHERE ProfileId = ?;"),
 
         // Friends
         PUSH_FRIEND("INSERT IGNORE INTO `%table_prefix%Friends` (Uuid1, Uuid2, Since) VALUES (?, ?, ?);"),
@@ -87,7 +142,7 @@ public class Statements {
         PULL_INCOMING_REQUESTS("SELECT Sender FROM `%table_prefix%FriendRequests` WHERE Receiver = ?;"),
         PULL_OUTGOING_REQUESTS("SELECT Receiver FROM `%table_prefix%FriendRequests` WHERE Sender = ?;"),
 
-        // Bans
+        // Legacy Bans (kept for migration, new bans use ProfileBans)
         PUSH_BAN("INSERT IGNORE INTO `%table_prefix%Bans` (Owner, Banned) VALUES (?, ?);"),
         DELETE_BAN("DELETE FROM `%table_prefix%Bans` WHERE Owner = ? AND Banned = ?;"),
         PULL_BANS("SELECT Banned FROM `%table_prefix%Bans` WHERE Owner = ?;"),
@@ -112,16 +167,41 @@ public class Statements {
                 "CREATE TABLE IF NOT EXISTS `%table_prefix%Players` ( " +
                 "Uuid TEXT NOT NULL, " +
                 "Name TEXT NOT NULL, " +
+                "Settings TEXT NOT NULL DEFAULT '', " +
+                "ActiveProfileId TEXT NOT NULL DEFAULT '', " +
+                "PRIMARY KEY (Uuid) " +
+                ");;"
+        ),
+        CREATE_PROFILES_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%Profiles` ( " +
+                "ProfileId TEXT NOT NULL, " +
+                "OwnerUuid TEXT NOT NULL, " +
+                "ProfileName TEXT NOT NULL DEFAULT 'Main', " +
                 "Cookies TEXT NOT NULL DEFAULT '0', " +
                 "TotalCookiesEarned TEXT NOT NULL DEFAULT '0', " +
                 "TotalCookiesDigits INTEGER NOT NULL DEFAULT 0, " +
                 "TimesClicked INTEGER NOT NULL DEFAULT 0, " +
                 "Upgrades TEXT NOT NULL DEFAULT '', " +
-                "Settings TEXT NOT NULL DEFAULT '', " +
-                "RealmPublic INTEGER NOT NULL DEFAULT 0, " +
                 "PrestigeLevel INTEGER NOT NULL DEFAULT 0, " +
                 "Aura TEXT NOT NULL DEFAULT '0', " +
-                "PRIMARY KEY (Uuid) " +
+                "RealmPublic INTEGER NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (ProfileId) " +
+                ");;"
+        ),
+        CREATE_PROFILE_ROLES_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%ProfileRoles` ( " +
+                "ProfileId TEXT NOT NULL, " +
+                "PlayerUuid TEXT NOT NULL, " +
+                "Role TEXT NOT NULL DEFAULT 'VISITOR', " +
+                "PRIMARY KEY (ProfileId, PlayerUuid) " +
+                ");;"
+        ),
+        CREATE_PROFILE_BANS_TABLE(
+                "CREATE TABLE IF NOT EXISTS `%table_prefix%ProfileBans` ( " +
+                "ProfileId TEXT NOT NULL, " +
+                "BannedUuid TEXT NOT NULL, " +
+                "IsShadowBan INTEGER NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (ProfileId, BannedUuid) " +
                 ");;"
         ),
         CREATE_FRIENDS_TABLE(
@@ -154,15 +234,40 @@ public class Statements {
                 "PRIMARY KEY (Owner, Blocked) " +
                 ");;"
         ),
+
+        // Player CRUD
         PUSH_PLAYER_MAIN("INSERT OR REPLACE INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Cookies, TotalCookiesEarned, TotalCookiesDigits, TimesClicked, Upgrades, Settings, RealmPublic, PrestigeLevel, Aura " +
+                "Uuid, Name, Settings, ActiveProfileId " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ? " +
                 ");"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
-        PULL_LEADERBOARD("SELECT Uuid, Name, TotalCookiesEarned FROM `%table_prefix%Players` ORDER BY TotalCookiesDigits DESC, TotalCookiesEarned DESC LIMIT 10;"),
         PULL_ALL_PLAYERS("SELECT * FROM `%table_prefix%Players`;"),
+
+        // Profile CRUD
+        PUSH_PROFILE("INSERT OR REPLACE INTO `%table_prefix%Profiles` ( " +
+                "ProfileId, OwnerUuid, ProfileName, Cookies, TotalCookiesEarned, TotalCookiesDigits, " +
+                "TimesClicked, Upgrades, PrestigeLevel, Aura, RealmPublic " +
+                ") VALUES ( " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                ");"),
+        PULL_PROFILE("SELECT * FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
+        PULL_PROFILES_BY_OWNER("SELECT * FROM `%table_prefix%Profiles` WHERE OwnerUuid = ?;"),
+        DELETE_PROFILE("DELETE FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
+        PULL_LEADERBOARD("SELECT p.ProfileId, p.OwnerUuid, p.ProfileName, p.TotalCookiesEarned, pl.Name " +
+                "FROM `%table_prefix%Profiles` p LEFT JOIN `%table_prefix%Players` pl ON p.OwnerUuid = pl.Uuid " +
+                "ORDER BY p.TotalCookiesDigits DESC, p.TotalCookiesEarned DESC LIMIT 10;"),
+
+        // Profile Roles
+        PUSH_PROFILE_ROLE("INSERT OR REPLACE INTO `%table_prefix%ProfileRoles` (ProfileId, PlayerUuid, Role) VALUES (?, ?, ?);"),
+        DELETE_PROFILE_ROLE("DELETE FROM `%table_prefix%ProfileRoles` WHERE ProfileId = ? AND PlayerUuid = ?;"),
+        PULL_PROFILE_ROLES("SELECT PlayerUuid, Role FROM `%table_prefix%ProfileRoles` WHERE ProfileId = ?;"),
+
+        // Profile Bans
+        PUSH_PROFILE_BAN("INSERT OR IGNORE INTO `%table_prefix%ProfileBans` (ProfileId, BannedUuid, IsShadowBan) VALUES (?, ?, ?);"),
+        DELETE_PROFILE_BAN("DELETE FROM `%table_prefix%ProfileBans` WHERE ProfileId = ? AND BannedUuid = ?;"),
+        PULL_PROFILE_BANS("SELECT BannedUuid FROM `%table_prefix%ProfileBans` WHERE ProfileId = ?;"),
 
         // Friends
         PUSH_FRIEND("INSERT OR IGNORE INTO `%table_prefix%Friends` (Uuid1, Uuid2, Since) VALUES (?, ?, ?);"),
@@ -175,7 +280,7 @@ public class Statements {
         PULL_INCOMING_REQUESTS("SELECT Sender FROM `%table_prefix%FriendRequests` WHERE Receiver = ?;"),
         PULL_OUTGOING_REQUESTS("SELECT Receiver FROM `%table_prefix%FriendRequests` WHERE Sender = ?;"),
 
-        // Bans
+        // Legacy Bans
         PUSH_BAN("INSERT OR IGNORE INTO `%table_prefix%Bans` (Owner, Banned) VALUES (?, ?);"),
         DELETE_BAN("DELETE FROM `%table_prefix%Bans` WHERE Owner = ? AND Banned = ?;"),
         PULL_BANS("SELECT Banned FROM `%table_prefix%Bans` WHERE Owner = ?;"),
@@ -196,6 +301,9 @@ public class Statements {
     public enum StatementType {
         CREATE_DATABASE,
         CREATE_TABLES,
+        CREATE_PROFILES_TABLE,
+        CREATE_PROFILE_ROLES_TABLE,
+        CREATE_PROFILE_BANS_TABLE,
         CREATE_FRIENDS_TABLE,
         CREATE_FRIEND_REQUESTS_TABLE,
         CREATE_BANS_TABLE,
@@ -203,8 +311,18 @@ public class Statements {
         PUSH_PLAYER_MAIN,
         PULL_PLAYER_MAIN,
         PLAYER_EXISTS,
-        PULL_LEADERBOARD,
         PULL_ALL_PLAYERS,
+        PUSH_PROFILE,
+        PULL_PROFILE,
+        PULL_PROFILES_BY_OWNER,
+        DELETE_PROFILE,
+        PULL_LEADERBOARD,
+        PUSH_PROFILE_ROLE,
+        DELETE_PROFILE_ROLE,
+        PULL_PROFILE_ROLES,
+        PUSH_PROFILE_BAN,
+        DELETE_PROFILE_BAN,
+        PULL_PROFILE_BANS,
         PUSH_FRIEND,
         DELETE_FRIEND,
         PULL_FRIENDS,

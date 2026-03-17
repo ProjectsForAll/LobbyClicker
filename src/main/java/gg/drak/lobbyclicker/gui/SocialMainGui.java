@@ -2,14 +2,13 @@ package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.social.RealmManager;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
-public class SocialMainGui extends Gui {
+public class SocialMainGui extends BaseGui {
     private final PlayerData data;
 
     public SocialMainGui(Player player, PlayerData data) {
@@ -21,6 +20,11 @@ public class SocialMainGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         int friendCount = data.getFriends().size();
         Icon friends = GuiHelper.createIcon(Material.TOTEM_OF_UNDYING,

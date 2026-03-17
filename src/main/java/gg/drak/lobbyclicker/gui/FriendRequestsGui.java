@@ -5,7 +5,6 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -18,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class FriendRequestsGui extends Gui {
+public class FriendRequestsGui extends BaseGui {
     private final PlayerData data;
     private final int page;
     private static final int ITEMS_PER_PAGE = 7;
@@ -35,6 +34,11 @@ public class FriendRequestsGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         List<String> requests = new ArrayList<>(data.getIncomingFriendRequests());
         int start = page * ITEMS_PER_PAGE;

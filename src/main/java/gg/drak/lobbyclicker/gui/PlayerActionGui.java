@@ -5,7 +5,6 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -19,7 +18,7 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.UUID;
 
-public class PlayerActionGui extends Gui {
+public class PlayerActionGui extends BaseGui {
     private final PlayerData viewerData;
     private final String targetUuid;
     private final String returnTo; // "friends", "all", "viewers", "social"
@@ -35,6 +34,11 @@ public class PlayerActionGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, viewerData).open());
+        addItem(0, home);
 
         String targetName = targetUuid.substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
@@ -166,17 +170,23 @@ public class PlayerActionGui extends Gui {
         });
         addItem(12, visit);
 
+        // Transfer
+        Icon transfer = GuiHelper.createIcon(Material.ENDER_CHEST, ChatColor.LIGHT_PURPLE + "Transfer Realm",
+                "", ChatColor.GRAY + "Transfer your realm to this player");
+        transfer.onClick(e -> new TransferConfirmGui(player, viewerData, targetUuid).open());
+        addItem(13, transfer);
+
         // Pay
         Icon pay = GuiHelper.createIcon(Material.GOLD_INGOT, ChatColor.GOLD + "Pay Cookies",
                 "", ChatColor.GRAY + "Send cookies to this player");
         pay.onClick(e -> new PaymentGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
-        addItem(13, pay);
+        addItem(14, pay);
 
         // Gamble
         Icon gamble = GuiHelper.createIcon(Material.EMERALD, ChatColor.GREEN + "Gamble",
                 "", ChatColor.GRAY + "Bet cookies against this player");
         gamble.onClick(e -> new GambleGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
-        addItem(14, gamble);
+        addItem(15, gamble);
 
         // Ban / Unban
         if (isBanned) {
@@ -238,6 +248,8 @@ public class PlayerActionGui extends Gui {
                 case "friends": new FriendsListGui(player, viewerData, 0).open(); break;
                 case "all": new AllPlayersGui(player, viewerData, 0).open(); break;
                 case "viewers": new RealmViewersGui(player, viewerData).open(); break;
+                case "realm-friends": new RealmMemberListGui(player, viewerData, true, 0).open(); break;
+                case "realm-all": new RealmMemberListGui(player, viewerData, false, 0).open(); break;
                 default: new SocialMainGui(player, viewerData).open(); break;
             }
         });

@@ -4,7 +4,8 @@ import gg.drak.thebase.objects.Identifiable;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.events.own.PlayerCreationEvent;
 import gg.drak.lobbyclicker.math.CookieMath;
-import gg.drak.lobbyclicker.prestige.PrestigeManager;
+import gg.drak.lobbyclicker.realm.ProfileManager;
+import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import lombok.Getter;
@@ -19,83 +20,47 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Player-level data. Global to the player across all realms.
+ * Realm-specific data (cookies, upgrades, prestige, aura, bans, roles) lives on RealmProfile.
+ * Delegation methods forward to the active profile for backwards compatibility.
+ */
 @Getter @Setter
 public class PlayerData implements Identifiable {
     private String identifier;
     private String name;
-    private BigDecimal cookies;
-    private BigDecimal totalCookiesEarned;
-    private long timesClicked;
-    private EnumMap<UpgradeType, Integer> upgrades;
-    private PlayerSettings settings;
-    private boolean realmPublic;
-    private int prestigeLevel;
-    private BigDecimal aura;
+    private PlayerSettings settings;        // global
     private AtomicBoolean fullyLoaded;
 
-    // Social data (loaded from DB on join)
+    // Active realm profile
+    private String activeProfileId;
+
+    // Social data - global (loaded from DB on join)
     private Set<String> friends;
-    private Set<String> bans;
     private Set<String> blocks;
     private Set<String> incomingFriendRequests;
     private Set<String> outgoingFriendRequests;
 
-    // Milestone tracking (not persisted) - tracks digit counts for instant detection
-    private int lastCurrentDigitCount;
-    private int lastTotalDigitCount;
-    private int lastEntropyDigitCount;
-    private int lastEntropyLeadDigit;
+    // Click rate limiting
+    private transient long[] clickTimestamps = new long[20];
+    private transient int clickIndex = 0;
 
     public PlayerData(String identifier, String name) {
         this.identifier = identifier;
         this.name = name;
-        this.cookies = BigDecimal.ZERO;
-        this.totalCookiesEarned = BigDecimal.ZERO;
-        this.timesClicked = 0;
-        this.upgrades = new EnumMap<>(UpgradeType.class);
-        for (UpgradeType type : UpgradeType.values()) {
-            upgrades.put(type, 0);
-        }
         this.settings = new PlayerSettings();
-        this.realmPublic = false;
-        this.prestigeLevel = 0;
-        this.aura = BigDecimal.ZERO;
         this.fullyLoaded = new AtomicBoolean(false);
         this.friends = ConcurrentHashMap.newKeySet();
-        this.bans = ConcurrentHashMap.newKeySet();
         this.blocks = ConcurrentHashMap.newKeySet();
         this.incomingFriendRequests = ConcurrentHashMap.newKeySet();
         this.outgoingFriendRequests = ConcurrentHashMap.newKeySet();
-        this.lastCurrentDigitCount = 0;
-        this.lastTotalDigitCount = 0;
-        this.lastEntropyDigitCount = 0;
-        this.lastEntropyLeadDigit = 0;
+        this.clickTimestamps = new long[20];
+        this.clickIndex = 0;
     }
 
-    public PlayerData(String identifier, String name, BigDecimal cookies, BigDecimal totalCookiesEarned,
-                      long timesClicked, String upgradeData, String settingsData, boolean realmPublic) {
-        this(identifier, name, cookies, totalCookiesEarned, timesClicked, upgradeData, settingsData, realmPublic, 0, BigDecimal.ZERO);
-    }
-
-    public PlayerData(String identifier, String name, BigDecimal cookies, BigDecimal totalCookiesEarned,
-                      long timesClicked, String upgradeData, String settingsData, boolean realmPublic,
-                      int prestigeLevel, BigDecimal aura) {
-        this(identifier, name);
-        this.cookies = cookies;
-        this.totalCookiesEarned = totalCookiesEarned;
-        this.timesClicked = timesClicked;
-        this.upgrades = deserializeUpgrades(upgradeData);
-        this.settings = new PlayerSettings(settingsData);
-        this.realmPublic = realmPublic;
-        this.prestigeLevel = prestigeLevel;
-        this.aura = aura;
-        this.lastCurrentDigitCount = CookieMath.digitCount(cookies);
-        this.lastTotalDigitCount = CookieMath.digitCount(totalCookiesEarned);
-        BigDecimal entropy = this.getClickerEntropy();
-        this.lastEntropyDigitCount = CookieMath.digitCount(entropy);
-        this.lastEntropyLeadDigit = CookieMath.leadDigit(entropy);
-    }
-
+    /**
+     * Legacy constructor for DB loading. Creates PlayerData + a default RealmProfile with the given realm data.
+     */
     public PlayerData(Player player) {
         this(player.getUniqueId().toString(), player.getName());
     }
@@ -104,91 +69,207 @@ public class PlayerData implements Identifiable {
         this(uuid, "");
     }
 
+    // --- Active profile access ---
+
+    public RealmProfile getActiveProfile() {
+        return ProfileManager.getProfile(activeProfileId).orElse(null);
+    }
+
+    // --- Delegation methods (forward to active profile for backwards compatibility) ---
+
+    public BigDecimal getCookies() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getCookies() : BigDecimal.ZERO;
+    }
+
+    public void setCookies(BigDecimal cookies) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setCookies(cookies);
+    }
+
+    public BigDecimal getTotalCookiesEarned() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getTotalCookiesEarned() : BigDecimal.ZERO;
+    }
+
+    public void setTotalCookiesEarned(BigDecimal total) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setTotalCookiesEarned(total);
+    }
+
+    public long getTimesClicked() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getTimesClicked() : 0;
+    }
+
+    public void setTimesClicked(long clicks) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setTimesClicked(clicks);
+    }
+
+    public EnumMap<UpgradeType, Integer> getUpgrades() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getUpgrades() : new EnumMap<>(UpgradeType.class);
+    }
+
+    public void setUpgrades(EnumMap<UpgradeType, Integer> upgrades) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setUpgrades(upgrades);
+    }
+
+    public boolean isRealmPublic() {
+        RealmProfile p = getActiveProfile();
+        return p != null && p.isRealmPublic();
+    }
+
+    public void setRealmPublic(boolean realmPublic) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setRealmPublic(realmPublic);
+    }
+
+    public int getPrestigeLevel() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getPrestigeLevel() : 0;
+    }
+
+    public void setPrestigeLevel(int level) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setPrestigeLevel(level);
+    }
+
+    public BigDecimal getAura() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getAura() : BigDecimal.ZERO;
+    }
+
+    public void setAura(BigDecimal aura) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setAura(aura);
+    }
+
+    public Set<String> getBans() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getBans() : Collections.emptySet();
+    }
+
     public void addCookies(BigDecimal amount) {
-        this.cookies = this.cookies.add(amount);
-        this.totalCookiesEarned = this.totalCookiesEarned.add(amount);
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.addCookies(amount);
     }
 
     public void removeCookies(BigDecimal amount) {
-        this.cookies = this.cookies.subtract(amount);
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.removeCookies(amount);
     }
 
     public boolean canAfford(BigDecimal amount) {
-        return this.cookies.compareTo(amount) >= 0;
+        RealmProfile p = getActiveProfile();
+        return p != null && p.canAfford(amount);
     }
 
     public BigDecimal getCps() {
-        BigDecimal baseCps = BigDecimal.ZERO;
-        for (UpgradeType type : UpgradeType.values()) {
-            baseCps = baseCps.add(type.getCpsPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type))));
-        }
-        return baseCps.multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel));
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getCps() : BigDecimal.ZERO;
     }
 
     public BigDecimal getCpc() {
-        BigDecimal baseCpc = BigDecimal.ONE;
-        for (UpgradeType type : UpgradeType.values()) {
-            baseCpc = baseCpc.add(type.getCpcPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type))));
-        }
-        return baseCpc.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura))
-                .add(PrestigeManager.getBaseClickAdditive(prestigeLevel));
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getCpc() : BigDecimal.ONE;
     }
 
     public BigDecimal getClickerEntropy() {
-        BigDecimal entropy = BigDecimal.valueOf(timesClicked);
-        for (UpgradeType type : UpgradeType.values()) {
-            entropy = entropy.add(BigDecimal.valueOf((long) getUpgradeCount(type) * type.getEntropyWeight()));
-        }
-        entropy = entropy.add(totalCookiesEarned.divide(CookieMath.ONE_HUNDRED, 0, java.math.RoundingMode.FLOOR));
-        // Factor in aura and prestige
-        entropy = entropy.add(aura.multiply(BigDecimal.TEN));
-        entropy = entropy.add(BigDecimal.valueOf((long) prestigeLevel * 1000));
-        return entropy;
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getClickerEntropy() : BigDecimal.ZERO;
     }
 
     public int getUpgradeCount(UpgradeType type) {
-        return upgrades.getOrDefault(type, 0);
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getUpgradeCount(type) : 0;
     }
 
     public void setUpgradeCount(UpgradeType type, int count) {
-        upgrades.put(type, count);
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setUpgradeCount(type, count);
     }
 
     public boolean buyUpgrade(UpgradeType type) {
-        BigDecimal cost = type.getCost(getUpgradeCount(type));
-        if (!canAfford(cost)) return false;
-        removeCookies(cost);
-        setUpgradeCount(type, getUpgradeCount(type) + 1);
-        return true;
+        RealmProfile p = getActiveProfile();
+        return p != null && p.buyUpgrade(type);
     }
 
     public String serializeUpgrades() {
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<UpgradeType, Integer> entry : upgrades.entrySet()) {
-            if (sb.length() > 0) sb.append(";");
-            sb.append(entry.getKey().name()).append(":").append(entry.getValue());
-        }
-        return sb.toString();
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.serializeUpgrades() : "";
     }
 
     public static EnumMap<UpgradeType, Integer> deserializeUpgrades(String data) {
-        EnumMap<UpgradeType, Integer> map = new EnumMap<>(UpgradeType.class);
-        for (UpgradeType type : UpgradeType.values()) {
-            map.put(type, 0);
-        }
-        if (data != null && !data.isEmpty()) {
-            for (String part : data.split(";")) {
-                String[] kv = part.split(":");
-                if (kv.length == 2) {
-                    try {
-                        UpgradeType type = UpgradeType.valueOf(kv[0]);
-                        map.put(type, Integer.parseInt(kv[1]));
-                    } catch (IllegalArgumentException ignored) {}
-                }
-            }
-        }
-        return map;
+        return RealmProfile.deserializeUpgrades(data);
     }
+
+    // Milestone delegation
+    public int getLastCurrentDigitCount() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getLastCurrentDigitCount() : 0;
+    }
+
+    public void setLastCurrentDigitCount(int v) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setLastCurrentDigitCount(v);
+    }
+
+    public int getLastTotalDigitCount() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getLastTotalDigitCount() : 0;
+    }
+
+    public void setLastTotalDigitCount(int v) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setLastTotalDigitCount(v);
+    }
+
+    public int getLastEntropyDigitCount() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getLastEntropyDigitCount() : 0;
+    }
+
+    public void setLastEntropyDigitCount(int v) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setLastEntropyDigitCount(v);
+    }
+
+    public int getLastEntropyLeadDigit() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getLastEntropyLeadDigit() : 0;
+    }
+
+    public void setLastEntropyLeadDigit(int v) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setLastEntropyLeadDigit(v);
+    }
+
+    public int getTotalCookiesDigits() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getTotalCookiesDigits() : 0;
+    }
+
+    // --- Click rate limiting ---
+
+    /**
+     * Returns true if the click is allowed (under 20 CPS).
+     */
+    public boolean tryClick() {
+        long now = System.currentTimeMillis();
+        int idx = clickIndex % clickTimestamps.length;
+        long oldest = clickTimestamps[idx];
+        if (oldest != 0 && now - oldest < 1000) {
+            return false; // 20 clicks within the last second
+        }
+        clickTimestamps[idx] = now;
+        clickIndex++;
+        return true;
+    }
+
+    // --- Player utility ---
 
     public Optional<Player> asPlayer() {
         try {
@@ -241,19 +322,8 @@ public class PlayerData implements Identifiable {
             if (data.isPresent()) {
                 PlayerData newData = data.get();
                 this.name = newData.getName();
-                this.cookies = newData.getCookies();
-                this.totalCookiesEarned = newData.getTotalCookiesEarned();
-                this.timesClicked = newData.getTimesClicked();
-                this.upgrades = newData.getUpgrades();
                 this.settings = newData.getSettings();
-                this.realmPublic = newData.isRealmPublic();
-                this.prestigeLevel = newData.getPrestigeLevel();
-                this.aura = newData.getAura();
-                this.lastCurrentDigitCount = CookieMath.digitCount(this.cookies);
-                this.lastTotalDigitCount = CookieMath.digitCount(this.totalCookiesEarned);
-                BigDecimal ent = this.getClickerEntropy();
-                this.lastEntropyDigitCount = CookieMath.digitCount(ent);
-                this.lastEntropyLeadDigit = CookieMath.leadDigit(ent);
+                this.activeProfileId = newData.getActiveProfileId();
             } else {
                 if (!isGet) {
                     new PlayerCreationEvent(this).fire();
@@ -261,8 +331,24 @@ public class PlayerData implements Identifiable {
                 }
             }
 
-            // Load social data async
-            loadSocialData().thenRun(() -> this.fullyLoaded.set(true));
+            // Load profiles from DB, then social data
+            loadProfiles().thenCompose(v -> loadSocialData()).thenRun(() -> this.fullyLoaded.set(true));
+        });
+    }
+
+    /**
+     * Load all profiles owned by this player from the database into ProfileManager.
+     * If an activeProfileId is set, ensure that profile is loaded.
+     */
+    private CompletableFuture<Void> loadProfiles() {
+        return LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(this.identifier).thenAccept(profiles -> {
+            for (RealmProfile profile : profiles) {
+                ProfileManager.loadProfile(profile);
+            }
+            // If no active profile is set but profiles exist, use the first one
+            if ((this.activeProfileId == null || this.activeProfileId.isEmpty()) && !profiles.isEmpty()) {
+                this.activeProfileId = profiles.get(0).getProfileId();
+            }
         });
     }
 
@@ -270,11 +356,34 @@ public class PlayerData implements Identifiable {
         String uuid = this.identifier;
         return CompletableFuture.allOf(
                 LobbyClicker.getDatabase().pullFriendsThreaded(uuid).thenAccept(this.friends::addAll),
-                LobbyClicker.getDatabase().pullBansThreaded(uuid).thenAccept(this.bans::addAll),
                 LobbyClicker.getDatabase().pullBlocksThreaded(uuid).thenAccept(this.blocks::addAll),
                 LobbyClicker.getDatabase().pullIncomingRequestsThreaded(uuid).thenAccept(this.incomingFriendRequests::addAll),
                 LobbyClicker.getDatabase().pullOutgoingRequestsThreaded(uuid).thenAccept(this.outgoingFriendRequests::addAll)
         );
+    }
+
+    /**
+     * Check if this player has selected a profile (has an active profile).
+     */
+    public boolean hasActiveProfile() {
+        return activeProfileId != null && !activeProfileId.isEmpty() && getActiveProfile() != null;
+    }
+
+    /**
+     * Get the max number of profiles this player can have, based on permissions.
+     * Checks lobbyclicker.profiles.max.<amount> permissions.
+     */
+    public int getMaxProfiles() {
+        Player player = asPlayer().orElse(null);
+        if (player == null) return 1;
+
+        int max = 1;
+        for (int i = 1; i <= 100; i++) {
+            if (player.hasPermission("lobbyclicker.profiles.max." + i)) {
+                max = i;
+            }
+        }
+        return max;
     }
 
     public boolean isFullyLoaded() {
@@ -288,13 +397,6 @@ public class PlayerData implements Identifiable {
 
     public void saveAndUnload() {
         saveAndUnload(true);
-    }
-
-    /**
-     * Returns the digit count used for leaderboard sorting in the database.
-     */
-    public int getTotalCookiesDigits() {
-        return CookieMath.digitCount(totalCookiesEarned);
     }
 
     public PlayerData waitUntilFullyLoaded() {

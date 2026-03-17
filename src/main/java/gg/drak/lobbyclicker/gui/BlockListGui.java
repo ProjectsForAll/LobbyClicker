@@ -3,7 +3,6 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
-import mc.obliviate.inventory.Gui;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -15,7 +14,7 @@ import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.*;
 
-public class BlockListGui extends Gui {
+public class BlockListGui extends BaseGui {
     private final PlayerData data;
     private final int page;
     private static final int ITEMS_PER_PAGE = 28;
@@ -34,6 +33,11 @@ public class BlockListGui extends Gui {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
         fillGui(GuiHelper.filler());
+
+        // Home button
+        Icon home = GuiHelper.homeButton();
+        home.onClick(e -> new ClickerGui(player, data).open());
+        addItem(0, home);
 
         List<String> blockList = new ArrayList<>(data.getBlocks());
         int start = page * ITEMS_PER_PAGE;
