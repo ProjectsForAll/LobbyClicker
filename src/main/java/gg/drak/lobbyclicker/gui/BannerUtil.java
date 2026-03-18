@@ -192,6 +192,18 @@ public class BannerUtil {
                 meta.addPattern(new Pattern(W, PatternType.STRIPE_MIDDLE));
                 meta.addPattern(new Pattern(R, PatternType.BORDER));
                 break;
+            case "<":
+                meta.addPattern(new Pattern(W, PatternType.STRIPE_DOWNRIGHT));
+                meta.addPattern(new Pattern(R, PatternType.HALF_HORIZONTAL));
+                meta.addPattern(new Pattern(W, PatternType.STRIPE_DOWNLEFT));
+                meta.addPattern(new Pattern(R, PatternType.BORDER));
+                break;
+            case ">":
+                meta.addPattern(new Pattern(W, PatternType.STRIPE_DOWNLEFT));
+                meta.addPattern(new Pattern(R, PatternType.HALF_HORIZONTAL_BOTTOM));
+                meta.addPattern(new Pattern(W, PatternType.STRIPE_DOWNRIGHT));
+                meta.addPattern(new Pattern(R, PatternType.BORDER));
+                break;
 
             default:
                 // Unknown - plain red banner
@@ -268,5 +280,53 @@ public class BannerUtil {
         }
 
         return display;
+    }
+
+    /**
+     * Creates a BLACK base banner with WHITE character.
+     * Used for server-wide balance display.
+     */
+    public static ItemStack createBlackCharBanner(String ch) {
+        ItemStack banner = new ItemStack(Material.BLACK_BANNER);
+        if (ch == null || ch.isEmpty() || ch.equals(" ")) return banner;
+
+        BannerMeta meta = (BannerMeta) banner.getItemMeta();
+        if (meta == null) return banner;
+
+        DyeColor w = DyeColor.WHITE;
+        DyeColor b = DyeColor.BLACK;
+
+        // Reuse same patterns but with black base and black erase
+        switch (ch) {
+            case "0": meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(b, PatternType.STRIPE_DOWNLEFT)); meta.addPattern(new Pattern(w, PatternType.BORDER)); break;
+            case "1": meta.addPattern(new Pattern(w, PatternType.STRIPE_CENTER)); meta.addPattern(new Pattern(w, PatternType.SQUARE_TOP_LEFT)); meta.addPattern(new Pattern(b, PatternType.CURLY_BORDER)); meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "2": meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(b, PatternType.RHOMBUS)); meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_DOWNLEFT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "3": meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_MIDDLE)); meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(b, PatternType.CURLY_BORDER)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "4": meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(b, PatternType.HALF_HORIZONTAL_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_MIDDLE)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "5": meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(b, PatternType.RHOMBUS)); meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_DOWNRIGHT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "6": meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(b, PatternType.HALF_HORIZONTAL)); meta.addPattern(new Pattern(w, PatternType.STRIPE_MIDDLE)); meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "7": meta.addPattern(new Pattern(w, PatternType.STRIPE_DOWNLEFT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "8": meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_MIDDLE)); meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "9": meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(b, PatternType.HALF_HORIZONTAL_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_MIDDLE)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case ".": meta.addPattern(new Pattern(w, PatternType.SQUARE_BOTTOM_LEFT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "K": meta.addPattern(new Pattern(w, PatternType.STRIPE_DOWNRIGHT)); meta.addPattern(new Pattern(b, PatternType.HALF_HORIZONTAL)); meta.addPattern(new Pattern(w, PatternType.STRIPE_DOWNLEFT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "M": meta.addPattern(new Pattern(w, PatternType.TRIANGLE_TOP)); meta.addPattern(new Pattern(b, PatternType.TRIANGLES_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "B": meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_BOTTOM)); meta.addPattern(new Pattern(w, PatternType.STRIPE_LEFT)); meta.addPattern(new Pattern(w, PatternType.STRIPE_MIDDLE)); meta.addPattern(new Pattern(b, PatternType.CURLY_BORDER)); meta.addPattern(new Pattern(w, PatternType.STRIPE_RIGHT)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            case "T": meta.addPattern(new Pattern(w, PatternType.STRIPE_TOP)); meta.addPattern(new Pattern(w, PatternType.STRIPE_CENTER)); meta.addPattern(new Pattern(b, PatternType.BORDER)); break;
+            default: break;
+        }
+        banner.setItemMeta(meta);
+        return banner;
+    }
+
+    public static Icon blackCharBannerIcon(String ch, String loreLine) {
+        ItemStack banner = createBlackCharBanner(ch);
+        ItemMeta meta = banner.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.WHITE + (ch != null ? ch.trim() : ""));
+            if (loreLine != null) meta.setLore(Arrays.asList(loreLine));
+            banner.setItemMeta(meta);
+        }
+        return new Icon(banner);
     }
 }

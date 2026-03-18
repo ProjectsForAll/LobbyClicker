@@ -48,14 +48,22 @@ public class PlayerSettings {
         return getBool(SettingType.SOUND_MASTER) && getBool(soundType);
     }
 
+    /**
+     * Get volume as a float (0.0 to 5.0).
+     * Stored internally as int (0-500, representing value * 100).
+     * Legacy values 0/1/2 are auto-converted (0->0, 1->50, 2->100).
+     */
     public float getVolume(SettingType volumeType) {
         int val = get(volumeType);
-        switch (val) {
-            case 0: return 0.0f;
-            case 1: return 0.5f;
-            case 2: return 1.0f;
-            default: return 0.5f;
+        // Legacy migration: old values were 0, 1, or 2
+        if (val >= 0 && val <= 2) {
+            switch (val) {
+                case 0: return 0.0f;
+                case 1: return 0.5f;
+                case 2: return 1.0f;
+            }
         }
+        return Math.max(0.0f, Math.min(5.0f, val / 100.0f));
     }
 
     public String serialize() {

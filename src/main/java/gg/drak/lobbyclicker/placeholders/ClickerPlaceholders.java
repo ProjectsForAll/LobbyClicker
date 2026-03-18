@@ -67,6 +67,14 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
             case "clicks_raw":
             case "realm_clicks_raw":
                 return String.valueOf(data.getTimesClicked());
+            case "realm_owner_clicks":
+                return FormatUtils.format(data.getOwnerClicks());
+            case "realm_owner_clicks_raw":
+                return String.valueOf(data.getOwnerClicks());
+            case "realm_other_clicks":
+                return FormatUtils.format(data.getOtherClicks());
+            case "realm_other_clicks_raw":
+                return String.valueOf(data.getOtherClicks());
             case "global_clicks":
                 return FormatUtils.format(data.getGlobalClicks());
             case "global_clicks_raw":

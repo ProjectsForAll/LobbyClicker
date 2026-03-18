@@ -92,6 +92,8 @@ public class RedisSyncHandler {
                 + "|" + profile.getCookies().toPlainString()
                 + "|" + profile.getTotalCookiesEarned().toPlainString()
                 + "|" + profile.getTimesClicked()
+                + "|" + profile.getOwnerClicks()
+                + "|" + profile.getOtherClicks()
                 + "|" + profile.serializeUpgrades()
                 + "|" + profile.getPrestigeLevel()
                 + "|" + profile.getAura().toPlainString()
@@ -108,6 +110,16 @@ public class RedisSyncHandler {
         RedisManager rm = LobbyClicker.getRedisManager();
         if (rm == null) return;
         rm.publishData("CLICK|" + rm.getServerId() + "|" + ownerUuid + "|" + clickerUuid + "|" + clickerName);
+    }
+
+    /**
+     * Forward an upgrade purchase to the home server of the realm owner.
+     * Format: BUY_UPGRADE|serverId|ownerUuid|buyerUuid|upgradeTypeName
+     */
+    public static void publishBuyUpgrade(String ownerUuid, String buyerUuid, String upgradeTypeName) {
+        RedisManager rm = LobbyClicker.getRedisManager();
+        if (rm == null) return;
+        rm.publishData("BUY_UPGRADE|" + rm.getServerId() + "|" + ownerUuid + "|" + buyerUuid + "|" + upgradeTypeName);
     }
 
     /**
@@ -220,7 +232,7 @@ public class RedisSyncHandler {
      */
     public static void handleDataMessage(String message, String localServerId) {
         try {
-            String[] parts = message.split("\\|");
+            String[] parts = message.split("\\|", -1); // -1 preserves trailing empty strings
             if (parts.length < 3) return;
 
             String action = parts[0];
@@ -235,6 +247,9 @@ public class RedisSyncHandler {
                     break;
                 case "CLICK":
                     handleRemoteClick(parts);
+                    break;
+                case "BUY_UPGRADE":
+                    handleRemoteBuyUpgrade(parts);
                     break;
                 case "SETTINGS_SYNC":
                     handleSettingsSync(parts);
@@ -259,7 +274,9 @@ public class RedisSyncHandler {
      * Format: DATA_SYNC|serverId|uuid|profileId|cookies|totalEarned|timesClicked|upgrades|prestige|aura|realmPublic|settings
      */
     private static void handleDataSync(String[] parts) {
-        if (parts.length < 12) return;
+        // Format: DATA_SYNC|serverId|uuid|profileId|cookies|totalEarned|timesClicked|ownerClicks|otherClicks|upgrades|prestige|aura|realmPublic[|settings]
+        // Indices:    0         1      2      3        4         5            6            7           8         9        10      11      12        13
+        if (parts.length < 13) return;
 
         String uuid = parts[2];
         String profileId = parts[3];
@@ -271,7 +288,6 @@ public class RedisSyncHandler {
         // Try exact profileId first, then fallback to any profile owned by this player
         java.util.Optional<RealmProfile> profileOpt = ProfileManager.getProfile(profileId);
         if (profileOpt.isEmpty()) {
-            // Fallback: find any loaded profile for this player (profileId mismatch between servers)
             java.util.List<RealmProfile> ownerProfiles = ProfileManager.getProfilesForOwner(uuid);
             if (!ownerProfiles.isEmpty()) {
                 profileOpt = java.util.Optional.of(ownerProfiles.get(0));
@@ -281,16 +297,18 @@ public class RedisSyncHandler {
             profile.setCookies(CookieMath.parse(parts[4]));
             profile.setTotalCookiesEarned(CookieMath.parse(parts[5]));
             try { profile.setTimesClicked(Long.parseLong(parts[6])); } catch (NumberFormatException ignored) {}
-            profile.setUpgrades(RealmProfile.deserializeUpgrades(parts[7]));
-            try { profile.setPrestigeLevel(Integer.parseInt(parts[8])); } catch (NumberFormatException ignored) {}
-            profile.setAura(CookieMath.parse(parts[9]));
-            try { profile.setRealmPublic(Integer.parseInt(parts[10]) != 0); } catch (NumberFormatException ignored) {}
+            try { profile.setOwnerClicks(Long.parseLong(parts[7])); } catch (NumberFormatException ignored) {}
+            try { profile.setOtherClicks(Long.parseLong(parts[8])); } catch (NumberFormatException ignored) {}
+            profile.setUpgrades(RealmProfile.deserializeUpgrades(parts[9]));
+            try { profile.setPrestigeLevel(Integer.parseInt(parts[10])); } catch (NumberFormatException ignored) {}
+            profile.setAura(CookieMath.parse(parts[11]));
+            try { profile.setRealmPublic(Integer.parseInt(parts[12]) != 0); } catch (NumberFormatException ignored) {}
         });
 
         // Update player-level settings if loaded
-        if (parts.length > 11) {
+        if (parts.length > 13) {
             PlayerManager.getPlayer(uuid).ifPresent(data -> {
-                data.setSettings(new PlayerSettings(parts[11]));
+                data.setSettings(new PlayerSettings(parts[13]));
             });
         }
     }
@@ -316,6 +334,12 @@ public class RedisSyncHandler {
             ownerData.addCookies(ownerData.getCpc());
             ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
 
+            // Track other clicks on the profile (remote clicks are always from visitors)
+            RealmProfile profile = ownerData.getActiveProfile();
+            if (profile != null) {
+                profile.setOtherClicks(profile.getOtherClicks() + 1);
+            }
+
             // Notify owner about remote click with friend-aware sounds
             ownerData.asPlayer().ifPresent(owner -> {
                 boolean isFriend = ownerData.getFriends().contains(clickerUuid);
@@ -333,6 +357,49 @@ public class RedisSyncHandler {
      * Handle SOUND: play a sound for a cur player on this server.
      * Format: SOUND|serverId|targetUuid|soundName|volume|pitch
      */
+    /**
+     * Handle BUY_UPGRADE: a visitor on another server wants to buy an upgrade for a realm owned by a cur player.
+     * Only apply if the owner is online HERE (we are the home server).
+     * Format: BUY_UPGRADE|serverId|ownerUuid|buyerUuid|upgradeTypeName
+     */
+    /**
+     * Handle BUY_UPGRADE: a visitor on another conn server wants to buy an upgrade
+     * for a realm owned by a cur player on THIS server.
+     *
+     * The home server checks if the owner can afford it and applies the purchase.
+     * No sounds are sent back to the buyer — the buyer plays an optimistic buy sound
+     * locally, and the next DATA_SYNC (within 1 second) will update the buyer's GUI
+     * with the real values.
+     */
+    private static void handleRemoteBuyUpgrade(String[] parts) {
+        if (parts.length < 5) return;
+
+        String ownerUuid = parts[2];
+        String upgradeTypeName = parts[4];
+
+        // Only apply if the owner is online on THIS server (we are authoritative)
+        if (org.bukkit.Bukkit.getPlayer(java.util.UUID.fromString(ownerUuid)) == null) return;
+
+        PlayerManager.getPlayer(ownerUuid).ifPresent(ownerData -> {
+            if (!ownerData.isFullyLoaded()) return;
+
+            try {
+                gg.drak.lobbyclicker.upgrades.UpgradeType type = gg.drak.lobbyclicker.upgrades.UpgradeType.valueOf(upgradeTypeName);
+                if (ownerData.buyUpgrade(type)) {
+                    // Notify the realm owner about the purchase
+                    ownerData.asPlayer().ifPresent(owner -> {
+                        if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_BUY)) {
+                            float vol = ownerData.getSettings().getVolume(SettingType.VOLUME_BUY);
+                            owner.playSound(owner.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, vol, 1.5f);
+                        }
+                    });
+                }
+                // No sounds sent back to buyer — they already played an optimistic sound.
+                // The next DATA_SYNC will reflect the actual state.
+            } catch (IllegalArgumentException ignored) {}
+        });
+    }
+
     private static void handleSound(String[] parts) {
         if (parts.length < 6) return;
         String targetUuid = parts[2];

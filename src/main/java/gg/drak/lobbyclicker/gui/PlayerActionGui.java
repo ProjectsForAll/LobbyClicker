@@ -3,6 +3,8 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
+import gg.drak.lobbyclicker.gui.monitor.SimpleGuiMonitor;
 import gg.drak.lobbyclicker.redis.RedisManager;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
@@ -19,13 +21,13 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.UUID;
 
-public class PlayerActionGui extends BaseGui {
+public class PlayerActionGui extends SimpleGuiMonitor {
     private final PlayerData viewerData;
     private final String targetUuid;
     private final String returnTo; // "friends", "all", "viewers", "social"
 
     public PlayerActionGui(Player player, PlayerData viewerData, String targetUuid, String returnTo) {
-        super(player, "player-action", ChatColor.YELLOW + "" + ChatColor.BOLD + "Player Actions", 3);
+        super(player, "player-action", MonitorStyle.title(ChatColor.YELLOW, "Player Actions"), MonitorStyle.ROWS_FULL);
         this.viewerData = viewerData;
         this.targetUuid = targetUuid;
         this.returnTo = returnTo;
@@ -33,13 +35,20 @@ public class PlayerActionGui extends BaseGui {
 
     @Override
     public void onOpen(InventoryOpenEvent event) {
+        super.onOpen(event);
         Player player = (Player) event.getPlayer();
-        fillGui(GuiHelper.filler());
-
-        // Home button
-        Icon home = GuiHelper.homeButton();
-        home.onClick(e -> new ClickerGui(player, viewerData).open());
-        addItem(0, home);
+        setPlayerContext(viewerData, null);
+        fillMonitorBorder();
+        buildStandardActionBar(p -> {
+            switch (returnTo) {
+                case "friends": new FriendsListGui(p, viewerData, 0).open(); break;
+                case "all": new AllPlayersGui(p, viewerData, 0).open(); break;
+                case "viewers": new RealmViewersGui(p, viewerData).open(); break;
+                case "realm-friends": new RealmMemberListGui(p, viewerData, true, 0).open(); break;
+                case "realm-all": new RealmMemberListGui(p, viewerData, false, 0).open(); break;
+                default: new SocialMainGui(p, viewerData).open(); break;
+            }
+        });
 
         String targetName = targetUuid.substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
@@ -259,19 +268,6 @@ public class PlayerActionGui extends BaseGui {
             addItem(16, block);
         }
 
-        // Back
-        Icon back = GuiHelper.backButton("Back");
-        back.onClick(e -> {
-            switch (returnTo) {
-                case "friends": new FriendsListGui(player, viewerData, 0).open(); break;
-                case "all": new AllPlayersGui(player, viewerData, 0).open(); break;
-                case "viewers": new RealmViewersGui(player, viewerData).open(); break;
-                case "realm-friends": new RealmMemberListGui(player, viewerData, true, 0).open(); break;
-                case "realm-all": new RealmMemberListGui(player, viewerData, false, 0).open(); break;
-                default: new SocialMainGui(player, viewerData).open(); break;
-            }
-        });
-        addItem(22, back);
     }
 
     private String getTargetName() {

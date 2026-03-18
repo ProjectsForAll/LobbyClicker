@@ -28,7 +28,9 @@ public class RealmProfile {
     // Realm economy
     private BigDecimal cookies;
     private BigDecimal totalCookiesEarned;
-    private long timesClicked;
+    private long timesClicked;       // combined (owner + others)
+    private long ownerClicks;        // clicks by the realm owner
+    private long otherClicks;        // clicks by visitors
     private EnumMap<UpgradeType, Integer> upgrades;
     private int prestigeLevel;
     private BigDecimal aura;
@@ -51,6 +53,8 @@ public class RealmProfile {
         this.cookies = BigDecimal.ZERO;
         this.totalCookiesEarned = BigDecimal.ZERO;
         this.timesClicked = 0;
+        this.ownerClicks = 0;
+        this.otherClicks = 0;
         this.upgrades = new EnumMap<>(UpgradeType.class);
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
@@ -213,6 +217,8 @@ public class RealmProfile {
         this.cookies = BigDecimal.ZERO;
         this.totalCookiesEarned = BigDecimal.ZERO;
         this.timesClicked = 0;
+        this.ownerClicks = 0;
+        this.otherClicks = 0;
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
         }
@@ -226,12 +232,13 @@ public class RealmProfile {
 
     /**
      * Merge another profile's data into this one additively (for transfers).
-     * cookies add, totalEarned add, upgrades max, prestige add, aura add, clicks add.
      */
     public void mergeFrom(RealmProfile other) {
         this.cookies = this.cookies.add(other.cookies);
         this.totalCookiesEarned = this.totalCookiesEarned.add(other.totalCookiesEarned);
         this.timesClicked += other.timesClicked;
+        this.ownerClicks += other.ownerClicks;
+        this.otherClicks += other.otherClicks;
         for (UpgradeType type : UpgradeType.values()) {
             this.upgrades.put(type, Math.max(this.getUpgradeCount(type), other.getUpgradeCount(type)));
         }

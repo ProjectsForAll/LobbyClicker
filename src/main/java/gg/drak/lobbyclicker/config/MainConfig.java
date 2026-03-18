@@ -55,4 +55,9 @@ public class MainConfig extends SimpleConfiguration {
         reloadResource();
         return getOrSetDefault("redis.channel-prefix", "lobbyclicker:");
     }
+
+    public int getMaxClicksPerSecond() {
+        reloadResource();
+        return getOrSetDefault("clicker.max-clicks-per-second", 20);
+    }
 }

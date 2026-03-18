@@ -41,12 +41,12 @@ public class PaymentGui extends BaseGui {
 
         // "+" banner at slot 2 (index 2)
         String amountLore = ChatColor.GRAY + "Amount: " + ChatColor.GOLD + FormatUtils.format(amount);
-        addItem(2, BannerUtil.charBannerIcon("+", amountLore));
+        addItem(2, BannerChar.of("+", BannerChar.BannerColor.RED, BannerChar.BannerColor.WHITE).toIcon(amountLore));
 
         // Banner display at slots 3-6 (index 3-6)
         String[] display = BannerUtil.parseBannerDisplay(amount);
         for (int i = 0; i < 4; i++) {
-            addItem(3 + i, BannerUtil.charBannerIcon(display[i], amountLore));
+            addItem(3 + i, BannerChar.of(display[i], BannerChar.BannerColor.RED, BannerChar.BannerColor.WHITE).toIcon(amountLore));
         }
 
         // Amount info display

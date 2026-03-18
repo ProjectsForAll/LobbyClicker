@@ -1,7 +1,9 @@
 package gg.drak.lobbyclicker.gui;
 
+import gg.drak.lobbyclicker.data.LeaderboardCache;
 import gg.drak.lobbyclicker.data.PlayerData;
-import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
+import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
@@ -10,66 +12,100 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-public class LeaderboardGui extends BaseGui {
-    private static final int[] LEADERBOARD_SLOTS = {10, 11, 12, 13, 14, 28, 29, 30, 31, 32};
-
+/**
+ * Leaderboard showing each player's selected realm and highest-value realm.
+ * If selected == highest, only one entry is shown.
+ */
+public class LeaderboardGui extends PaginationMonitor {
     private final PlayerData data;
 
+    private static final ConcurrentHashMap<UUID, LeaderboardGui> OPEN_GUIS = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<UUID, LeaderboardGui> getOpenGuis() { return OPEN_GUIS; }
+
     public LeaderboardGui(Player player, PlayerData data) {
-        super(player, "clicker-leaderboard", ChatColor.AQUA + "" + ChatColor.BOLD + "Leaderboard", 6);
+        this(player, data, 0);
+    }
+
+    public LeaderboardGui(Player player, PlayerData data, int page) {
+        super(player, "clicker-leaderboard", MonitorStyle.title(ChatColor.AQUA, "Leaderboard"), page);
         this.data = data;
     }
 
     @Override
     public void onOpen(InventoryOpenEvent event) {
-        Player player = (Player) event.getPlayer();
+        super.onOpen(event);
+        LeaderboardCache.refreshAsync();
+        buildDisplay();
+        OPEN_GUIS.put(player.getUniqueId(), this);
+    }
 
-        fillGui(createFiller(Material.BLACK_STAINED_GLASS_PANE));
+    public void refreshDisplay() {
+        if (player == null || !player.isOnline()) return;
+        buildDisplay();
+    }
 
-        // Home button
-        Icon home = GuiHelper.homeButton();
-        home.onClick(e -> new ClickerGui(player, data).open());
-        addItem(0, home);
+    private void buildDisplay() {
+        setPlayerContext(data, null);
+        fillMonitorBorder();
+        buildStandardActionBar(p -> new ClickerGui(p, data).open());
 
-        addItem(4, createIcon(Material.GOLD_BLOCK, ChatColor.GOLD + "" + ChatColor.BOLD + "Top Cookie Earners",
-                new String[]{
-                        "",
-                        ChatColor.GRAY + "Ranked by total cookies earned"
-                }));
+        // Build deduplicated entries: per player, show selected realm + highest realm (if different)
+        List<LeaderboardCache.LeaderboardEntry> allEntries = LeaderboardCache.getLeaderboard();
 
-        // Back button
-        Icon back = createIcon(Material.ARROW, ChatColor.RED + "Back", new String[]{
-                "",
-                ChatColor.GRAY + "Return to Cookie Clicker"
-        });
-        back.onClick(e -> new ClickerGui(player, data).open());
-        addItem(49, back);
+        // Group by player UUID, keep the highest and the selected
+        Map<String, List<LeaderboardCache.LeaderboardEntry>> byPlayer = new LinkedHashMap<>();
+        for (LeaderboardCache.LeaderboardEntry entry : allEntries) {
+            byPlayer.computeIfAbsent(entry.getPlayerUuid(), k -> new ArrayList<>()).add(entry);
+        }
 
-        List<PlayerData> entries = PlayerManager.getLoadedPlayers().stream()
-                .filter(PlayerData::isFullyLoaded)
-                .sorted((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()))
-                .limit(LEADERBOARD_SLOTS.length)
-                .collect(Collectors.toList());
+        // Build display list: for each player, show highest realm. If their selected realm is different, show that too.
+        List<LeaderboardCache.LeaderboardEntry> displayEntries = new ArrayList<>();
+        for (Map.Entry<String, List<LeaderboardCache.LeaderboardEntry>> playerEntries : byPlayer.entrySet()) {
+            List<LeaderboardCache.LeaderboardEntry> entries = playerEntries.getValue();
+            // Sort by total earned desc
+            entries.sort((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()));
+            LeaderboardCache.LeaderboardEntry highest = entries.get(0);
+            displayEntries.add(highest);
 
-        if (entries.isEmpty()) {
-            addItem(22, createIcon(Material.PAPER, ChatColor.GRAY + "No entries yet",
-                    new String[]{ChatColor.GRAY + "Be the first to earn cookies!"}));
+            // Check if the player's selected realm is different from their highest
+            gg.drak.lobbyclicker.data.PlayerData pd = gg.drak.lobbyclicker.data.PlayerManager.getPlayer(playerEntries.getKey()).orElse(null);
+            if (pd != null && pd.getActiveProfileId() != null) {
+                String activeId = pd.getActiveProfileId();
+                if (!activeId.equals(highest.getProfileId())) {
+                    // Find the selected realm in entries
+                    for (LeaderboardCache.LeaderboardEntry e : entries) {
+                        if (e.getProfileId().equals(activeId)) {
+                            displayEntries.add(e);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sort final list by total earned desc
+        displayEntries.sort((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()));
+
+        if (displayEntries.isEmpty()) {
+            setContent(0, GuiHelper.createIcon(Material.PAPER, ChatColor.GRAY + "No entries yet",
+                    ChatColor.GRAY + "Be the first to earn cookies!"));
+            addPaginationArrows(displayEntries, newPage -> new LeaderboardGui(player, data, newPage).open());
             return;
         }
 
-        for (int i = 0; i < entries.size(); i++) {
-            PlayerData entry = entries.get(i);
-            int rank = i + 1;
-            int slot = LEADERBOARD_SLOTS[i];
+        populatePagedContent(displayEntries, (entry, slot) -> {
+            int slotIndex = 0;
+            for (int i = 0; i < PAGINATED_SLOTS.length; i++) {
+                if (PAGINATED_SLOTS[i] == slot) { slotIndex = i; break; }
+            }
+            int rank = page * getItemsPerPage() + slotIndex + 1;
 
             ChatColor rankColor;
             switch (rank) {
@@ -79,43 +115,41 @@ public class LeaderboardGui extends BaseGui {
                 default: rankColor = ChatColor.WHITE; break;
             }
 
+            // Check if this is the selected or highest realm
+            gg.drak.lobbyclicker.data.PlayerData entryPd = gg.drak.lobbyclicker.data.PlayerManager.getPlayer(entry.getPlayerUuid()).orElse(null);
+            boolean isSelected = entryPd != null && entry.getProfileId().equals(entryPd.getActiveProfileId());
+            String tag = isSelected ? ChatColor.GREEN + " \u2605" : ChatColor.GRAY + " \u2606"; // filled/empty star
+
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
             if (skullMeta != null) {
-                try {
-                    skullMeta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(entry.getIdentifier())));
-                } catch (Exception ignored) {}
-                skullMeta.setDisplayName(rankColor + "#" + rank + " " + ChatColor.WHITE + entry.getName());
+                try { skullMeta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(entry.getPlayerUuid()))); } catch (Exception ignored) {}
+                skullMeta.setDisplayName(rankColor + "#" + rank + " " + ChatColor.WHITE + entry.getPlayerName() + tag);
                 skullMeta.setLore(Arrays.asList(
                         "",
+                        ChatColor.GRAY + "Profile: " + ChatColor.WHITE + entry.getProfileName()
+                                + (isSelected ? ChatColor.GREEN + " (Selected)" : ""),
                         ChatColor.GRAY + "Cookies: " + ChatColor.GOLD + FormatUtils.format(entry.getCookies()),
-                        ChatColor.GRAY + "Total Earned: " + ChatColor.GOLD + FormatUtils.format(entry.getTotalCookiesEarned())
+                        ChatColor.GRAY + "Total Earned: " + ChatColor.GOLD + FormatUtils.format(entry.getTotalCookiesEarned()),
+                        ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + entry.getPrestigeLevel(),
+                        "",
+                        ChatColor.YELLOW + "Click to view profile"
                 ));
                 head.setItemMeta(skullMeta);
             }
 
-            addItem(slot, new Icon(head));
-        }
-    }
+            Icon icon = new Icon(head);
+            icon.onClick(e -> {
+                OPEN_GUIS.remove(player.getUniqueId());
+                new ProfileViewGui(player, data, entry,
+                        p -> new LeaderboardGui(p, data, page).open()).open();
+            });
+            addItem(slot, icon);
+        });
 
-    private static Icon createFiller(Material material) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            item.setItemMeta(meta);
-        }
-        return new Icon(item);
-    }
-
-    private static Icon createIcon(Material material, String name, String[] lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            if (lore != null) meta.setLore(Arrays.asList(lore));
-            item.setItemMeta(meta);
-        }
-        return new Icon(item);
+        addPaginationArrows(displayEntries, newPage -> {
+            OPEN_GUIS.remove(player.getUniqueId());
+            new LeaderboardGui(player, data, newPage).open();
+        });
     }
 }

@@ -62,7 +62,15 @@ public class GuiHelper {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
         if (meta != null) {
-            try { meta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(uuid))); } catch (Exception ignored) {}
+            try {
+                UUID uid = UUID.fromString(uuid);
+                Player onlinePlayer = Bukkit.getPlayer(uid);
+                if (onlinePlayer != null) {
+                    meta.setOwningPlayer(onlinePlayer);
+                } else {
+                    meta.setOwningPlayer(Bukkit.getOfflinePlayer(uid));
+                }
+            } catch (Exception ignored) {}
             meta.setDisplayName(name);
             if (lore != null && lore.length > 0) meta.setLore(Arrays.asList(lore));
             head.setItemMeta(meta);

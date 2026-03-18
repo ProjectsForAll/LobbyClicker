@@ -53,6 +53,21 @@ public class ClickerOperator extends DBOperator {
                     " NOT NULL DEFAULT 0;", stmt -> {});
             LobbyClicker.getInstance().logInfo("Added GlobalClicks column to Players table.");
         }
+        // Add missing columns to Profiles table
+        Set<String> existingProfileCols = getColumnNames(prefix + "Profiles");
+        if (!existingProfileCols.isEmpty()) {
+            boolean mysql = getConnectorSet().getType() == DatabaseType.MYSQL;
+            String longType = mysql ? "BIGINT" : "INTEGER";
+            if (!existingProfileCols.contains("OwnerClicks")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `OwnerClicks` " + longType + " NOT NULL DEFAULT 0;", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added OwnerClicks column to Profiles table.");
+            }
+            if (!existingProfileCols.contains("OtherClicks")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `OtherClicks` " + longType + " NOT NULL DEFAULT 0;", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added OtherClicks column to Profiles table.");
+            }
+        }
+
         if (!existingPlayerCols.contains("Settings") && existingPlayerCols.contains("Cookies")) {
             // Old schema had Settings in Players table already, but just in case
             execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `Settings` TEXT NOT NULL DEFAULT '';", stmt -> {});
@@ -305,10 +320,12 @@ public class ClickerOperator extends DBOperator {
                 stmt.setString(5, profile.getTotalCookiesEarned().toPlainString());
                 stmt.setInt(6, profile.getTotalCookiesDigits());
                 stmt.setLong(7, profile.getTimesClicked());
-                stmt.setString(8, profile.serializeUpgrades());
-                stmt.setInt(9, profile.getPrestigeLevel());
-                stmt.setString(10, profile.getAura().toPlainString());
-                stmt.setInt(11, profile.isRealmPublic() ? 1 : 0);
+                stmt.setLong(8, profile.getOwnerClicks());
+                stmt.setLong(9, profile.getOtherClicks());
+                stmt.setString(10, profile.serializeUpgrades());
+                stmt.setInt(11, profile.getPrestigeLevel());
+                stmt.setString(12, profile.getAura().toPlainString());
+                stmt.setInt(13, profile.isRealmPublic() ? 1 : 0);
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Failed to push profile", e);
             }
@@ -396,6 +413,8 @@ public class ClickerOperator extends DBOperator {
             p.setCookies(CookieMath.parse(rs.getString("Cookies")));
             p.setTotalCookiesEarned(CookieMath.parse(rs.getString("TotalCookiesEarned")));
             p.setTimesClicked(rs.getLong("TimesClicked"));
+            try { p.setOwnerClicks(rs.getLong("OwnerClicks")); } catch (Throwable ignored) {}
+            try { p.setOtherClicks(rs.getLong("OtherClicks")); } catch (Throwable ignored) {}
             p.setUpgrades(RealmProfile.deserializeUpgrades(rs.getString("Upgrades")));
             p.setPrestigeLevel(rs.getInt("PrestigeLevel"));
             p.setAura(CookieMath.parse(rs.getString("Aura")));
@@ -439,6 +458,46 @@ public class ClickerOperator extends DBOperator {
                     profile.getBans().add(rs.getString("BannedUuid"));
                 }
             } catch (Throwable ignored) {}
+        });
+    }
+
+    public void deleteProfileFromDb(String profileId) {
+        gg.drak.thebase.async.AsyncUtils.executeAsync(() -> {
+            ensureUsable();
+            String s = Statements.getStatement(Statements.StatementType.DELETE_PROFILE, getConnectorSet());
+            execute(s, stmt -> { try { stmt.setString(1, profileId); } catch (Throwable ignored) {} });
+        });
+    }
+
+    // ===================== LEADERBOARD =====================
+
+    public CompletableFuture<List<gg.drak.lobbyclicker.data.LeaderboardCache.LeaderboardEntry>> pullLeaderboardFromDb() {
+        return CompletableFuture.supplyAsync(() -> {
+            ensureUsable();
+            String s = Statements.getStatement(Statements.StatementType.PULL_LEADERBOARD, getConnectorSet());
+            List<gg.drak.lobbyclicker.data.LeaderboardCache.LeaderboardEntry> results = new ArrayList<>();
+            executeQuery(s, stmt -> {}, rs -> {
+                try {
+                    while (rs.next()) {
+                        String profileId = rs.getString("ProfileId");
+                        String ownerUuid = rs.getString("OwnerUuid");
+                        String profileName = rs.getString("ProfileName");
+                        java.math.BigDecimal cookies = CookieMath.parse(rs.getString("Cookies"));
+                        java.math.BigDecimal totalEarned = CookieMath.parse(rs.getString("TotalCookiesEarned"));
+                        int prestige = rs.getInt("PrestigeLevel");
+                        String playerName = rs.getString("Name");
+                        if (playerName == null) playerName = ownerUuid.substring(0, 8);
+
+                        results.add(new gg.drak.lobbyclicker.data.LeaderboardCache.LeaderboardEntry(
+                                ownerUuid, playerName, profileId, profileName,
+                                cookies, totalEarned, prestige, java.math.BigDecimal.ZERO // CPS not stored in DB query
+                        ));
+                    }
+                } catch (Throwable e) {
+                    LobbyClicker.getInstance().logWarning("Failed to pull leaderboard", e);
+                }
+            });
+            return results;
         });
     }
 

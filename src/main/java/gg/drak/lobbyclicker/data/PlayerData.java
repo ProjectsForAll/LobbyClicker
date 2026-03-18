@@ -47,6 +47,7 @@ public class PlayerData implements Identifiable {
     // Click rate limiting
     private transient long[] clickTimestamps = new long[20];
     private transient int clickIndex = 0;
+    private transient long lastClickTime = 0;
 
     public PlayerData(String identifier, String name) {
         this.identifier = identifier;
@@ -109,6 +110,16 @@ public class PlayerData implements Identifiable {
     public void setTimesClicked(long clicks) {
         RealmProfile p = getActiveProfile();
         if (p != null) p.setTimesClicked(clicks);
+    }
+
+    public long getOwnerClicks() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getOwnerClicks() : 0;
+    }
+
+    public long getOtherClicks() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getOtherClicks() : 0;
     }
 
     public EnumMap<UpgradeType, Integer> getUpgrades() {
@@ -259,17 +270,27 @@ public class PlayerData implements Identifiable {
     // --- Click rate limiting ---
 
     /**
-     * Returns true if the click is allowed (under 20 CPS).
+     * Returns true if the click is allowed (under configurable CPS limit).
      */
     public boolean tryClick() {
         long now = System.currentTimeMillis();
+
+        // Minimum 25ms between clicks to prevent duplicate event counting
+        if (now - lastClickTime < 25) return false;
+
+        int maxCps = LobbyClicker.getMainConfig().getMaxClicksPerSecond();
+        if (clickTimestamps.length != maxCps) {
+            clickTimestamps = new long[maxCps];
+            clickIndex = 0;
+        }
         int idx = clickIndex % clickTimestamps.length;
         long oldest = clickTimestamps[idx];
         if (oldest != 0 && now - oldest < 1000) {
-            return false; // 20 clicks within the last second
+            return false;
         }
         clickTimestamps[idx] = now;
         clickIndex++;
+        lastClickTime = now;
         return true;
     }
 
