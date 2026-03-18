@@ -47,6 +47,12 @@ public class ClickerOperator extends DBOperator {
                     " NOT NULL DEFAULT '';", stmt -> {});
             LobbyClicker.getInstance().logInfo("Added ActiveProfileId column to Players table.");
         }
+        if (!existingPlayerCols.contains("GlobalClicks")) {
+            execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `GlobalClicks` " +
+                    (getConnectorSet().getType() == DatabaseType.MYSQL ? "BIGINT" : "INTEGER") +
+                    " NOT NULL DEFAULT 0;", stmt -> {});
+            LobbyClicker.getInstance().logInfo("Added GlobalClicks column to Players table.");
+        }
         if (!existingPlayerCols.contains("Settings") && existingPlayerCols.contains("Cookies")) {
             // Old schema had Settings in Players table already, but just in case
             execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `Settings` TEXT NOT NULL DEFAULT '';", stmt -> {});
@@ -208,6 +214,7 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(2, playerData.getName());
                     stmt.setString(3, playerData.getSettings().serialize());
                     stmt.setString(4, playerData.getActiveProfileId() != null ? playerData.getActiveProfileId() : "");
+                    stmt.setLong(5, playerData.getGlobalClicks());
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to push player", e);
                 }
@@ -242,6 +249,7 @@ public class ClickerOperator extends DBOperator {
                         PlayerData data = new PlayerData(uuid, name);
                         data.setSettings(new gg.drak.lobbyclicker.settings.PlayerSettings(settings));
                         data.setActiveProfileId(activeProfileId != null && !activeProfileId.isEmpty() ? activeProfileId : null);
+                        try { data.setGlobalClicks(rs.getLong("GlobalClicks")); } catch (Throwable ignored) {}
 
                         ref.set(Optional.of(data));
                     }
@@ -273,6 +281,7 @@ public class ClickerOperator extends DBOperator {
                         PlayerData data = new PlayerData(uuid, name);
                         data.setSettings(new gg.drak.lobbyclicker.settings.PlayerSettings(settings));
                         data.setActiveProfileId(activeProfileId);
+                        try { data.setGlobalClicks(rs.getLong("GlobalClicks")); } catch (Throwable ignored) {}
                         players.add(data);
                     }
                 } catch (Throwable e) {

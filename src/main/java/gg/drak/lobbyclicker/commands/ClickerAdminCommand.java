@@ -137,7 +137,8 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.GOLD + "--- " + target.getName() + "'s Clicker Stats ---");
                 sender.sendMessage(ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(data.getCookies()));
                 sender.sendMessage(ChatColor.GRAY + "Total Earned: " + ChatColor.WHITE + FormatUtils.format(data.getTotalCookiesEarned()));
-                sender.sendMessage(ChatColor.GRAY + "Times Clicked: " + ChatColor.WHITE + FormatUtils.format(data.getTimesClicked()));
+                sender.sendMessage(ChatColor.GRAY + "Realm Clicks: " + ChatColor.WHITE + FormatUtils.format(data.getTimesClicked()));
+                sender.sendMessage(ChatColor.GRAY + "Global Clicks: " + ChatColor.WHITE + FormatUtils.format(data.getGlobalClicks()));
                 sender.sendMessage(ChatColor.GRAY + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(data.getClickerEntropy()));
                 sender.sendMessage(ChatColor.GRAY + "CPS: " + ChatColor.WHITE + FormatUtils.format(data.getCps()));
                 sender.sendMessage(ChatColor.GRAY + "CPC: " + ChatColor.WHITE + FormatUtils.format(data.getCpc()));

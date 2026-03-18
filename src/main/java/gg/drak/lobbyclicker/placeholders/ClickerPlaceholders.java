@@ -62,9 +62,15 @@ public class ClickerPlaceholders extends PlaceholderExpansion {
             case "entropy_raw":
                 return data.getClickerEntropy().toPlainString();
             case "clicks":
+            case "realm_clicks":
                 return FormatUtils.format(data.getTimesClicked());
             case "clicks_raw":
+            case "realm_clicks_raw":
                 return String.valueOf(data.getTimesClicked());
+            case "global_clicks":
+                return FormatUtils.format(data.getGlobalClicks());
+            case "global_clicks_raw":
+                return String.valueOf(data.getGlobalClicks());
             case "friends":
                 return String.valueOf(data.getFriends().size());
             case "realm_public":

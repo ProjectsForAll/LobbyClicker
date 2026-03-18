@@ -41,6 +41,9 @@ public class PlayerData implements Identifiable {
     private Set<String> incomingFriendRequests;
     private Set<String> outgoingFriendRequests;
 
+    // Global click counter (all clicks across all profiles + other players' realms)
+    private long globalClicks;
+
     // Click rate limiting
     private transient long[] clickTimestamps = new long[20];
     private transient int clickIndex = 0;
@@ -54,6 +57,7 @@ public class PlayerData implements Identifiable {
         this.blocks = ConcurrentHashMap.newKeySet();
         this.incomingFriendRequests = ConcurrentHashMap.newKeySet();
         this.outgoingFriendRequests = ConcurrentHashMap.newKeySet();
+        this.globalClicks = 0;
         this.clickTimestamps = new long[20];
         this.clickIndex = 0;
     }
@@ -324,6 +328,7 @@ public class PlayerData implements Identifiable {
                 this.name = newData.getName();
                 this.settings = newData.getSettings();
                 this.activeProfileId = newData.getActiveProfileId();
+                this.globalClicks = newData.getGlobalClicks();
             } else {
                 if (!isGet) {
                     new PlayerCreationEvent(this).fire();

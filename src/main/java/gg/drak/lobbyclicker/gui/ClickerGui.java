@@ -244,6 +244,9 @@ public class ClickerGui extends BaseGui {
                 ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
             }
 
+            // Increment viewer's global click counter (always, regardless of whose realm)
+            viewerData.setGlobalClicks(viewerData.getGlobalClicks() + 1);
+
             updateStats();
             updateDigitDisplay();
             addCookieItem(player);
@@ -280,10 +283,13 @@ public class ClickerGui extends BaseGui {
                 "",
                 ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
                 ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCps()),
+                ChatColor.GRAY + "Realm Clicks: " + ChatColor.WHITE + FormatUtils.format(ownerData.getTimesClicked()),
                 "",
                 ChatColor.LIGHT_PURPLE + "Prestige: " + ChatColor.WHITE + ownerData.getPrestigeLevel(),
                 ChatColor.LIGHT_PURPLE + "Aura: " + ChatColor.WHITE + FormatUtils.format(ownerData.getAura()),
-                ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(ownerData.getClickerEntropy()));
+                ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(ownerData.getClickerEntropy()),
+                "",
+                ChatColor.AQUA + "Your Global Clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()));
         addItem(4, stats);
     }
 
