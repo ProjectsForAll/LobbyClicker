@@ -102,12 +102,32 @@ public class RedisSyncHandler {
 
     /**
      * Forward a visitor click to the home server of the realm owner.
-     * Format: CLICK|serverId|ownerUuid|clickerName
+     * Format: CLICK|serverId|ownerUuid|clickerUuid|clickerName
      */
-    public static void publishClick(String ownerUuid, String clickerName) {
+    public static void publishClick(String ownerUuid, String clickerUuid, String clickerName) {
         RedisManager rm = LobbyClicker.getRedisManager();
         if (rm == null) return;
-        rm.publishData("CLICK|" + rm.getServerId() + "|" + ownerUuid + "|" + clickerName);
+        rm.publishData("CLICK|" + rm.getServerId() + "|" + ownerUuid + "|" + clickerUuid + "|" + clickerName);
+    }
+
+    /**
+     * Publish a sound event to be played for a specific player on their conn server.
+     * Format: SOUND|serverId|targetUuid|soundName|volume|pitch
+     */
+    public static void publishSound(String targetUuid, String soundName, float volume, float pitch) {
+        RedisManager rm = LobbyClicker.getRedisManager();
+        if (rm == null) return;
+        rm.publishData("SOUND|" + rm.getServerId() + "|" + targetUuid + "|" + soundName + "|" + volume + "|" + pitch);
+    }
+
+    /**
+     * Publish a message to be sent to a specific player on their conn server.
+     * Format: MESSAGE|serverId|targetUuid|message
+     */
+    public static void publishMessage(String targetUuid, String message) {
+        RedisManager rm = LobbyClicker.getRedisManager();
+        if (rm == null) return;
+        rm.publishData("MESSAGE|" + rm.getServerId() + "|" + targetUuid + "|" + message);
     }
 
     /**
@@ -219,6 +239,12 @@ public class RedisSyncHandler {
                 case "SETTINGS_SYNC":
                     handleSettingsSync(parts);
                     break;
+                case "SOUND":
+                    handleSound(parts);
+                    break;
+                case "MESSAGE":
+                    handleMessage(parts);
+                    break;
             }
         } catch (Throwable e) {
             LobbyClicker.getInstance().logWarning("Failed to handle data sync message: " + message, e);
@@ -242,7 +268,16 @@ public class RedisSyncHandler {
         if (org.bukkit.Bukkit.getPlayer(java.util.UUID.fromString(uuid)) != null) return;
 
         // Update the profile directly if it's loaded (e.g., someone is viewing this OBO player's realm)
-        ProfileManager.getProfile(profileId).ifPresent(profile -> {
+        // Try exact profileId first, then fallback to any profile owned by this player
+        java.util.Optional<RealmProfile> profileOpt = ProfileManager.getProfile(profileId);
+        if (profileOpt.isEmpty()) {
+            // Fallback: find any loaded profile for this player (profileId mismatch between servers)
+            java.util.List<RealmProfile> ownerProfiles = ProfileManager.getProfilesForOwner(uuid);
+            if (!ownerProfiles.isEmpty()) {
+                profileOpt = java.util.Optional.of(ownerProfiles.get(0));
+            }
+        }
+        profileOpt.ifPresent(profile -> {
             profile.setCookies(CookieMath.parse(parts[4]));
             profile.setTotalCookiesEarned(CookieMath.parse(parts[5]));
             try { profile.setTimesClicked(Long.parseLong(parts[6])); } catch (NumberFormatException ignored) {}
@@ -263,13 +298,14 @@ public class RedisSyncHandler {
     /**
      * Handle CLICK: a visitor on another server clicked in a realm owned by a player on THIS server.
      * Only apply if the owner is online HERE (we are the home server).
-     * Format: CLICK|serverId|ownerUuid|clickerName
+     * Format: CLICK|serverId|ownerUuid|clickerUuid|clickerName
      */
     private static void handleRemoteClick(String[] parts) {
-        if (parts.length < 4) return;
+        if (parts.length < 5) return;
 
         String ownerUuid = parts[2];
-        String clickerName = parts[3];
+        String clickerUuid = parts[3];
+        String clickerName = parts[4];
 
         // Only apply if the owner is online on THIS server
         if (org.bukkit.Bukkit.getPlayer(java.util.UUID.fromString(ownerUuid)) == null) return;
@@ -280,14 +316,51 @@ public class RedisSyncHandler {
             ownerData.addCookies(ownerData.getCpc());
             ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
 
-            // Notify owner about remote click
+            // Notify owner about remote click with friend-aware sounds
             ownerData.asPlayer().ifPresent(owner -> {
-                if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_RANDO_CLICKER)) {
-                    float vol = ownerData.getSettings().getVolume(SettingType.VOLUME_RANDO_CLICKER);
+                boolean isFriend = ownerData.getFriends().contains(clickerUuid);
+                SettingType st = isFriend ? SettingType.SOUND_FRIEND_CLICKER : SettingType.SOUND_RANDO_CLICKER;
+                SettingType vt = isFriend ? SettingType.VOLUME_FRIEND_CLICKER : SettingType.VOLUME_RANDO_CLICKER;
+                if (ownerData.getSettings().isSoundEnabled(st)) {
+                    float vol = ownerData.getSettings().getVolume(vt);
                     owner.playSound(owner.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, vol, 1.5f);
                 }
             });
         });
+    }
+
+    /**
+     * Handle SOUND: play a sound for a cur player on this server.
+     * Format: SOUND|serverId|targetUuid|soundName|volume|pitch
+     */
+    private static void handleSound(String[] parts) {
+        if (parts.length < 6) return;
+        String targetUuid = parts[2];
+        org.bukkit.entity.Player target = org.bukkit.Bukkit.getPlayer(java.util.UUID.fromString(targetUuid));
+        if (target == null) return;
+        try {
+            org.bukkit.Sound sound = org.bukkit.Sound.valueOf(parts[3]);
+            float volume = Float.parseFloat(parts[4]);
+            float pitch = Float.parseFloat(parts[5]);
+            target.playSound(target.getLocation(), sound, volume, pitch);
+        } catch (Throwable ignored) {}
+    }
+
+    /**
+     * Handle MESSAGE: send a chat message to a cur player on this server.
+     * Format: MESSAGE|serverId|targetUuid|message
+     */
+    private static void handleMessage(String[] parts) {
+        if (parts.length < 4) return;
+        String targetUuid = parts[2];
+        org.bukkit.entity.Player target = org.bukkit.Bukkit.getPlayer(java.util.UUID.fromString(targetUuid));
+        if (target == null) return;
+        // Rejoin remaining parts in case message contained "|"
+        StringBuilder msg = new StringBuilder(parts[3]);
+        for (int i = 4; i < parts.length; i++) {
+            msg.append("|").append(parts[i]);
+        }
+        target.sendMessage(msg.toString());
     }
 
     /**

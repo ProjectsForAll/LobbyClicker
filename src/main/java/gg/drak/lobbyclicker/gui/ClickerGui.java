@@ -237,7 +237,7 @@ public class ClickerGui extends BaseGui {
 
             if (ownerIsRemote) {
                 // Forward click to home server via Redis — don't modify local data
-                RedisSyncHandler.publishClick(ownerData.getIdentifier(), viewerData.getName());
+                RedisSyncHandler.publishClick(ownerData.getIdentifier(), viewerData.getIdentifier(), viewerData.getName());
             } else {
                 // Owner is local (or offline realm) — apply directly
                 ownerData.addCookies(ownerData.getCpc());
