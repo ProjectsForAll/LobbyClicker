@@ -4,6 +4,8 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.math.CookieMath;
+import gg.drak.lobbyclicker.realm.ProfileManager;
+import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.settings.SettingType;
 import org.bukkit.Sound;
@@ -72,25 +74,28 @@ public class RedisSyncHandler {
     // ===================== DATA CHANNEL =====================
 
     /**
-     * Publish a full data snapshot for a player. Called every second by CookieTask
-     * for each online player on this (home) server.
+     * Publish a full data snapshot for a cur player's active profile.
+     * Called every second by CookieTask for each cur player on this server.
      *
-     * Format: DATA_SYNC:serverId:uuid:cookies:totalEarned:timesClicked:upgrades:prestige:aura:realmPublic:settings
-     * The "|" character is used as the field separator to avoid conflicts with ":" in serialized data.
+     * Format: DATA_SYNC|serverId|uuid|profileId|cookies|totalEarned|timesClicked|upgrades|prestige|aura|realmPublic|settings
      */
     public static void publishDataSync(PlayerData data) {
         RedisManager rm = LobbyClicker.getRedisManager();
         if (rm == null) return;
 
+        RealmProfile profile = data.getActiveProfile();
+        if (profile == null) return;
+
         String msg = "DATA_SYNC|" + rm.getServerId()
                 + "|" + data.getIdentifier()
-                + "|" + data.getCookies().toPlainString()
-                + "|" + data.getTotalCookiesEarned().toPlainString()
-                + "|" + data.getTimesClicked()
-                + "|" + data.serializeUpgrades()
-                + "|" + data.getPrestigeLevel()
-                + "|" + data.getAura().toPlainString()
-                + "|" + (data.isRealmPublic() ? 1 : 0)
+                + "|" + profile.getProfileId()
+                + "|" + profile.getCookies().toPlainString()
+                + "|" + profile.getTotalCookiesEarned().toPlainString()
+                + "|" + profile.getTimesClicked()
+                + "|" + profile.serializeUpgrades()
+                + "|" + profile.getPrestigeLevel()
+                + "|" + profile.getAura().toPlainString()
+                + "|" + (profile.isRealmPublic() ? 1 : 0)
                 + "|" + data.getSettings().serialize();
         rm.publishData(msg);
     }
@@ -221,31 +226,38 @@ public class RedisSyncHandler {
     }
 
     /**
-     * Handle DATA_SYNC: update local PlayerData copy from authoritative home server.
-     * Only updates if the player is NOT online on this server (home server is authoritative).
-     * Format: DATA_SYNC|serverId|uuid|cookies|totalEarned|timesClicked|upgrades|prestige|aura|realmPublic|settings
+     * Handle DATA_SYNC: update the specific profile from the authoritative home server.
+     * Only updates if the player is NOT a cur player on this server.
+     * Updates the profile directly in ProfileManager so the GUI sees fresh data.
+     *
+     * Format: DATA_SYNC|serverId|uuid|profileId|cookies|totalEarned|timesClicked|upgrades|prestige|aura|realmPublic|settings
      */
     private static void handleDataSync(String[] parts) {
-        if (parts.length < 11) return;
+        if (parts.length < 12) return;
 
         String uuid = parts[2];
+        String profileId = parts[3];
 
-        // Don't overwrite data for players who are online HERE — we are their home server
+        // Don't overwrite data for cur players — this server is their home server
         if (org.bukkit.Bukkit.getPlayer(java.util.UUID.fromString(uuid)) != null) return;
 
-        // Only update if this player's data is loaded on this server (e.g., someone is viewing their realm)
-        PlayerManager.getPlayer(uuid).ifPresent(data -> {
-            data.setCookies(CookieMath.parse(parts[3]));
-            data.setTotalCookiesEarned(CookieMath.parse(parts[4]));
-            try { data.setTimesClicked(Long.parseLong(parts[5])); } catch (NumberFormatException ignored) {}
-            data.setUpgrades(PlayerData.deserializeUpgrades(parts[6]));
-            try { data.setPrestigeLevel(Integer.parseInt(parts[7])); } catch (NumberFormatException ignored) {}
-            data.setAura(CookieMath.parse(parts[8]));
-            try { data.setRealmPublic(Integer.parseInt(parts[9]) != 0); } catch (NumberFormatException ignored) {}
-            if (parts.length > 10) {
-                data.setSettings(new PlayerSettings(parts[10]));
-            }
+        // Update the profile directly if it's loaded (e.g., someone is viewing this OBO player's realm)
+        ProfileManager.getProfile(profileId).ifPresent(profile -> {
+            profile.setCookies(CookieMath.parse(parts[4]));
+            profile.setTotalCookiesEarned(CookieMath.parse(parts[5]));
+            try { profile.setTimesClicked(Long.parseLong(parts[6])); } catch (NumberFormatException ignored) {}
+            profile.setUpgrades(RealmProfile.deserializeUpgrades(parts[7]));
+            try { profile.setPrestigeLevel(Integer.parseInt(parts[8])); } catch (NumberFormatException ignored) {}
+            profile.setAura(CookieMath.parse(parts[9]));
+            try { profile.setRealmPublic(Integer.parseInt(parts[10]) != 0); } catch (NumberFormatException ignored) {}
         });
+
+        // Update player-level settings if loaded
+        if (parts.length > 11) {
+            PlayerManager.getPlayer(uuid).ifPresent(data -> {
+                data.setSettings(new PlayerSettings(parts[11]));
+            });
+        }
     }
 
     /**

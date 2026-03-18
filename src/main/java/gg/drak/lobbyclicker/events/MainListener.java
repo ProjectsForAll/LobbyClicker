@@ -53,7 +53,8 @@ public class MainListener extends AbstractConglomerate {
         // Clean up pending transactions
         PendingTransaction.removeAllFor(uuid);
 
-        // Unregister GUI
+        // Unregister GUIs
         ClickerGui.unregisterGui(player.getUniqueId());
+        gg.drak.lobbyclicker.gui.UpgradeGui.unregisterGui(player.getUniqueId());
     }
 }

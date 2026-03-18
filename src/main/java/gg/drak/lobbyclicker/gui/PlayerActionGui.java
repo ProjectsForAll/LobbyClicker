@@ -3,6 +3,7 @@ package gg.drak.lobbyclicker.gui;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
+import gg.drak.lobbyclicker.redis.RedisManager;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
 import mc.obliviate.inventory.Icon;
@@ -122,10 +123,14 @@ public class PlayerActionGui extends BaseGui {
                 "", ChatColor.GRAY + "Visit their clicker realm");
         visit.onClick(e -> {
             PlayerData targetData = PlayerManager.getPlayer(targetUuid).orElse(null);
-            boolean targetOnline = targetData != null && targetData.isFullyLoaded();
+            boolean targetLocalOnline = targetData != null && targetData.isFullyLoaded();
 
-            if (!targetOnline) {
-                // Try offline realm visit
+            // Check if target is an OBO player (online on another conn server)
+            RedisManager redis = LobbyClicker.getRedisManager();
+            boolean targetIsObo = !targetLocalOnline && redis != null && redis.isPlayerOnlineRemotely(targetUuid);
+
+            if (!targetLocalOnline && !targetIsObo) {
+                // Truly offline - try offline realm visit
                 if (!isFriend) {
                     player.sendMessage(ChatColor.RED + "Player is not online.");
                     return;
@@ -142,9 +147,9 @@ public class PlayerActionGui extends BaseGui {
                     PlayerManager.unloadPlayer(offlineData);
                     return;
                 }
-                boolean banned = offlineData.getBans().contains(viewerData.getIdentifier())
+                boolean offlineBanned = offlineData.getBans().contains(viewerData.getIdentifier())
                         || offlineData.getBlocks().contains(viewerData.getIdentifier());
-                if (banned) {
+                if (offlineBanned) {
                     player.sendMessage(ChatColor.RED + "You are not allowed to visit this realm.");
                     PlayerManager.unloadPlayer(offlineData);
                     return;
@@ -153,6 +158,19 @@ public class PlayerActionGui extends BaseGui {
                 return;
             }
 
+            // Target is online (locally or OBO) - load their data if needed
+            if (targetData == null || !targetData.isFullyLoaded()) {
+                // OBO player: load from DB
+                player.sendMessage(ChatColor.YELLOW + "Loading realm from connected server...");
+                java.util.Optional<PlayerData> oboOpt = PlayerManager.getOrGetPlayer(targetUuid);
+                if (oboOpt.isEmpty()) {
+                    player.sendMessage(ChatColor.RED + "Could not load player data.");
+                    return;
+                }
+                targetData = oboOpt.get().waitUntilFullyLoaded();
+            }
+
+            // OBO players are treated as online: use ALLOW_FRIEND_JOINS, not ALLOW_OFFLINE_REALM
             boolean canVisit = targetData.isRealmPublic()
                     || (targetData.getFriends().contains(viewerData.getIdentifier())
                     && targetData.getSettings().getBool(SettingType.ALLOW_FRIEND_JOINS));

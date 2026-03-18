@@ -13,14 +13,18 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class UpgradeGui extends BaseGui {
     private final PlayerData data;
 
     private static final int[] UPGRADE_SLOTS = {19, 20, 21, 22, 28, 29, 30, 31};
+    private static final ConcurrentHashMap<UUID, UpgradeGui> OPEN_GUIS = new ConcurrentHashMap<>();
+
+    public static ConcurrentHashMap<UUID, UpgradeGui> getOpenGuis() { return OPEN_GUIS; }
+    public static void registerGui(UUID uuid, UpgradeGui gui) { OPEN_GUIS.put(uuid, gui); }
+    public static void unregisterGui(UUID uuid) { OPEN_GUIS.remove(uuid); }
 
     public UpgradeGui(Player player, PlayerData data) {
         super(player, "clicker-upgrades", ChatColor.GREEN + "" + ChatColor.BOLD + "Upgrades", 6);
@@ -29,14 +33,30 @@ public class UpgradeGui extends BaseGui {
 
     @Override
     public void onOpen(InventoryOpenEvent event) {
+        super.onOpen(event);
         Player player = (Player) event.getPlayer();
 
+        buildDisplay(player);
+
+        registerGui(player.getUniqueId(), this);
+    }
+
+    public void refreshDisplay() {
+        Player player = this.player;
+        if (player == null || !player.isOnline()) return;
+        buildDisplay(player);
+    }
+
+    private void buildDisplay(Player player) {
         // Fill background
         fillGui(createFiller());
 
         // Home button
         Icon home = GuiHelper.homeButton();
-        home.onClick(e -> new ClickerGui(player, data).open());
+        home.onClick(e -> {
+            unregisterGui(player.getUniqueId());
+            new ClickerGui(player, data).open();
+        });
         addItem(0, home);
 
         // Cookie count display
@@ -55,7 +75,10 @@ public class UpgradeGui extends BaseGui {
                 "",
                 ChatColor.GRAY + "Return to Cookie Clicker"
         });
-        back.onClick(e -> new ClickerGui(player, data).open());
+        back.onClick(e -> {
+            unregisterGui(player.getUniqueId());
+            new ClickerGui(player, data).open();
+        });
         addItem(49, back);
     }
 
@@ -96,7 +119,7 @@ public class UpgradeGui extends BaseGui {
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
             }
-            new UpgradeGui(player, data).open();
+            refreshDisplay();
         });
 
         return icon;
