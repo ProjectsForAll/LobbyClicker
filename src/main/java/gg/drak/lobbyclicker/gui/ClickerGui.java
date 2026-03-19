@@ -123,7 +123,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             stopGoldenCookieTask();
             unregisterGui(player.getUniqueId());
             if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new SocialMainGui(player, viewerData).open();
+            new SocialMainGui(player, viewerData, isVisiting ? ownerData : null).open();
         });
         addItem(b, social);
 
@@ -133,7 +133,7 @@ public class ClickerGui extends SimpleGuiMonitor {
                 "", ChatColor.GRAY + "Configure preferences");
         settings.onClick(e -> {
             stopGoldenCookieTask();
-            new SettingsMainGui(player, viewerData).open();
+            new SettingsMainGui(player, viewerData, isVisiting ? ownerData : null).open();
         });
         addItem(b + 1, settings);
 
@@ -182,7 +182,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             stopGoldenCookieTask();
             unregisterGui(player.getUniqueId());
             if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new LeaderboardGui(player, viewerData).open();
+            new LeaderboardGui(player, viewerData, isVisiting ? ownerData : null).open();
         });
         addItem(b + 5, leaderboard);
 
@@ -195,7 +195,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             stopGoldenCookieTask();
             unregisterGui(player.getUniqueId());
             if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new PrestigeGui(player, viewerData).open();
+            new PrestigeGui(player, viewerData, isVisiting ? ownerData : null).open();
         });
         addItem(b + 6, prestige);
 
@@ -207,7 +207,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             stopGoldenCookieTask();
             unregisterGui(player.getUniqueId());
             if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new ProfileSelectorGui(player, viewerData).open();
+            new ProfileSelectorGui(player, viewerData, isVisiting ? ownerData : null).open();
         });
         addItem(b + 7, profiles);
 

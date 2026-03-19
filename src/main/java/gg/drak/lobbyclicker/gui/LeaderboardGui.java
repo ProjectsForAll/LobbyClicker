@@ -25,17 +25,27 @@ import java.util.stream.Collectors;
  */
 public class LeaderboardGui extends PaginationMonitor {
     private final PlayerData data;
+    private final PlayerData realmOwner;
 
     private static final ConcurrentHashMap<UUID, LeaderboardGui> OPEN_GUIS = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<UUID, LeaderboardGui> getOpenGuis() { return OPEN_GUIS; }
 
     public LeaderboardGui(Player player, PlayerData data) {
-        this(player, data, 0);
+        this(player, data, 0, null);
+    }
+
+    public LeaderboardGui(Player player, PlayerData data, PlayerData realmOwner) {
+        this(player, data, 0, realmOwner);
     }
 
     public LeaderboardGui(Player player, PlayerData data, int page) {
+        this(player, data, page, null);
+    }
+
+    public LeaderboardGui(Player player, PlayerData data, int page, PlayerData realmOwner) {
         super(player, "clicker-leaderboard", MonitorStyle.title(ChatColor.AQUA, "Leaderboard"), page);
         this.data = data;
+        this.realmOwner = realmOwner;
     }
 
     @Override
@@ -52,7 +62,7 @@ public class LeaderboardGui extends PaginationMonitor {
     }
 
     private void buildDisplay() {
-        setPlayerContext(data, null);
+        setPlayerContext(data, realmOwner);
         fillMonitorBorder();
         buildStandardActionBar(p -> new ClickerGui(p, data).open());
 

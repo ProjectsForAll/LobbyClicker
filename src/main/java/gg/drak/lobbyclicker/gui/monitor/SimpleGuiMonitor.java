@@ -70,6 +70,15 @@ public abstract class SimpleGuiMonitor extends BaseGui {
             addItem(row * 9, yellowPane);         // left edge
             addItem(row * 9 + 8, yellowPane);     // right edge
         }
+
+        // If visiting another player's realm, add a return-to-realm head at top-left
+        if (viewedData != null) {
+            Icon realmHead = gg.drak.lobbyclicker.gui.GuiHelper.playerHead(viewedData.getIdentifier(),
+                    org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + viewedData.getName() + "'s Realm",
+                    "", org.bukkit.ChatColor.GRAY + "Click to return to their realm");
+            realmHead.onClick(e -> new gg.drak.lobbyclicker.gui.ClickerGui(player, viewerData, viewedData).open());
+            addItem(0, realmHead);
+        }
     }
 
     /**

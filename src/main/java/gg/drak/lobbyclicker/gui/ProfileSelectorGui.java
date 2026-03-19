@@ -28,15 +28,25 @@ import java.util.List;
  */
 public class ProfileSelectorGui extends PaginationMonitor {
     private final PlayerData data;
+    private final PlayerData realmOwner;
 
     public ProfileSelectorGui(Player player, PlayerData data) {
-        this(player, data, 0);
+        this(player, data, 0, null);
+    }
+
+    public ProfileSelectorGui(Player player, PlayerData data, PlayerData realmOwner) {
+        this(player, data, 0, realmOwner);
     }
 
     public ProfileSelectorGui(Player player, PlayerData data, int page) {
+        this(player, data, page, null);
+    }
+
+    public ProfileSelectorGui(Player player, PlayerData data, int page, PlayerData realmOwner) {
         super(player, "profile-selector", MonitorStyle.title(ChatColor.GOLD, "Profiles"), page);
         this.data = data;
-        setWrapAround(false); // no wrap — page limit enforced
+        this.realmOwner = realmOwner;
+        setWrapAround(false);
     }
 
     @Override
@@ -44,7 +54,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
         super.onOpen(event);
         Player player = (Player) event.getPlayer();
 
-        setPlayerContext(data, null);
+        setPlayerContext(data, realmOwner);
         fillMonitorBorder();
 
         // Back: go to loaded realm if active, else close

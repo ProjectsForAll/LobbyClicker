@@ -12,16 +12,22 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 
 public class SocialMainGui extends MenuMonitor {
     private final PlayerData data;
+    private final PlayerData realmOwner;
 
     public SocialMainGui(Player player, PlayerData data) {
+        this(player, data, null);
+    }
+
+    public SocialMainGui(Player player, PlayerData data, PlayerData realmOwner) {
         super(player, "social-main", MonitorStyle.title(ChatColor.LIGHT_PURPLE, "Social"), MonitorStyle.ROWS_SMALL);
         this.data = data;
+        this.realmOwner = realmOwner;
     }
 
     @Override
     public void onOpen(InventoryOpenEvent event) {
         super.onOpen(event);
-        setPlayerContext(data, null);
+        setPlayerContext(data, realmOwner);
 
         int friendCount = data.getFriends().size();
         int requestCount = data.getIncomingFriendRequests().size();

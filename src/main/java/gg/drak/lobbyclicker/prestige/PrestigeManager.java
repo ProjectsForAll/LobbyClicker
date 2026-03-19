@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 public class PrestigeManager {
-    private static final BigDecimal BASE_COST = new BigDecimal("100000000"); // 100M
-    private static final BigDecimal COST_MULTIPLIER = new BigDecimal("1.5");
+    private static final BigDecimal BASE_COST = new BigDecimal("1000000000"); // 1B
+    private static final BigDecimal COST_MULTIPLIER = new BigDecimal("5");
     private static final BigDecimal AURA_DIVISOR = new BigDecimal("1000000"); // 1M
 
     // Prestige multipliers
@@ -19,7 +19,7 @@ public class PrestigeManager {
 
     /**
      * Cost to prestige at the given level.
-     * Formula: 100,000,000 * 1.5^level (slow exponential)
+     * Formula: 1,000,000,000 * 5^level (1B, 5B, 25B, 125B, ...)
      */
     public static BigDecimal getPrestigeCost(int currentLevel) {
         return BASE_COST.multiply(CookieMath.pow(COST_MULTIPLIER, currentLevel));

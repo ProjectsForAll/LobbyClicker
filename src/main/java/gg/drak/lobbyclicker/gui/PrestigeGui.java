@@ -14,10 +14,16 @@ import java.math.BigDecimal;
 
 public class PrestigeGui extends SimpleGuiMonitor {
     private final PlayerData data;
+    private final PlayerData realmOwner;
 
     public PrestigeGui(Player player, PlayerData data) {
+        this(player, data, null);
+    }
+
+    public PrestigeGui(Player player, PlayerData data, PlayerData realmOwner) {
         super(player, "prestige", ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige", 3);
         this.data = data;
+        this.realmOwner = realmOwner;
     }
 
     @Override
@@ -25,7 +31,7 @@ public class PrestigeGui extends SimpleGuiMonitor {
         super.onOpen(event);
         Player player = (Player) event.getPlayer();
 
-        setPlayerContext(data, null);
+        setPlayerContext(data, realmOwner);
         fillMonitorBorder();
         buildStandardActionBar(p -> new ClickerGui(p, data).open());
 

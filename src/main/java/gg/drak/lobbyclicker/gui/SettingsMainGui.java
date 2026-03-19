@@ -11,16 +11,22 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 
 public class SettingsMainGui extends MenuMonitor {
     private final PlayerData data;
+    private final PlayerData realmOwner;
 
     public SettingsMainGui(Player player, PlayerData data) {
+        this(player, data, null);
+    }
+
+    public SettingsMainGui(Player player, PlayerData data, PlayerData realmOwner) {
         super(player, "settings-main", MonitorStyle.title("Settings"), MonitorStyle.ROWS_SMALL);
         this.data = data;
+        this.realmOwner = realmOwner;
     }
 
     @Override
     public void onOpen(InventoryOpenEvent event) {
         super.onOpen(event);
-        setPlayerContext(data, null);
+        setPlayerContext(data, realmOwner);
 
         Icon playerSettings = MonitorStyle.menuButton(Material.COMPARATOR, ChatColor.YELLOW,
                 "Player Settings", "Sounds, volumes, preferences");
