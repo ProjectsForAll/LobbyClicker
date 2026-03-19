@@ -33,8 +33,8 @@ public class ClickerGui extends SimpleGuiMonitor {
     private final boolean isVisiting;
 
     private static final int[] GOLDEN_COOKIE_SLOTS = {
-            9, 10, 11, 12, 18, 19, 20, 21,
-            27, 28, 29, 30, 36, 37, 38, 39
+            10, 11, 12, 19, 20, 21,
+            28, 29, 30, 37, 38, 39
     };
     private static final Random RANDOM = new Random();
     private static final ConcurrentHashMap<UUID, ClickerGui> OPEN_GUIS = new ConcurrentHashMap<>();
@@ -45,6 +45,7 @@ public class ClickerGui extends SimpleGuiMonitor {
 
     private int goldenCookieSlot = -1;
     private int goldenCookieTicksLeft = 0;
+    private ItemStack savedGoldenSlotItem = null;
     private BukkitTask goldenCookieTask;
     private int nextSpawnCountdown;
     private int frenzyCountdown;
@@ -93,6 +94,23 @@ public class ClickerGui extends SimpleGuiMonitor {
         updateServerBalance();
         updateClickInfoPane();
         addCookieItem(player);
+
+        // Mail icon (owner only, 2nd row 1st slot = index 9)
+        if (!isVisiting) {
+            Icon mail = GuiHelper.createIcon(Material.WRITABLE_BOOK,
+                    ChatColor.YELLOW + "" + ChatColor.BOLD + "Mail",
+                    "",
+                    ChatColor.GRAY + "See:",
+                    ChatColor.WHITE + " - Incoming Friend Requests",
+                    ChatColor.WHITE + " - Payment Requests",
+                    ChatColor.WHITE + " - Gambling Requests");
+            mail.onClick(e -> {
+                stopGoldenCookieTask();
+                unregisterGui(player.getUniqueId());
+                new MailGui(player, viewerData).open();
+            });
+            addItem(9, mail);
+        }
 
         // === BOTTOM ROW ACTION BAR ===
         int b = (getSize() / 9 - 1) * 9; // bottom row start index
@@ -255,7 +273,7 @@ public class ClickerGui extends SimpleGuiMonitor {
         addItem(22, cookie);
     }
 
-    private int lastProcessedClickTick = -1;
+    private long lastProcessedClickTime = 0;
 
     /**
      * Intercept all inventory clicks. For the cookie slot, handle it here
@@ -284,12 +302,12 @@ public class ClickerGui extends SimpleGuiMonitor {
     private void handleCookieClick(org.bukkit.event.inventory.InventoryClickEvent event) {
         if (!event.isLeftClick()) return;
 
-        // Deduplicate: at most 1 click per 50ms (= 1 server tick).
-        // Uses wall clock since Bukkit.getCurrentTick() may not be available.
+        // Deduplicate: require minimum 100ms gap between processed clicks.
+        // Minecraft can fire multiple InventoryClickEvents for a single physical click,
+        // and fixed-bucket dedup (time/50) fails at bucket boundaries.
         long now = System.currentTimeMillis();
-        int pseudoTick = (int) (now / 50); // 50ms per tick
-        if (pseudoTick == lastProcessedClickTick) return;
-        lastProcessedClickTick = pseudoTick;
+        if (now - lastProcessedClickTime < 100) return;
+        lastProcessedClickTime = now;
 
         if (!viewerData.tryClick()) return;
 
@@ -348,7 +366,8 @@ public class ClickerGui extends SimpleGuiMonitor {
         Icon stats = GuiHelper.createIcon(Material.NETHER_STAR, title,
                 "",
                 ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies()),
-                ChatColor.GRAY + "Total Earned: " + ChatColor.WHITE + FormatUtils.format(ownerData.getTotalCookiesEarned()),
+                ChatColor.GRAY + "Total Earned: " + ChatColor.WHITE + FormatUtils.format(ownerData.getLifetimeCookiesEarned()),
+                ChatColor.GRAY + "Earned This Prestige: " + ChatColor.WHITE + FormatUtils.format(ownerData.getTotalCookiesEarned()),
                 "",
                 ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
                 ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCps()),
@@ -369,9 +388,9 @@ public class ClickerGui extends SimpleGuiMonitor {
     private void updateServerBalance() {
         BigDecimal totalServerCookies = BigDecimal.ZERO;
         for (gg.drak.lobbyclicker.realm.RealmProfile profile : gg.drak.lobbyclicker.realm.ProfileManager.getAllLoadedProfiles()) {
-            totalServerCookies = totalServerCookies.add(profile.getCookies());
+            totalServerCookies = totalServerCookies.add(profile.getLifetimeCookiesEarned());
         }
-        String serverLore = ChatColor.GRAY + "Server Total: " + ChatColor.WHITE + FormatUtils.format(totalServerCookies);
+        String serverLore = ChatColor.GRAY + "Server Total Earned: " + ChatColor.WHITE + FormatUtils.format(totalServerCookies);
         String[] serverDisplay = BannerUtil.parseBannerDisplay(totalServerCookies);
         // Show all 4 chars at indexes 0-3 (to the left of the info star at index 4)
         for (int i = 0; i < 4; i++) {
@@ -472,9 +491,22 @@ public class ClickerGui extends SimpleGuiMonitor {
     // --- Golden Cookie System ---
 
     private void initGoldenCookieTimers() {
-        nextSpawnCountdown = 300 + RANDOM.nextInt(301);
+        nextSpawnCountdown = getWeightedSpawnDelay();
         frenzyCountdown = 1800 + RANDOM.nextInt(901);
         frenzyRemaining = -1;
+    }
+
+    /**
+     * Generate a spawn delay (in seconds) between 30 and 300,
+     * weighted quadratically toward shorter times.
+     * Applies the golden cookie frequency multiplier from purchased upgrades.
+     */
+    private int getWeightedSpawnDelay() {
+        double raw = Math.pow(RANDOM.nextDouble(), 2.0); // quadratic bias toward 0
+        int baseDelay = 30 + (int) (raw * 270); // 30s to 300s
+        double freqMult = ownerData.getEffectMultiplier(
+                gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_FREQ_MULTIPLIER).doubleValue();
+        return Math.max(5, (int) (baseDelay / freqMult));
     }
 
     private void startGoldenCookieTask(Player player) {
@@ -505,7 +537,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             }
             if (frenzyRemaining <= 0) {
                 frenzyRemaining = -1;
-                nextSpawnCountdown = 300 + RANDOM.nextInt(301);
+                nextSpawnCountdown = getWeightedSpawnDelay();
                 frenzyCountdown = 1800 + RANDOM.nextInt(901);
                 player.sendMessage(ChatColor.GOLD + "Cookie Frenzy has ended!");
             }
@@ -514,7 +546,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             frenzyCountdown--;
             if (nextSpawnCountdown <= 0) {
                 spawnGoldenCookie(player);
-                nextSpawnCountdown = 300 + RANDOM.nextInt(301);
+                nextSpawnCountdown = getWeightedSpawnDelay();
             }
             if (frenzyCountdown <= 0) {
                 frenzyRemaining = 300;
@@ -539,27 +571,53 @@ public class ClickerGui extends SimpleGuiMonitor {
     private void spawnGoldenCookie(Player player) {
         int slot = GOLDEN_COOKIE_SLOTS[RANDOM.nextInt(GOLDEN_COOKIE_SLOTS.length)];
         goldenCookieSlot = slot;
-        goldenCookieTicksLeft = 3;
+        savedGoldenSlotItem = getInventory().getItem(slot);
 
+        // Reward: entropy * random multiplier (0.1x to 2.0x), scaled by reward upgrades
         BigDecimal multiplier = BigDecimal.valueOf(0.1 + RANDOM.nextDouble() * 1.9);
         BigDecimal bonus = ownerData.getClickerEntropy().multiply(multiplier);
+        BigDecimal rewardMult = ownerData.getEffectMultiplier(
+                gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER);
+        bonus = bonus.multiply(rewardMult);
+        final BigDecimal finalBonus = bonus;
 
-        Icon golden = GuiHelper.createIcon(Material.GOLDEN_APPLE,
-                ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie!",
-                "", ChatColor.YELLOW + "Click for a cookie bonus!", ChatColor.GRAY + "Hurry, it won't last long!");
+        // Tier based on raw multiplier: top 15% = block, middle 35% = ingot, bottom 50% = nugget
+        double normalized = multiplier.doubleValue() / 2.0;
+        Material material;
+        String tierName;
+        if (normalized >= 0.85) {
+            material = Material.GOLD_BLOCK;
+            tierName = "Jackpot";
+        } else if (normalized >= 0.50) {
+            material = Material.GOLD_INGOT;
+            tierName = "Golden Cookie";
+        } else {
+            material = Material.GOLD_NUGGET;
+            tierName = "Lucky Cookie";
+        }
+
+        // Apply duration multiplier from upgrades
+        // 10 second base duration, scaled by duration upgrades
+        double durMult = ownerData.getEffectMultiplier(
+                gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_DURATION_MULTIPLIER).doubleValue();
+        goldenCookieTicksLeft = Math.max(2, (int) (10 * durMult));
+
+        Icon golden = GuiHelper.createIcon(material,
+                ChatColor.GOLD + "" + ChatColor.BOLD + tierName + "!",
+                "", ChatColor.YELLOW + "Click for +" + FormatUtils.format(finalBonus) + " cookies!",
+                ChatColor.GRAY + "Hurry, it won't last long!");
         golden.onClick(e -> {
             if (goldenCookieSlot < 0) return;
-            // Golden cookies always apply locally (bonus is entropy-based, computed at spawn time)
-            // For OO realms, the DATA_SYNC from home server will reconcile
-            ownerData.addCookies(bonus);
+            ownerData.addCookies(finalBonus);
             int clickedSlot = goldenCookieSlot;
             goldenCookieSlot = -1;
             goldenCookieTicksLeft = 0;
-            addItem(clickedSlot, GuiHelper.filler());
+            getInventory().setItem(clickedSlot, savedGoldenSlotItem);
+            savedGoldenSlotItem = null;
             updateStats();
             updateDigitDisplay();
-            player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "Golden Cookie! " +
-                    ChatColor.YELLOW + "+" + FormatUtils.format(bonus) + " cookies");
+            player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + tierName + "! " +
+                    ChatColor.YELLOW + "+" + FormatUtils.format(finalBonus) + " cookies");
             if (viewerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
             }
@@ -572,7 +630,8 @@ public class ClickerGui extends SimpleGuiMonitor {
 
     private void removeGoldenCookie() {
         if (goldenCookieSlot >= 0) {
-            addItem(goldenCookieSlot, GuiHelper.filler());
+            getInventory().setItem(goldenCookieSlot, savedGoldenSlotItem);
+            savedGoldenSlotItem = null;
             goldenCookieSlot = -1;
             goldenCookieTicksLeft = 0;
         }

@@ -67,7 +67,8 @@ public class RedisSyncHandler {
     private static void publishSocial(String message) {
         RedisManager rm = LobbyClicker.getRedisManager();
         if (rm != null) {
-            rm.publishSocial(message);
+            // Prepend source server ID so receivers can skip duplicate local handling
+            rm.publishSocial(rm.getServerId() + ":" + message);
         }
     }
 
@@ -98,7 +99,9 @@ public class RedisSyncHandler {
                 + "|" + profile.getPrestigeLevel()
                 + "|" + profile.getAura().toPlainString()
                 + "|" + (profile.isRealmPublic() ? 1 : 0)
-                + "|" + data.getSettings().serialize();
+                + "|" + data.getSettings().serialize()
+                + "|" + profile.serializePurchasedUpgrades()
+                + "|" + profile.getLifetimeCookiesEarned().toPlainString();
         rm.publishData(msg);
     }
 
@@ -161,11 +164,17 @@ public class RedisSyncHandler {
     public static void handleSocialMessage(String message) {
         try {
             String[] parts = message.split(":");
-            if (parts.length < 3) return;
+            if (parts.length < 4) return;
 
-            String action = parts[0];
-            String uuid1 = parts[1];
-            String uuid2 = parts[2];
+            String sourceServerId = parts[0];
+            String action = parts[1];
+            String uuid1 = parts[2];
+            String uuid2 = parts[3];
+
+            // If this message originated from our own server, skip —
+            // the local code already handled data updates, sounds, and messages.
+            RedisManager rm = LobbyClicker.getRedisManager();
+            if (rm != null && sourceServerId.equals(rm.getServerId())) return;
 
             switch (action) {
                 case "FRIEND_ADD":
@@ -303,6 +312,12 @@ public class RedisSyncHandler {
             try { profile.setPrestigeLevel(Integer.parseInt(parts[10])); } catch (NumberFormatException ignored) {}
             profile.setAura(CookieMath.parse(parts[11]));
             try { profile.setRealmPublic(Integer.parseInt(parts[12]) != 0); } catch (NumberFormatException ignored) {}
+            if (parts.length > 14) {
+                profile.setPurchasedUpgrades(gg.drak.lobbyclicker.upgrades.ClickerUpgrade.deserialize(parts[14]));
+            }
+            if (parts.length > 15) {
+                profile.setLifetimeCookiesEarned(CookieMath.parse(parts[15]));
+            }
         });
 
         // Update player-level settings if loaded

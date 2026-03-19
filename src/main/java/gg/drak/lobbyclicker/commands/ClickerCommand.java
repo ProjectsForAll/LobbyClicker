@@ -4,6 +4,7 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
 import gg.drak.lobbyclicker.gui.GambleAcceptGui;
+import gg.drak.lobbyclicker.gui.PaymentAcceptGui;
 import gg.drak.lobbyclicker.gui.ProfileSelectorGui;
 import gg.drak.lobbyclicker.gui.TransferAcceptGui;
 import gg.drak.lobbyclicker.social.PendingTransaction;
@@ -31,15 +32,22 @@ public class ClickerCommand implements CommandExecutor {
         }
 
         // Check for pending transfer
-        PendingTransaction pendingTransfer = PendingTransaction.getForReceiver(data.getIdentifier());
-        if (pendingTransfer != null && pendingTransfer.getType() == TransactionType.TRANSFER) {
+        PendingTransaction pendingTransfer = PendingTransaction.getForReceiver(data.getIdentifier(), TransactionType.TRANSFER);
+        if (pendingTransfer != null) {
             new TransferAcceptGui(player, data, pendingTransfer).open();
             return true;
         }
 
+        // Check for pending payment
+        PendingTransaction pendingPayment = PendingTransaction.getForReceiver(data.getIdentifier(), TransactionType.PAYMENT);
+        if (pendingPayment != null) {
+            new PaymentAcceptGui(player, data, pendingPayment).open();
+            return true;
+        }
+
         // Check for pending gamble bet
-        PendingTransaction pendingBet = PendingTransaction.getForReceiver(data.getIdentifier());
-        if (pendingBet != null && pendingBet.getType() == TransactionType.GAMBLE) {
+        PendingTransaction pendingBet = PendingTransaction.getForReceiver(data.getIdentifier(), TransactionType.GAMBLE);
+        if (pendingBet != null) {
             new GambleAcceptGui(player, data, pendingBet).open();
             return true;
         }

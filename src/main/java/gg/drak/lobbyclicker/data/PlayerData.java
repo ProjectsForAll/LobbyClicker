@@ -102,6 +102,16 @@ public class PlayerData implements Identifiable {
         if (p != null) p.setTotalCookiesEarned(total);
     }
 
+    public BigDecimal getLifetimeCookiesEarned() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getLifetimeCookiesEarned() : BigDecimal.ZERO;
+    }
+
+    public void setLifetimeCookiesEarned(BigDecimal total) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setLifetimeCookiesEarned(total);
+    }
+
     public long getTimesClicked() {
         RealmProfile p = getActiveProfile();
         return p != null ? p.getTimesClicked() : 0;
@@ -219,6 +229,31 @@ public class PlayerData implements Identifiable {
 
     public static EnumMap<UpgradeType, Integer> deserializeUpgrades(String data) {
         return RealmProfile.deserializeUpgrades(data);
+    }
+
+    public boolean hasPurchasedUpgrade(gg.drak.lobbyclicker.upgrades.ClickerUpgrade upgrade) {
+        RealmProfile p = getActiveProfile();
+        return p != null && p.hasPurchasedUpgrade(upgrade);
+    }
+
+    public boolean buyClickerUpgrade(gg.drak.lobbyclicker.upgrades.ClickerUpgrade upgrade) {
+        RealmProfile p = getActiveProfile();
+        return p != null && p.buyClickerUpgrade(upgrade);
+    }
+
+    public java.util.Set<gg.drak.lobbyclicker.upgrades.ClickerUpgrade> getPurchasedUpgrades() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getPurchasedUpgrades() : java.util.EnumSet.noneOf(gg.drak.lobbyclicker.upgrades.ClickerUpgrade.class);
+    }
+
+    public String serializePurchasedUpgrades() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.serializePurchasedUpgrades() : "";
+    }
+
+    public java.math.BigDecimal getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect effectType) {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getEffectMultiplier(effectType) : java.math.BigDecimal.ONE;
     }
 
     // Milestone delegation

@@ -60,6 +60,7 @@ public class LeaderboardCache {
                     profile.getProfileName(),
                     profile.getCookies(),
                     profile.getTotalCookiesEarned(),
+                    profile.getLifetimeCookiesEarned(),
                     profile.getPrestigeLevel(),
                     profile.getCps()
             ));
@@ -78,7 +79,7 @@ public class LeaderboardCache {
                 }
 
                 // Sort by total cookies earned descending
-                newEntries.sort((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()));
+                newEntries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
 
                 entries.clear();
                 entries.addAll(newEntries);
@@ -89,7 +90,7 @@ public class LeaderboardCache {
                 return null;
             });
         } else {
-            newEntries.sort((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()));
+            newEntries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
             entries.clear();
             entries.addAll(newEntries);
             lastUpdate = System.currentTimeMillis();
@@ -105,17 +106,20 @@ public class LeaderboardCache {
         private final String profileName;
         private final BigDecimal cookies;
         private final BigDecimal totalCookiesEarned;
+        private final BigDecimal lifetimeCookiesEarned;
         private final int prestigeLevel;
         private final BigDecimal cps;
 
         public LeaderboardEntry(String playerUuid, String playerName, String profileId, String profileName,
-                                BigDecimal cookies, BigDecimal totalCookiesEarned, int prestigeLevel, BigDecimal cps) {
+                                BigDecimal cookies, BigDecimal totalCookiesEarned, BigDecimal lifetimeCookiesEarned,
+                                int prestigeLevel, BigDecimal cps) {
             this.playerUuid = playerUuid;
             this.playerName = playerName;
             this.profileId = profileId;
             this.profileName = profileName;
             this.cookies = cookies;
             this.totalCookiesEarned = totalCookiesEarned;
+            this.lifetimeCookiesEarned = lifetimeCookiesEarned;
             this.prestigeLevel = prestigeLevel;
             this.cps = cps;
         }

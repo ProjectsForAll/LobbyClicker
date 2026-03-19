@@ -30,7 +30,8 @@ public class ShopGui extends MenuMonitor {
         addOption(cookieHelpers);
 
         Icon upgrades = MonitorStyle.menuButton(Material.DIAMOND, ChatColor.AQUA,
-                "Upgrades", ChatColor.RED + "Coming soon...");
+                "Upgrades", "One-time boosts and bonuses!");
+        upgrades.onClick(e -> new ClickerUpgradeGui(player, viewerData, ownerData).open());
         addOption(upgrades);
 
         buildMenu(p -> {

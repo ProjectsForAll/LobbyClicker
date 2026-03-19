@@ -43,7 +43,7 @@ public abstract class ConfirmationMonitor extends SimpleGuiMonitor {
                 buildConfirmation(infoItem, confirmLabel, confirmWarning, onConfirm, onCancel);
             });
         } else {
-            confirmIcon = GuiHelper.createIcon(Material.LIME_WOOL,
+            confirmIcon = GuiHelper.createIcon(Material.LIME_DYE,
                     ChatColor.GREEN + "" + ChatColor.BOLD + "CONFIRM",
                     "", ChatColor.RED + "" + ChatColor.BOLD + confirmWarning,
                     "", ChatColor.YELLOW + "Click again to confirm!");

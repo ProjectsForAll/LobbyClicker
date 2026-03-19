@@ -34,6 +34,9 @@ public class Statements {
                 "PrestigeLevel INT NOT NULL DEFAULT 0, " +
                 "Aura TEXT NOT NULL DEFAULT '0', " +
                 "RealmPublic TINYINT NOT NULL DEFAULT 0, " +
+                "PurchasedUpgrades TEXT NOT NULL DEFAULT '', " +
+                "LifetimeCookiesEarned TEXT NOT NULL DEFAULT '0', " +
+                "LifetimeCookiesDigits INT NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (ProfileId), " +
                 "INDEX idx_owner (OwnerUuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
@@ -103,9 +106,10 @@ public class Statements {
         // Profile CRUD
         PUSH_PROFILE("INSERT INTO `%table_prefix%Profiles` ( " +
                 "ProfileId, OwnerUuid, ProfileName, Cookies, TotalCookiesEarned, TotalCookiesDigits, " +
-                "TimesClicked, OwnerClicks, OtherClicks, Upgrades, PrestigeLevel, Aura, RealmPublic " +
+                "TimesClicked, OwnerClicks, OtherClicks, Upgrades, PrestigeLevel, Aura, RealmPublic, " +
+                "PurchasedUpgrades, LifetimeCookiesEarned, LifetimeCookiesDigits " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
                 "ProfileName = VALUES(ProfileName), " +
                 "Cookies = VALUES(Cookies), " +
@@ -117,14 +121,17 @@ public class Statements {
                 "Upgrades = VALUES(Upgrades), " +
                 "PrestigeLevel = VALUES(PrestigeLevel), " +
                 "Aura = VALUES(Aura), " +
-                "RealmPublic = VALUES(RealmPublic)" +
+                "RealmPublic = VALUES(RealmPublic), " +
+                "PurchasedUpgrades = VALUES(PurchasedUpgrades), " +
+                "LifetimeCookiesEarned = VALUES(LifetimeCookiesEarned), " +
+                "LifetimeCookiesDigits = VALUES(LifetimeCookiesDigits)" +
                 ";"),
         PULL_PROFILE("SELECT * FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
         PULL_PROFILES_BY_OWNER("SELECT * FROM `%table_prefix%Profiles` WHERE OwnerUuid = ?;"),
         DELETE_PROFILE("DELETE FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
-        PULL_LEADERBOARD("SELECT p.ProfileId, p.OwnerUuid, p.ProfileName, p.Cookies, p.TotalCookiesEarned, p.PrestigeLevel, pl.Name " +
+        PULL_LEADERBOARD("SELECT p.ProfileId, p.OwnerUuid, p.ProfileName, p.Cookies, p.TotalCookiesEarned, p.LifetimeCookiesEarned, p.PrestigeLevel, pl.Name " +
                 "FROM `%table_prefix%Profiles` p LEFT JOIN `%table_prefix%Players` pl ON p.OwnerUuid = pl.Uuid " +
-                "ORDER BY p.TotalCookiesDigits DESC, p.TotalCookiesEarned DESC LIMIT 500;"),
+                "ORDER BY p.LifetimeCookiesDigits DESC, p.LifetimeCookiesEarned DESC LIMIT 500;"),
 
         // Profile Roles
         PUSH_PROFILE_ROLE("INSERT INTO `%table_prefix%ProfileRoles` (ProfileId, PlayerUuid, Role) VALUES (?, ?, ?) " +
@@ -194,6 +201,9 @@ public class Statements {
                 "PrestigeLevel INTEGER NOT NULL DEFAULT 0, " +
                 "Aura TEXT NOT NULL DEFAULT '0', " +
                 "RealmPublic INTEGER NOT NULL DEFAULT 0, " +
+                "PurchasedUpgrades TEXT NOT NULL DEFAULT '', " +
+                "LifetimeCookiesEarned TEXT NOT NULL DEFAULT '0', " +
+                "LifetimeCookiesDigits INTEGER NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (ProfileId) " +
                 ");;"
         ),
@@ -257,16 +267,17 @@ public class Statements {
         // Profile CRUD
         PUSH_PROFILE("INSERT OR REPLACE INTO `%table_prefix%Profiles` ( " +
                 "ProfileId, OwnerUuid, ProfileName, Cookies, TotalCookiesEarned, TotalCookiesDigits, " +
-                "TimesClicked, OwnerClicks, OtherClicks, Upgrades, PrestigeLevel, Aura, RealmPublic " +
+                "TimesClicked, OwnerClicks, OtherClicks, Upgrades, PrestigeLevel, Aura, RealmPublic, " +
+                "PurchasedUpgrades, LifetimeCookiesEarned, LifetimeCookiesDigits " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ");"),
         PULL_PROFILE("SELECT * FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
         PULL_PROFILES_BY_OWNER("SELECT * FROM `%table_prefix%Profiles` WHERE OwnerUuid = ?;"),
         DELETE_PROFILE("DELETE FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
-        PULL_LEADERBOARD("SELECT p.ProfileId, p.OwnerUuid, p.ProfileName, p.Cookies, p.TotalCookiesEarned, p.PrestigeLevel, pl.Name " +
+        PULL_LEADERBOARD("SELECT p.ProfileId, p.OwnerUuid, p.ProfileName, p.Cookies, p.TotalCookiesEarned, p.LifetimeCookiesEarned, p.PrestigeLevel, pl.Name " +
                 "FROM `%table_prefix%Profiles` p LEFT JOIN `%table_prefix%Players` pl ON p.OwnerUuid = pl.Uuid " +
-                "ORDER BY p.TotalCookiesDigits DESC, p.TotalCookiesEarned DESC LIMIT 500;"),
+                "ORDER BY p.LifetimeCookiesDigits DESC, p.LifetimeCookiesEarned DESC LIMIT 500;"),
 
         // Profile Roles
         PUSH_PROFILE_ROLE("INSERT OR REPLACE INTO `%table_prefix%ProfileRoles` (ProfileId, PlayerUuid, Role) VALUES (?, ?, ?);"),

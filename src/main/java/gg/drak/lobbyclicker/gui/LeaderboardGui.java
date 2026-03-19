@@ -70,7 +70,7 @@ public class LeaderboardGui extends PaginationMonitor {
         for (Map.Entry<String, List<LeaderboardCache.LeaderboardEntry>> playerEntries : byPlayer.entrySet()) {
             List<LeaderboardCache.LeaderboardEntry> entries = playerEntries.getValue();
             // Sort by total earned desc
-            entries.sort((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()));
+            entries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
             LeaderboardCache.LeaderboardEntry highest = entries.get(0);
             displayEntries.add(highest);
 
@@ -91,7 +91,7 @@ public class LeaderboardGui extends PaginationMonitor {
         }
 
         // Sort final list by total earned desc
-        displayEntries.sort((a, b) -> b.getTotalCookiesEarned().compareTo(a.getTotalCookiesEarned()));
+        displayEntries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
 
         if (displayEntries.isEmpty()) {
             setContent(0, GuiHelper.createIcon(Material.PAPER, ChatColor.GRAY + "No entries yet",
@@ -130,7 +130,7 @@ public class LeaderboardGui extends PaginationMonitor {
                         ChatColor.GRAY + "Profile: " + ChatColor.WHITE + entry.getProfileName()
                                 + (isSelected ? ChatColor.GREEN + " (Selected)" : ""),
                         ChatColor.GRAY + "Cookies: " + ChatColor.GOLD + FormatUtils.format(entry.getCookies()),
-                        ChatColor.GRAY + "Total Earned: " + ChatColor.GOLD + FormatUtils.format(entry.getTotalCookiesEarned()),
+                        ChatColor.GRAY + "Total Earned: " + ChatColor.GOLD + FormatUtils.format(entry.getLifetimeCookiesEarned()),
                         ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + entry.getPrestigeLevel(),
                         "",
                         ChatColor.YELLOW + "Click to view profile"

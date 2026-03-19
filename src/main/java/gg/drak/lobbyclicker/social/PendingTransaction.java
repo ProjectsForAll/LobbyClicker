@@ -56,6 +56,25 @@ public class PendingTransaction {
         return null;
     }
 
+    public static PendingTransaction getForReceiver(String receiverUuid, TransactionType type) {
+        for (PendingTransaction tx : PENDING.values()) {
+            if (tx.getReceiverUuid().equals(receiverUuid) && tx.getType() == type && !tx.isExpired()) {
+                return tx;
+            }
+        }
+        return null;
+    }
+
+    public static java.util.List<PendingTransaction> getAllForReceiver(String receiverUuid) {
+        java.util.List<PendingTransaction> result = new java.util.ArrayList<>();
+        for (PendingTransaction tx : PENDING.values()) {
+            if (tx.getReceiverUuid().equals(receiverUuid) && !tx.isExpired()) {
+                result.add(tx);
+            }
+        }
+        return result;
+    }
+
     public static void remove(String senderUuid, String receiverUuid) {
         PENDING.remove(key(senderUuid, receiverUuid));
     }

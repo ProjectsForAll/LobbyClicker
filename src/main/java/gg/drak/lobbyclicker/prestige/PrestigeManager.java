@@ -90,6 +90,7 @@ public class PrestigeManager {
         for (UpgradeType type : UpgradeType.values()) {
             data.setUpgradeCount(type, 0);
         }
+        data.getPurchasedUpgrades().clear();
 
         // Reset milestone tracking
         data.setLastCurrentDigitCount(0);

@@ -54,7 +54,7 @@ public class GambleAcceptGui extends BaseGui {
                 canAfford ? ChatColor.GREEN + "You can afford this bet." : ChatColor.RED + "You cannot afford this bet!"));
 
         if (canAfford) {
-            Icon accept = GuiHelper.createIcon(Material.LIME_WOOL, ChatColor.GREEN + "" + ChatColor.BOLD + "Accept Bet");
+            Icon accept = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Accept Bet");
             accept.onClick(e -> {
                 // Validate
                 PendingTransaction tx = PendingTransaction.get(transaction.getSenderUuid(), receiverData.getIdentifier());
@@ -109,7 +109,7 @@ public class GambleAcceptGui extends BaseGui {
             addItem(11, accept);
         }
 
-        Icon decline = GuiHelper.createIcon(Material.RED_WOOL, ChatColor.RED + "" + ChatColor.BOLD + "Decline");
+        Icon decline = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "Decline");
         decline.onClick(e -> {
             PendingTransaction.remove(transaction.getSenderUuid(), receiverData.getIdentifier());
             Player sender = Bukkit.getPlayer(UUID.fromString(transaction.getSenderUuid()));

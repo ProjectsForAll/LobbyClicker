@@ -77,7 +77,7 @@ public class GambleGui extends BaseGui {
 
         if (canAfford) {
             String finalTargetName = targetName;
-            Icon send = GuiHelper.createIcon(Material.LIME_WOOL, ChatColor.GREEN + "" + ChatColor.BOLD + "Send Bet Request",
+            Icon send = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Send Bet Request",
                     "", ChatColor.GRAY + "Bet " + ChatColor.GOLD + FormatUtils.format(amount) + ChatColor.GRAY + " against " + finalTargetName);
             send.onClick(e -> {
                 if (!senderData.canAfford(amount) || amount.signum() <= 0) {
@@ -100,8 +100,8 @@ public class GambleGui extends BaseGui {
             addItem(22, send);
         }
 
-        Icon cancel = GuiHelper.createIcon(Material.RED_WOOL, ChatColor.RED + "Cancel");
-        cancel.onClick(e -> new PlayerActionGui(player, senderData, targetUuid, "social").open());
+        Icon cancel = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Cancel");
+        cancel.onClick(e -> new MoneyActionsGui(player, senderData, targetUuid, "social").open());
         addItem(18, cancel);
     }
 

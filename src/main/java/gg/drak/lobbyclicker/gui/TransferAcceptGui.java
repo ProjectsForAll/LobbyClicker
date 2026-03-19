@@ -60,7 +60,7 @@ public class TransferAcceptGui extends BaseGui {
                 ChatColor.GREEN + "Data will be ADDED to your realm"));
 
         // Accept
-        Icon accept = GuiHelper.createIcon(Material.LIME_WOOL, ChatColor.GREEN + "" + ChatColor.BOLD + "Accept Transfer");
+        Icon accept = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Accept Transfer");
         accept.onClick(e -> {
             PendingTransaction tx = PendingTransaction.get(transaction.getSenderUuid(), receiverData.getIdentifier());
             if (tx == null) {
@@ -104,7 +104,7 @@ public class TransferAcceptGui extends BaseGui {
         addItem(11, accept);
 
         // Decline
-        Icon decline = GuiHelper.createIcon(Material.RED_WOOL, ChatColor.RED + "" + ChatColor.BOLD + "Decline");
+        Icon decline = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "Decline");
         decline.onClick(e -> {
             PendingTransaction.remove(transaction.getSenderUuid(), receiverData.getIdentifier());
             Player sender = Bukkit.getPlayer(UUID.fromString(transaction.getSenderUuid()));

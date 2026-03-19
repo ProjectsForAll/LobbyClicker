@@ -55,7 +55,7 @@ public class TransferConfirmGui extends BaseGui {
 
         // Confirm
         String finalTargetName = targetName;
-        Icon confirm = GuiHelper.createIcon(Material.LIME_WOOL,
+        Icon confirm = GuiHelper.createIcon(Material.LIME_DYE,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Confirm Transfer",
                 "", ChatColor.YELLOW + "Send transfer request to " + finalTargetName);
         confirm.onClick(e -> {
@@ -75,7 +75,7 @@ public class TransferConfirmGui extends BaseGui {
         addItem(13, confirm);
 
         // Cancel
-        Icon cancel = GuiHelper.createIcon(Material.RED_WOOL, ChatColor.RED + "Cancel");
+        Icon cancel = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Cancel");
         cancel.onClick(e -> new ClickerGui(player, senderData).open());
         addItem(22, cancel);
     }

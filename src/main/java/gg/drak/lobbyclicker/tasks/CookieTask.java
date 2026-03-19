@@ -96,7 +96,7 @@ public class CookieTask extends BukkitRunnable {
                     && entropyDigits == prevEntropyDigits) {
                 // Leftmost digit increased (same digit count, above 100) = epic sound
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, vol, 0.8f);
-                player.sendMessage("\u00a7d\u00a7l\u2728 Entropy Rising! \u00a7eLeading digit increased!");
+                player.sendMessage("\u00a7d\u00a7l\u2728 Entropy Rising! \u00a7eClicker Entropy climbed to \u00a7d" + gg.drak.lobbyclicker.utils.FormatUtils.format(entropy) + "\u00a7e!");
             }
         }
         data.setLastEntropyDigitCount(entropyDigits);

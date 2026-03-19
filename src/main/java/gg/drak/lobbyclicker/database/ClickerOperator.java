@@ -66,6 +66,19 @@ public class ClickerOperator extends DBOperator {
                 execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `OtherClicks` " + longType + " NOT NULL DEFAULT 0;", stmt -> {});
                 LobbyClicker.getInstance().logInfo("Added OtherClicks column to Profiles table.");
             }
+            if (!existingProfileCols.contains("PurchasedUpgrades")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `PurchasedUpgrades` TEXT NOT NULL DEFAULT '';", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added PurchasedUpgrades column to Profiles table.");
+            }
+            if (!existingProfileCols.contains("LifetimeCookiesEarned")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `LifetimeCookiesEarned` TEXT NOT NULL DEFAULT '0';", stmt -> {});
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `LifetimeCookiesDigits` " +
+                        (mysql ? "INT" : "INTEGER") + " NOT NULL DEFAULT 0;", stmt -> {});
+                // Seed lifetime from existing totalCookiesEarned
+                execute("UPDATE `" + prefix + "Profiles` SET LifetimeCookiesEarned = TotalCookiesEarned, " +
+                        "LifetimeCookiesDigits = TotalCookiesDigits;", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added LifetimeCookiesEarned columns and seeded from TotalCookiesEarned.");
+            }
         }
 
         if (!existingPlayerCols.contains("Settings") && existingPlayerCols.contains("Cookies")) {
@@ -139,10 +152,15 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(5, totalEarned);
                     stmt.setInt(6, CookieMath.digitCount(CookieMath.parse(totalEarned)));
                     stmt.setLong(7, Long.parseLong(timesClicked));
-                    stmt.setString(8, upgrades);
-                    stmt.setInt(9, Integer.parseInt(prestige));
-                    stmt.setString(10, aura);
-                    stmt.setInt(11, Integer.parseInt(realmPublic));
+                    stmt.setLong(8, 0L); // OwnerClicks
+                    stmt.setLong(9, 0L); // OtherClicks
+                    stmt.setString(10, upgrades);
+                    stmt.setInt(11, Integer.parseInt(prestige));
+                    stmt.setString(12, aura);
+                    stmt.setInt(13, Integer.parseInt(realmPublic));
+                    stmt.setString(14, ""); // PurchasedUpgrades
+                    stmt.setString(15, totalEarned); // LifetimeCookiesEarned = TotalCookiesEarned for migration
+                    stmt.setInt(16, CookieMath.digitCount(CookieMath.parse(totalEarned)));
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to migrate profile for " + uuid, e);
                 }
@@ -326,6 +344,9 @@ public class ClickerOperator extends DBOperator {
                 stmt.setInt(11, profile.getPrestigeLevel());
                 stmt.setString(12, profile.getAura().toPlainString());
                 stmt.setInt(13, profile.isRealmPublic() ? 1 : 0);
+                stmt.setString(14, profile.serializePurchasedUpgrades());
+                stmt.setString(15, profile.getLifetimeCookiesEarned().toPlainString());
+                stmt.setInt(16, profile.getLifetimeCookiesDigits());
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Failed to push profile", e);
             }
@@ -419,6 +440,15 @@ public class ClickerOperator extends DBOperator {
             p.setPrestigeLevel(rs.getInt("PrestigeLevel"));
             p.setAura(CookieMath.parse(rs.getString("Aura")));
             p.setRealmPublic(rs.getInt("RealmPublic") != 0);
+            try {
+                p.setPurchasedUpgrades(gg.drak.lobbyclicker.upgrades.ClickerUpgrade.deserialize(rs.getString("PurchasedUpgrades")));
+            } catch (Throwable ignored) {}
+            try {
+                p.setLifetimeCookiesEarned(CookieMath.parse(rs.getString("LifetimeCookiesEarned")));
+            } catch (Throwable ignored) {
+                // Migration: if column doesn't exist yet, seed from totalCookiesEarned
+                p.setLifetimeCookiesEarned(p.getTotalCookiesEarned());
+            }
             p.setLastCurrentDigitCount(CookieMath.digitCount(p.getCookies()));
             p.setLastTotalDigitCount(CookieMath.digitCount(p.getTotalCookiesEarned()));
             BigDecimal entropy = p.getClickerEntropy();
@@ -484,13 +514,15 @@ public class ClickerOperator extends DBOperator {
                         String profileName = rs.getString("ProfileName");
                         java.math.BigDecimal cookies = CookieMath.parse(rs.getString("Cookies"));
                         java.math.BigDecimal totalEarned = CookieMath.parse(rs.getString("TotalCookiesEarned"));
+                        java.math.BigDecimal lifetimeEarned = java.math.BigDecimal.ZERO;
+                        try { lifetimeEarned = CookieMath.parse(rs.getString("LifetimeCookiesEarned")); } catch (Throwable ignored) {}
                         int prestige = rs.getInt("PrestigeLevel");
                         String playerName = rs.getString("Name");
                         if (playerName == null) playerName = ownerUuid.substring(0, 8);
 
                         results.add(new gg.drak.lobbyclicker.data.LeaderboardCache.LeaderboardEntry(
                                 ownerUuid, playerName, profileId, profileName,
-                                cookies, totalEarned, prestige, java.math.BigDecimal.ZERO // CPS not stored in DB query
+                                cookies, totalEarned, lifetimeEarned, prestige, java.math.BigDecimal.ZERO
                         ));
                     }
                 } catch (Throwable e) {

@@ -17,7 +17,6 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -27,7 +26,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
     private final String returnTo; // "friends", "all", "viewers", "social"
 
     public PlayerActionGui(Player player, PlayerData viewerData, String targetUuid, String returnTo) {
-        super(player, "player-action", MonitorStyle.title(ChatColor.YELLOW, "Player Actions"), MonitorStyle.ROWS_FULL);
+        super(player, "player-action", MonitorStyle.title(ChatColor.YELLOW, "Player Actions"), MonitorStyle.ROWS_SMALL);
         this.viewerData = viewerData;
         this.targetUuid = targetUuid;
         this.returnTo = returnTo;
@@ -203,17 +202,11 @@ public class PlayerActionGui extends SimpleGuiMonitor {
         transfer.onClick(e -> new TransferConfirmGui(player, viewerData, targetUuid).open());
         addItem(13, transfer);
 
-        // Pay
-        Icon pay = GuiHelper.createIcon(Material.GOLD_INGOT, ChatColor.GOLD + "Pay Cookies",
-                "", ChatColor.GRAY + "Send cookies to this player");
-        pay.onClick(e -> new PaymentGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
-        addItem(14, pay);
-
-        // Gamble
-        Icon gamble = GuiHelper.createIcon(Material.EMERALD, ChatColor.GREEN + "Gamble",
-                "", ChatColor.GRAY + "Bet cookies against this player");
-        gamble.onClick(e -> new GambleGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
-        addItem(15, gamble);
+        // Money Actions
+        Icon money = GuiHelper.createIcon(Material.GOLD_INGOT, ChatColor.GOLD + "Money Actions",
+                "", ChatColor.GRAY + "Pay or gamble cookies");
+        money.onClick(e -> new MoneyActionsGui(player, viewerData, targetUuid, returnTo).open());
+        addItem(14, money);
 
         // Ban / Unban
         if (isBanned) {

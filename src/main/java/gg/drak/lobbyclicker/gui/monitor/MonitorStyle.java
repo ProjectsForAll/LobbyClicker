@@ -40,12 +40,12 @@ public class MonitorStyle {
     // --- Common button builders ---
 
     public static Icon confirmButton(String label) {
-        return GuiHelper.createIcon(Material.LIME_WOOL,
+        return GuiHelper.createIcon(Material.LIME_DYE,
                 ChatColor.GREEN + "" + ChatColor.BOLD + label);
     }
 
     public static Icon cancelButton(String label) {
-        return GuiHelper.createIcon(Material.RED_WOOL,
+        return GuiHelper.createIcon(Material.RED_DYE,
                 ChatColor.RED + "" + ChatColor.BOLD + label);
     }
 

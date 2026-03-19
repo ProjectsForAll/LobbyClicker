@@ -3,6 +3,8 @@ package gg.drak.lobbyclicker.realm;
 import gg.drak.lobbyclicker.math.CookieMath;
 import gg.drak.lobbyclicker.prestige.PrestigeManager;
 import gg.drak.lobbyclicker.settings.PlayerSettings;
+import gg.drak.lobbyclicker.upgrades.ClickerUpgrade;
+import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import lombok.Getter;
 import lombok.Setter;
@@ -10,6 +12,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,11 +30,13 @@ public class RealmProfile {
 
     // Realm economy
     private BigDecimal cookies;
-    private BigDecimal totalCookiesEarned;
+    private BigDecimal totalCookiesEarned;    // resets on prestige ("earned this prestige")
+    private BigDecimal lifetimeCookiesEarned; // never resets (all-time total)
     private long timesClicked;       // combined (owner + others)
     private long ownerClicks;        // clicks by the realm owner
     private long otherClicks;        // clicks by visitors
     private EnumMap<UpgradeType, Integer> upgrades;
+    private Set<ClickerUpgrade> purchasedUpgrades;
     private int prestigeLevel;
     private BigDecimal aura;
     private boolean realmPublic;
@@ -52,6 +57,7 @@ public class RealmProfile {
         this.profileName = profileName;
         this.cookies = BigDecimal.ZERO;
         this.totalCookiesEarned = BigDecimal.ZERO;
+        this.lifetimeCookiesEarned = BigDecimal.ZERO;
         this.timesClicked = 0;
         this.ownerClicks = 0;
         this.otherClicks = 0;
@@ -59,6 +65,7 @@ public class RealmProfile {
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
         }
+        this.purchasedUpgrades = EnumSet.noneOf(ClickerUpgrade.class);
         this.prestigeLevel = 0;
         this.aura = BigDecimal.ZERO;
         this.realmPublic = false;
@@ -75,6 +82,7 @@ public class RealmProfile {
     public void addCookies(BigDecimal amount) {
         this.cookies = this.cookies.add(amount);
         this.totalCookiesEarned = this.totalCookiesEarned.add(amount);
+        this.lifetimeCookiesEarned = this.lifetimeCookiesEarned.add(amount);
     }
 
     public void removeCookies(BigDecimal amount) {
@@ -90,18 +98,48 @@ public class RealmProfile {
     public BigDecimal getCps() {
         BigDecimal baseCps = BigDecimal.ZERO;
         for (UpgradeType type : UpgradeType.values()) {
-            baseCps = baseCps.add(type.getCpsPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type))));
+            BigDecimal buildingCps = type.getCpsPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type)));
+            buildingCps = buildingCps.multiply(getBuildingMultiplier(type));
+            baseCps = baseCps.add(buildingCps);
         }
-        return baseCps.multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel));
+        return baseCps.multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel))
+                .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER));
     }
 
     public BigDecimal getCpc() {
         BigDecimal baseCpc = BigDecimal.ONE;
         for (UpgradeType type : UpgradeType.values()) {
-            baseCpc = baseCpc.add(type.getCpcPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type))));
+            BigDecimal buildingCpc = type.getCpcPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type)));
+            buildingCpc = buildingCpc.multiply(getBuildingMultiplier(type));
+            baseCpc = baseCpc.add(buildingCpc);
         }
         return baseCpc.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura))
+                .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER))
                 .add(PrestigeManager.getBaseClickAdditive(prestigeLevel));
+    }
+
+    private BigDecimal getBuildingMultiplier(UpgradeType building) {
+        BigDecimal mult = BigDecimal.ONE;
+        for (ClickerUpgrade upgrade : purchasedUpgrades) {
+            if (upgrade.getEffect() == ClickerUpgradeEffect.BUILDING_MULTIPLIER
+                    && upgrade.getTargetBuilding() == building) {
+                mult = mult.multiply(upgrade.getEffectValue());
+            }
+        }
+        return mult;
+    }
+
+    /**
+     * Get the combined multiplier from all purchased upgrades of a given effect type.
+     */
+    public BigDecimal getEffectMultiplier(ClickerUpgradeEffect effectType) {
+        BigDecimal mult = BigDecimal.ONE;
+        for (ClickerUpgrade upgrade : purchasedUpgrades) {
+            if (upgrade.getEffect() == effectType) {
+                mult = mult.multiply(upgrade.getEffectValue());
+            }
+        }
+        return mult;
     }
 
     public BigDecimal getClickerEntropy() {
@@ -109,7 +147,7 @@ public class RealmProfile {
         for (UpgradeType type : UpgradeType.values()) {
             entropy = entropy.add(BigDecimal.valueOf((long) getUpgradeCount(type) * type.getEntropyWeight()));
         }
-        entropy = entropy.add(totalCookiesEarned.divide(CookieMath.ONE_HUNDRED, 0, RoundingMode.FLOOR));
+        entropy = entropy.add(lifetimeCookiesEarned.divide(CookieMath.ONE_HUNDRED, 0, RoundingMode.FLOOR));
         entropy = entropy.add(aura.multiply(BigDecimal.TEN));
         entropy = entropy.add(BigDecimal.valueOf((long) prestigeLevel * 1000));
         return entropy;
@@ -140,6 +178,25 @@ public class RealmProfile {
             sb.append(entry.getKey().name()).append(":").append(entry.getValue());
         }
         return sb.toString();
+    }
+
+    // --- Purchased (one-time) upgrades ---
+
+    public boolean hasPurchasedUpgrade(ClickerUpgrade upgrade) {
+        return purchasedUpgrades.contains(upgrade);
+    }
+
+    public boolean buyClickerUpgrade(ClickerUpgrade upgrade) {
+        if (purchasedUpgrades.contains(upgrade)) return false;
+        if (!canAfford(upgrade.getCost())) return false;
+        if (!upgrade.isUnlocked(this)) return false;
+        removeCookies(upgrade.getCost());
+        purchasedUpgrades.add(upgrade);
+        return true;
+    }
+
+    public String serializePurchasedUpgrades() {
+        return ClickerUpgrade.serialize(purchasedUpgrades);
     }
 
     public static EnumMap<UpgradeType, Integer> deserializeUpgrades(String data) {
@@ -211,6 +268,10 @@ public class RealmProfile {
         return CookieMath.digitCount(totalCookiesEarned);
     }
 
+    public int getLifetimeCookiesDigits() {
+        return CookieMath.digitCount(lifetimeCookiesEarned);
+    }
+
     // --- Reset (keeps nothing profile-specific) ---
 
     public void reset() {
@@ -222,6 +283,7 @@ public class RealmProfile {
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
         }
+        this.purchasedUpgrades.clear();
         this.prestigeLevel = 0;
         this.aura = BigDecimal.ZERO;
         this.lastCurrentDigitCount = 0;
@@ -236,12 +298,14 @@ public class RealmProfile {
     public void mergeFrom(RealmProfile other) {
         this.cookies = this.cookies.add(other.cookies);
         this.totalCookiesEarned = this.totalCookiesEarned.add(other.totalCookiesEarned);
+        this.lifetimeCookiesEarned = this.lifetimeCookiesEarned.add(other.lifetimeCookiesEarned);
         this.timesClicked += other.timesClicked;
         this.ownerClicks += other.ownerClicks;
         this.otherClicks += other.otherClicks;
         for (UpgradeType type : UpgradeType.values()) {
             this.upgrades.put(type, Math.max(this.getUpgradeCount(type), other.getUpgradeCount(type)));
         }
+        this.purchasedUpgrades.addAll(other.purchasedUpgrades);
         this.prestigeLevel += other.prestigeLevel;
         this.aura = this.aura.add(other.aura);
     }
