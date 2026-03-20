@@ -79,7 +79,7 @@ public class PrestigeGui extends SimpleGuiMonitor {
                 ChatColor.YELLOW + "Resets: " + ChatColor.GRAY + "Cookies, upgrades, clicks",
                 ChatColor.GREEN + "Keeps: " + ChatColor.GRAY + "Settings, friends, prestige, aura"));
 
-        // Prestige button — opens confirmation screen
+        // Prestige button
         if (canPrestige) {
             Icon prestige = GuiHelper.createIcon(Material.BEACON,
                     ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige",
@@ -87,6 +87,13 @@ public class PrestigeGui extends SimpleGuiMonitor {
                     "", ChatColor.GREEN + "Aura gained: " + ChatColor.GOLD + FormatUtils.format(auraGain));
             prestige.onClick(e -> new PrestigeConfirmGui(player, data).open());
             setContent(5, prestige);
+        } else {
+            Icon locked = GuiHelper.createIcon(Material.BEACON,
+                    ChatColor.GRAY + "" + ChatColor.BOLD + "Prestige",
+                    "", ChatColor.RED + "Not enough cookies!",
+                    "", ChatColor.GRAY + "Need: " + ChatColor.WHITE + FormatUtils.format(cost),
+                    ChatColor.GRAY + "Have: " + ChatColor.WHITE + FormatUtils.format(data.getCookies()));
+            setContent(5, locked);
         }
     }
 }

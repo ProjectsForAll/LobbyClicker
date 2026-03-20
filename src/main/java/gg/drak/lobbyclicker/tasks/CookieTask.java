@@ -27,7 +27,9 @@ public class CookieTask extends BukkitRunnable {
 
             BigDecimal cps = data.getCps();
             if (cps.signum() > 0) {
-                data.addCookies(cps);
+                BigDecimal boosterMult = gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
+                        data.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.CPS_MULTIPLIER);
+                data.addCookies(cps.multiply(boosterMult));
             }
 
             // Milestone checks run every tick (every 1 second) for instant detection

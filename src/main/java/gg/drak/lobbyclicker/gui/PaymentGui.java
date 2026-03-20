@@ -4,6 +4,7 @@ import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import gg.drak.lobbyclicker.social.TransactionType;
+import gg.drak.lobbyclicker.utils.ChatInput;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
@@ -74,6 +75,43 @@ public class PaymentGui extends BaseGui {
         addAdjustButton(player, 1, -1000, Material.RED_STAINED_GLASS_PANE);
         addAdjustButton(player, 7, 1000, Material.LIME_STAINED_GLASS_PANE);
         addAdjustButton(player, 8, 10000, Material.LIME_STAINED_GLASS_PANE);
+
+        // None button
+        Icon none = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "None",
+                "", ChatColor.GRAY + "Reset to 0");
+        none.onClick(e -> new PaymentGui(player, senderData, targetUuid, BigDecimal.ZERO).open());
+        addItem(12, none);
+
+        // All button
+        Icon all = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "All",
+                "", ChatColor.GRAY + "Set to max: " + ChatColor.GOLD + FormatUtils.format(senderData.getCookies()));
+        all.onClick(e -> new PaymentGui(player, senderData, targetUuid, senderData.getCookies()).open());
+        addItem(14, all);
+
+        // Custom amount button
+        Icon custom = GuiHelper.createIcon(Material.OAK_SIGN, ChatColor.YELLOW + "" + ChatColor.BOLD + "Custom Amount",
+                "", ChatColor.GRAY + "Type an amount in chat",
+                ChatColor.GRAY + "e.g. " + ChatColor.WHITE + "2.5m" + ChatColor.GRAY + ", " + ChatColor.WHITE + "20000" + ChatColor.GRAY + ", " + ChatColor.WHITE + "5k");
+        custom.onClick(e -> {
+            player.closeInventory();
+            player.sendMessage(ChatColor.YELLOW + "Type the amount in chat (e.g. 2.5m, 20000, 5k). Type " + ChatColor.WHITE + "cancel" + ChatColor.YELLOW + " to cancel.");
+            ChatInput.request(player, input -> {
+                if (input == null || input.equalsIgnoreCase("cancel")) {
+                    new PaymentGui(player, senderData, targetUuid, amount).open();
+                    return;
+                }
+                BigDecimal parsed = FormatUtils.parseShorthand(input);
+                if (parsed == null) {
+                    player.sendMessage(ChatColor.RED + "Invalid amount: " + input);
+                    new PaymentGui(player, senderData, targetUuid, amount).open();
+                    return;
+                }
+                // Cap to balance
+                if (parsed.compareTo(senderData.getCookies()) > 0) parsed = senderData.getCookies();
+                new PaymentGui(player, senderData, targetUuid, parsed).open();
+            });
+        });
+        addItem(20, custom);
 
         // Confirm
         if (canAfford) {

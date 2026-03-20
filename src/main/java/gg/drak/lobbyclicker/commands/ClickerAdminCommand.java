@@ -224,6 +224,33 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             }
+            case "prestige": {
+                if (args.length < 4) {
+                    sender.sendMessage(ChatColor.RED + "Usage: /clickeradmin prestige <player> <set|add|remove> <amount>");
+                    return true;
+                }
+                String subAction = args[2].toLowerCase();
+                int amount;
+                try { amount = Integer.parseInt(args[3]); }
+                catch (NumberFormatException ex) {
+                    sender.sendMessage(ChatColor.RED + "Invalid amount: " + args[3]);
+                    return true;
+                }
+                int current = data.getPrestigeLevel();
+                int newLevel;
+                switch (subAction) {
+                    case "set": newLevel = Math.max(0, amount); break;
+                    case "add": newLevel = current + amount; break;
+                    case "remove": newLevel = Math.max(0, current - amount); break;
+                    default:
+                        sender.sendMessage(ChatColor.RED + "Usage: /clickeradmin prestige <player> <set|add|remove> <amount>");
+                        return true;
+                }
+                data.setPrestigeLevel(newLevel);
+                data.save(true);
+                sender.sendMessage(ChatColor.GREEN + "Set " + finalTargetName + "'s prestige to " + ChatColor.WHITE + newLevel + ChatColor.GREEN + " (was " + current + ")");
+                break;
+            }
             case "upgrade": {
                 if (args.length < 5) {
                     sender.sendMessage(ChatColor.RED + "Usage: /clickeradmin upgrade <player> <add|remove|set> <upgrade> <amount>");
@@ -292,6 +319,7 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin save" + ChatColor.GRAY + " - Force save all players");
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin openfor <player>" + ChatColor.GRAY + " - Open clicker GUI for player");
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin reload" + ChatColor.GRAY + " - Reload config & reconnect Redis");
+        sender.sendMessage(ChatColor.YELLOW + "/clickeradmin prestige <player> <set|add|remove> <amount>" + ChatColor.GRAY + " - Manage prestige");
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin upgrade <player> <add|remove|set> <upgrade> <amount>" + ChatColor.GRAY + " - Manage upgrades");
         sender.sendMessage(ChatColor.YELLOW + "/clickeradmin profiles <player>" + ChatColor.GRAY + " - Manage player profiles (GUI)");
         sender.sendMessage(ChatColor.GRAY + "Run " + ChatColor.YELLOW + "/clickeradmin" + ChatColor.GRAY + " with no args to open the admin GUI.");
@@ -302,7 +330,7 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("set", "add", "reset", "info", "save", "openfor", "reload", "upgrade", "profiles"));
+            completions.addAll(Arrays.asList("set", "add", "reset", "info", "save", "openfor", "reload", "upgrade", "prestige", "profiles"));
         } else if (args.length == 2 && !args[0].equalsIgnoreCase("save") && !args[0].equalsIgnoreCase("reload")) {
             // All commands with a player argument: arg2 = player name
             completions.addAll(Bukkit.getOnlinePlayers().stream()
@@ -311,10 +339,14 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("add")) {
                 completions.addAll(Arrays.asList("100", "1000", "10000", "100000"));
+            } else if (args[0].equalsIgnoreCase("prestige")) {
+                completions.addAll(Arrays.asList("set", "add", "remove"));
             } else if (args[0].equalsIgnoreCase("upgrade")) {
                 // /clickeradmin upgrade <player> <add|remove|set>
                 completions.addAll(Arrays.asList("add", "remove", "set"));
             }
+        } else if (args.length == 4 && args[0].equalsIgnoreCase("prestige")) {
+            completions.addAll(Arrays.asList("1", "5", "10"));
         } else if (args.length == 4 && args[0].equalsIgnoreCase("upgrade")) {
             // /clickeradmin upgrade <player> <sub> <upgrade>
             for (UpgradeType type : UpgradeType.values()) {

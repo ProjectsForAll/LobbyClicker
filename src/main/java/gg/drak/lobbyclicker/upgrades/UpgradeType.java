@@ -58,4 +58,21 @@ public enum UpgradeType {
     public BigDecimal getCost(int owned) {
         return CookieMath.floor(baseCost.multiply(CookieMath.pow(costMultiplier, owned)));
     }
+
+    /** CPS building progression chain (excludes CLICK_POWER which is standalone). */
+    private static final UpgradeType[] CPS_CHAIN = {
+            CURSOR, GRANDMA, FARM, MINE, FACTORY, BANK, TEMPLE,
+            WIZARD_TOWER, SHIPMENT, ALCHEMY_LAB, PORTAL, TIME_MACHINE, ANTIMATTER, PRISM
+    };
+
+    /**
+     * Get the previous building in the CPS progression chain.
+     * Returns null if this is the first building or CLICK_POWER.
+     */
+    public UpgradeType getPreviousInChain() {
+        for (int i = 1; i < CPS_CHAIN.length; i++) {
+            if (CPS_CHAIN[i] == this) return CPS_CHAIN[i - 1];
+        }
+        return null;
+    }
 }

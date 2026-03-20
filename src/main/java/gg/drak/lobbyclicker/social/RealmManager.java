@@ -24,13 +24,16 @@ public class RealmManager {
 
     public static void removeViewer(String ownerUuid, String viewerUuid) {
         Set<String> viewers = REALM_VIEWERS.get(ownerUuid);
+        boolean wasPresent = false;
         if (viewers != null) {
-            viewers.remove(viewerUuid);
+            wasPresent = viewers.remove(viewerUuid);
             if (viewers.isEmpty()) REALM_VIEWERS.remove(ownerUuid);
         }
 
-        // Notify owner
-        notifyOwner(ownerUuid, viewerUuid, false);
+        // Only notify if the viewer was actually in the set (prevents double notifications)
+        if (wasPresent) {
+            notifyOwner(ownerUuid, viewerUuid, false);
+        }
     }
 
     public static Set<String> getViewers(String ownerUuid) {

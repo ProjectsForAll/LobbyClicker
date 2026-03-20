@@ -16,14 +16,28 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 public class OutgoingRequestsGui extends PaginationMonitor {
     private final PlayerData data;
+    private final Consumer<Player> backAction;
+
+    public OutgoingRequestsGui(Player player, PlayerData data, Consumer<Player> backAction) {
+        this(player, data, 0, backAction);
+    }
 
     public OutgoingRequestsGui(Player player, PlayerData data, int page) {
+        this(player, data, page, p -> new FriendsMenuGui(p, data).open());
+    }
+
+    public OutgoingRequestsGui(Player player, PlayerData data, int page, Consumer<Player> backAction) {
         super(player, "outgoing-requests", MonitorStyle.title(ChatColor.YELLOW, "Outgoing Requests"), page);
         this.data = data;
+        this.backAction = backAction;
     }
 
     @Override
@@ -31,57 +45,47 @@ public class OutgoingRequestsGui extends PaginationMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new FriendsMenuGui(p, data).open());
+        buildStandardActionBar(backAction);
 
         List<String> outgoing = new ArrayList<>(data.getOutgoingFriendRequests());
 
         if (outgoing.isEmpty()) {
-            setContent(10, GuiHelper.createIcon(Material.PAPER,
+            addItem(22, GuiHelper.createIcon(Material.PAPER,
                     ChatColor.GRAY + "No outgoing requests",
                     "", ChatColor.GRAY + "You haven't sent any friend requests."));
         }
 
         populatePagedContent(outgoing, (receiverUuid, slot) -> {
+            if (receiverUuid == null) return;
             String name = receiverUuid.substring(0, 8);
-            try {
-                String n = Bukkit.getOfflinePlayer(UUID.fromString(receiverUuid)).getName();
-                if (n != null) name = n;
-            } catch (Exception ignored) {}
+            try { String n = Bukkit.getOfflinePlayer(UUID.fromString(receiverUuid)).getName(); if (n != null) name = n; } catch (Exception ignored) {}
 
             String finalName = name;
-            // Player head with cancel option
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             if (meta != null) {
                 try { meta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(receiverUuid))); } catch (Exception ignored) {}
                 meta.setDisplayName(ChatColor.YELLOW + name);
                 meta.setLore(Arrays.asList(
-                        "",
-                        ChatColor.GRAY + "Request sent",
-                        "",
-                        ChatColor.RED + "Click to cancel request"
-                ));
+                        "", ChatColor.GRAY + "Request sent",
+                        "", ChatColor.RED + "Click to cancel request"));
                 head.setItemMeta(meta);
             }
 
             Icon icon = new Icon(head);
             icon.onClick(e -> {
-                // Cancel the outgoing request
                 data.getOutgoingFriendRequests().remove(receiverUuid);
                 LobbyClicker.getDatabase().deleteFriendRequestThreaded(data.getIdentifier(), receiverUuid);
                 RedisSyncHandler.publishFriendRequestDelete(data.getIdentifier(), receiverUuid);
-
-                // Remove from receiver's incoming if they're loaded
-                PlayerManager.getPlayer(receiverUuid).ifPresent(receiverData ->
-                        receiverData.getIncomingFriendRequests().remove(data.getIdentifier()));
-
+                PlayerManager.getPlayer(receiverUuid).ifPresent(rd ->
+                        rd.getIncomingFriendRequests().remove(data.getIdentifier()));
                 player.sendMessage(ChatColor.RED + "Cancelled friend request to " + ChatColor.WHITE + finalName);
                 player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.5f, 1.0f);
-                new OutgoingRequestsGui(player, data, page).open();
+                new OutgoingRequestsGui(player, data, page, backAction).open();
             });
             addItem(slot, icon);
         });
 
-        addPaginationArrows(outgoing, newPage -> new OutgoingRequestsGui(player, data, newPage).open());
+        addPaginationArrows(outgoing, newPage -> new OutgoingRequestsGui(player, data, newPage, backAction).open());
     }
 }

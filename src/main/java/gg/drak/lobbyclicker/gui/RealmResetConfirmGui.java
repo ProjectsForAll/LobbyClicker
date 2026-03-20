@@ -24,7 +24,7 @@ public class RealmResetConfirmGui extends ConfirmationMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
 
-        Icon info = MonitorStyle.infoItem(Material.TNT,
+        Icon info = MonitorStyle.infoItem(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Realm Reset",
                 "",
                 ChatColor.RED + "This will reset:",

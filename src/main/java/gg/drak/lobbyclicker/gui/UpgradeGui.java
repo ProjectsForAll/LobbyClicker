@@ -109,9 +109,9 @@ public class UpgradeGui extends PaginationMonitor {
         BigDecimal cost = type.getCost(owned);
         boolean canAfford = ownerData.canAfford(cost);
 
-        boolean revealed = !type.isHidden() || owned > 0 || canAfford
-                || ownerData.getCookies().compareTo(type.getBaseCost()) >= 0
-                || ownerData.getTotalCookiesEarned().compareTo(type.getBaseCost()) >= 0;
+        UpgradeType prev = type.getPreviousInChain();
+        boolean hasPrevious = prev != null && ownerData.getUpgradeCount(prev) > 0;
+        boolean revealed = !type.isHidden() || owned > 0 || canAfford || hasPrevious;
 
         if (!revealed) {
             List<String> lore = new ArrayList<>();
@@ -142,12 +142,42 @@ public class UpgradeGui extends PaginationMonitor {
         lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
 
         if (type.getCpsPerLevel().signum() > 0) {
-            lore.add(ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpsPerLevel()));
-            lore.add(ChatColor.GRAY + "Total CPS: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpsPerLevel().multiply(BigDecimal.valueOf(owned))));
+            gg.drak.lobbyclicker.realm.RealmProfile profile = ownerData.getActiveProfile();
+            BigDecimal baseCpsEach = type.getCpsPerLevel()
+                    .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getUpgradeMultiplier(ownerData.getPrestigeLevel()));
+            BigDecimal effectiveCpsEach = baseCpsEach;
+            if (profile != null) {
+                effectiveCpsEach = type.getCpsPerLevel()
+                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
+                        .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getUpgradeMultiplier(ownerData.getPrestigeLevel()))
+                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.CPS_MULTIPLIER));
+            }
+            BigDecimal upgradeBonus = effectiveCpsEach.subtract(baseCpsEach);
+            lore.add(ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(effectiveCpsEach)
+                    + (upgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(upgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
+            BigDecimal totalCps = effectiveCpsEach.multiply(BigDecimal.valueOf(owned));
+            BigDecimal totalUpgradeBonus = upgradeBonus.multiply(BigDecimal.valueOf(owned));
+            lore.add(ChatColor.GRAY + "Total CPS: " + ChatColor.WHITE + "+" + FormatUtils.format(totalCps)
+                    + (totalUpgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(totalUpgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
         }
         if (type.getCpcPerLevel().signum() > 0) {
-            lore.add(ChatColor.GRAY + "CPC each: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpcPerLevel()));
-            lore.add(ChatColor.GRAY + "Total CPC: " + ChatColor.WHITE + "+" + FormatUtils.format(type.getCpcPerLevel().multiply(BigDecimal.valueOf(owned))));
+            gg.drak.lobbyclicker.realm.RealmProfile profile = ownerData.getActiveProfile();
+            BigDecimal baseCpcEach = type.getCpcPerLevel()
+                    .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getClickMultiplier(ownerData.getPrestigeLevel(), ownerData.getAura()));
+            BigDecimal effectiveCpcEach = baseCpcEach;
+            if (profile != null) {
+                effectiveCpcEach = type.getCpcPerLevel()
+                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
+                        .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getClickMultiplier(ownerData.getPrestigeLevel(), ownerData.getAura()))
+                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.CPC_MULTIPLIER));
+            }
+            BigDecimal upgradeBonus = effectiveCpcEach.subtract(baseCpcEach);
+            lore.add(ChatColor.GRAY + "CPC each: " + ChatColor.WHITE + "+" + FormatUtils.format(effectiveCpcEach)
+                    + (upgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(upgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
+            BigDecimal totalCpc = effectiveCpcEach.multiply(BigDecimal.valueOf(owned));
+            BigDecimal totalUpgradeBonus = upgradeBonus.multiply(BigDecimal.valueOf(owned));
+            lore.add(ChatColor.GRAY + "Total CPC: " + ChatColor.WHITE + "+" + FormatUtils.format(totalCpc)
+                    + (totalUpgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(totalUpgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
         }
 
         lore.add("");

@@ -14,6 +14,8 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import org.bukkit.scheduler.BukkitTask;
+
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +31,7 @@ public class LeaderboardGui extends PaginationMonitor {
 
     private static final ConcurrentHashMap<UUID, LeaderboardGui> OPEN_GUIS = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<UUID, LeaderboardGui> getOpenGuis() { return OPEN_GUIS; }
+    private BukkitTask refreshTask;
 
     public LeaderboardGui(Player player, PlayerData data) {
         this(player, data, 0, null);
@@ -54,6 +57,24 @@ public class LeaderboardGui extends PaginationMonitor {
         LeaderboardCache.refreshAsync();
         buildDisplay();
         OPEN_GUIS.put(player.getUniqueId(), this);
+
+        // Refresh display every 1 second while open
+        refreshTask = Bukkit.getScheduler().runTaskTimer(
+                gg.drak.lobbyclicker.LobbyClicker.getInstance(), () -> {
+                    if (!player.isOnline() || !player.getOpenInventory().getTopInventory().equals(getInventory())) {
+                        stopRefreshTask();
+                        OPEN_GUIS.remove(player.getUniqueId());
+                        return;
+                    }
+                    buildDisplay();
+                }, 20L, 20L); // 1 second interval
+    }
+
+    private void stopRefreshTask() {
+        if (refreshTask != null && !refreshTask.isCancelled()) {
+            refreshTask.cancel();
+            refreshTask = null;
+        }
     }
 
     public void refreshDisplay() {
@@ -64,7 +85,11 @@ public class LeaderboardGui extends PaginationMonitor {
     private void buildDisplay() {
         setPlayerContext(data, realmOwner);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new ClickerGui(p, data).open());
+        buildStandardActionBar(p -> {
+            stopRefreshTask();
+            OPEN_GUIS.remove(player.getUniqueId());
+            new ClickerGui(p, data).open();
+        });
 
         // Build deduplicated entries: per player, show selected realm + highest realm (if different)
         List<LeaderboardCache.LeaderboardEntry> allEntries = LeaderboardCache.getLeaderboard();
@@ -150,6 +175,7 @@ public class LeaderboardGui extends PaginationMonitor {
 
             Icon icon = new Icon(head);
             icon.onClick(e -> {
+                stopRefreshTask();
                 OPEN_GUIS.remove(player.getUniqueId());
                 new ProfileViewGui(player, data, entry,
                         p -> new LeaderboardGui(p, data, page).open()).open();
@@ -158,6 +184,7 @@ public class LeaderboardGui extends PaginationMonitor {
         });
 
         addPaginationArrows(displayEntries, newPage -> {
+            stopRefreshTask();
             OPEN_GUIS.remove(player.getUniqueId());
             new LeaderboardGui(player, data, newPage).open();
         });

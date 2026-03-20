@@ -6,11 +6,15 @@ import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.redis.RedisManager;
+import gg.drak.lobbyclicker.settings.SettingType;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.*;
 
@@ -80,10 +84,32 @@ public class FriendsListGui extends PaginationMonitor {
             }
 
             String finalFriendUuid = friendUuid;
-            Icon icon = playerHeadIcon(friendUuid,
-                    nameColor + friendName,
-                    p -> new PlayerActionGui(p, data, finalFriendUuid, "friends").open(),
-                    "", statusLine, "", ChatColor.YELLOW + "Click for actions");
+            String finalFriendName = friendName;
+
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            if (meta != null) {
+                try {
+                    UUID uid = UUID.fromString(friendUuid);
+                    Player onlinePlayer = Bukkit.getPlayer(uid);
+                    if (onlinePlayer != null) meta.setOwningPlayer(onlinePlayer);
+                    else meta.setOwningPlayer(Bukkit.getOfflinePlayer(uid));
+                } catch (Exception ignored) {}
+                meta.setDisplayName(nameColor + friendName);
+                meta.setLore(Arrays.asList("", statusLine, "",
+                        ChatColor.YELLOW + "Left-click for actions",
+                        ChatColor.AQUA + "Right-click to visit realm"));
+                head.setItemMeta(meta);
+            }
+            Icon icon = new Icon(head);
+            icon.onClick(e -> {
+                Player p = (Player) e.getWhoClicked();
+                if (e.isRightClick()) {
+                    visitFriendRealm(p, finalFriendUuid, finalFriendName);
+                } else {
+                    new PlayerActionGui(p, data, finalFriendUuid, "friends").open();
+                }
+            });
             addItem(slot, icon);
         });
 
@@ -95,6 +121,58 @@ public class FriendsListGui extends PaginationMonitor {
         if (Bukkit.getPlayer(UUID.fromString(uuid)) != null) return 0;
         if (redis != null && redis.getCrossServerPlayer(uuid) != null) return 1;
         return 2;
+    }
+
+    private void visitFriendRealm(Player player, String friendUuid, String friendName) {
+        PlayerData friendData = PlayerManager.getPlayer(friendUuid).orElse(null);
+        boolean friendLocalOnline = friendData != null && friendData.isFullyLoaded();
+
+        RedisManager redis = LobbyClicker.getRedisManager();
+        boolean friendIsObo = !friendLocalOnline && redis != null && redis.isPlayerOnlineRemotely(friendUuid);
+
+        if (!friendLocalOnline && !friendIsObo) {
+            // Offline — try offline realm visit
+            player.sendMessage(ChatColor.YELLOW + "Loading offline realm...");
+            java.util.Optional<PlayerData> offlineOpt = PlayerManager.getOrGetPlayer(friendUuid);
+            if (offlineOpt.isEmpty()) {
+                player.sendMessage(ChatColor.RED + "Could not load player data.");
+                return;
+            }
+            PlayerData offlineData = offlineOpt.get().waitUntilFullyLoaded();
+            if (!offlineData.getSettings().getBool(SettingType.ALLOW_OFFLINE_REALM)) {
+                player.sendMessage(ChatColor.RED + friendName + " does not allow offline realm visits.");
+                PlayerManager.unloadPlayer(offlineData);
+                return;
+            }
+            if (offlineData.getBans().contains(data.getIdentifier()) || offlineData.getBlocks().contains(data.getIdentifier())) {
+                player.sendMessage(ChatColor.RED + "You are not allowed to visit this realm.");
+                PlayerManager.unloadPlayer(offlineData);
+                return;
+            }
+            new ClickerGui(player, data, offlineData).open();
+            return;
+        }
+
+        // Online — load if needed
+        if (friendData == null || !friendData.isFullyLoaded()) {
+            player.sendMessage(ChatColor.YELLOW + "Loading realm...");
+            java.util.Optional<PlayerData> oboOpt = PlayerManager.getOrGetPlayer(friendUuid);
+            if (oboOpt.isEmpty()) {
+                player.sendMessage(ChatColor.RED + "Could not load player data.");
+                return;
+            }
+            friendData = oboOpt.get().waitUntilFullyLoaded();
+        }
+
+        if (!friendData.getSettings().getBool(SettingType.ALLOW_FRIEND_JOINS) && !friendData.isRealmPublic()) {
+            player.sendMessage(ChatColor.RED + friendName + " does not allow friend realm visits.");
+            return;
+        }
+        if (friendData.getBans().contains(data.getIdentifier()) || friendData.getBlocks().contains(data.getIdentifier())) {
+            player.sendMessage(ChatColor.RED + "You are not allowed to visit this realm.");
+            return;
+        }
+        new ClickerGui(player, data, friendData).open();
     }
 
     private static String getFriendName(String uuid, RedisManager redis) {

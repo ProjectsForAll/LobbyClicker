@@ -37,6 +37,8 @@ public class Statements {
                 "PurchasedUpgrades TEXT NOT NULL DEFAULT '', " +
                 "LifetimeCookiesEarned TEXT NOT NULL DEFAULT '0', " +
                 "LifetimeCookiesDigits INT NOT NULL DEFAULT 0, " +
+                "CompletedQuests TEXT NOT NULL DEFAULT '', " +
+                "GoldenCookiesCollected BIGINT NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (ProfileId), " +
                 "INDEX idx_owner (OwnerUuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
@@ -107,9 +109,10 @@ public class Statements {
         PUSH_PROFILE("INSERT INTO `%table_prefix%Profiles` ( " +
                 "ProfileId, OwnerUuid, ProfileName, Cookies, TotalCookiesEarned, TotalCookiesDigits, " +
                 "TimesClicked, OwnerClicks, OtherClicks, Upgrades, PrestigeLevel, Aura, RealmPublic, " +
-                "PurchasedUpgrades, LifetimeCookiesEarned, LifetimeCookiesDigits " +
+                "PurchasedUpgrades, LifetimeCookiesEarned, LifetimeCookiesDigits, " +
+                "CompletedQuests, GoldenCookiesCollected " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
                 "ProfileName = VALUES(ProfileName), " +
                 "Cookies = VALUES(Cookies), " +
@@ -124,7 +127,9 @@ public class Statements {
                 "RealmPublic = VALUES(RealmPublic), " +
                 "PurchasedUpgrades = VALUES(PurchasedUpgrades), " +
                 "LifetimeCookiesEarned = VALUES(LifetimeCookiesEarned), " +
-                "LifetimeCookiesDigits = VALUES(LifetimeCookiesDigits)" +
+                "LifetimeCookiesDigits = VALUES(LifetimeCookiesDigits), " +
+                "CompletedQuests = VALUES(CompletedQuests), " +
+                "GoldenCookiesCollected = VALUES(GoldenCookiesCollected)" +
                 ";"),
         PULL_PROFILE("SELECT * FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
         PULL_PROFILES_BY_OWNER("SELECT * FROM `%table_prefix%Profiles` WHERE OwnerUuid = ?;"),
@@ -204,6 +209,8 @@ public class Statements {
                 "PurchasedUpgrades TEXT NOT NULL DEFAULT '', " +
                 "LifetimeCookiesEarned TEXT NOT NULL DEFAULT '0', " +
                 "LifetimeCookiesDigits INTEGER NOT NULL DEFAULT 0, " +
+                "CompletedQuests TEXT NOT NULL DEFAULT '', " +
+                "GoldenCookiesCollected INTEGER NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (ProfileId) " +
                 ");;"
         ),
@@ -268,9 +275,10 @@ public class Statements {
         PUSH_PROFILE("INSERT OR REPLACE INTO `%table_prefix%Profiles` ( " +
                 "ProfileId, OwnerUuid, ProfileName, Cookies, TotalCookiesEarned, TotalCookiesDigits, " +
                 "TimesClicked, OwnerClicks, OtherClicks, Upgrades, PrestigeLevel, Aura, RealmPublic, " +
-                "PurchasedUpgrades, LifetimeCookiesEarned, LifetimeCookiesDigits " +
+                "PurchasedUpgrades, LifetimeCookiesEarned, LifetimeCookiesDigits, " +
+                "CompletedQuests, GoldenCookiesCollected " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
                 ");"),
         PULL_PROFILE("SELECT * FROM `%table_prefix%Profiles` WHERE ProfileId = ?;"),
         PULL_PROFILES_BY_OWNER("SELECT * FROM `%table_prefix%Profiles` WHERE OwnerUuid = ?;"),

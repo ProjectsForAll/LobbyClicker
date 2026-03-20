@@ -79,6 +79,14 @@ public class ClickerOperator extends DBOperator {
                         "LifetimeCookiesDigits = TotalCookiesDigits;", stmt -> {});
                 LobbyClicker.getInstance().logInfo("Added LifetimeCookiesEarned columns and seeded from TotalCookiesEarned.");
             }
+            if (!existingProfileCols.contains("CompletedQuests")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `CompletedQuests` TEXT NOT NULL DEFAULT '';", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added CompletedQuests column to Profiles table.");
+            }
+            if (!existingProfileCols.contains("GoldenCookiesCollected")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `GoldenCookiesCollected` " + longType + " NOT NULL DEFAULT 0;", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added GoldenCookiesCollected column to Profiles table.");
+            }
         }
 
         if (!existingPlayerCols.contains("Settings") && existingPlayerCols.contains("Cookies")) {
@@ -161,6 +169,8 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(14, ""); // PurchasedUpgrades
                     stmt.setString(15, totalEarned); // LifetimeCookiesEarned = TotalCookiesEarned for migration
                     stmt.setInt(16, CookieMath.digitCount(CookieMath.parse(totalEarned)));
+                    stmt.setString(17, ""); // CompletedQuests
+                    stmt.setLong(18, 0L); // GoldenCookiesCollected
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to migrate profile for " + uuid, e);
                 }
@@ -347,6 +357,8 @@ public class ClickerOperator extends DBOperator {
                 stmt.setString(14, profile.serializePurchasedUpgrades());
                 stmt.setString(15, profile.getLifetimeCookiesEarned().toPlainString());
                 stmt.setInt(16, profile.getLifetimeCookiesDigits());
+                stmt.setString(17, profile.serializeCompletedQuests());
+                stmt.setLong(18, profile.getGoldenCookiesCollected());
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Failed to push profile", e);
             }
@@ -449,6 +461,12 @@ public class ClickerOperator extends DBOperator {
                 // Migration: if column doesn't exist yet, seed from totalCookiesEarned
                 p.setLifetimeCookiesEarned(p.getTotalCookiesEarned());
             }
+            try {
+                p.setCompletedQuests(gg.drak.lobbyclicker.quests.Quest.deserialize(rs.getString("CompletedQuests")));
+            } catch (Throwable ignored) {}
+            try {
+                p.setGoldenCookiesCollected(rs.getLong("GoldenCookiesCollected"));
+            } catch (Throwable ignored) {}
             p.setLastCurrentDigitCount(CookieMath.digitCount(p.getCookies()));
             p.setLastTotalDigitCount(CookieMath.digitCount(p.getTotalCookiesEarned()));
             BigDecimal entropy = p.getClickerEntropy();

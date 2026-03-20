@@ -2,6 +2,8 @@ package gg.drak.lobbyclicker.realm;
 
 import gg.drak.lobbyclicker.math.CookieMath;
 import gg.drak.lobbyclicker.prestige.PrestigeManager;
+import gg.drak.lobbyclicker.quests.Quest;
+import gg.drak.lobbyclicker.quests.QuestEffect;
 import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.upgrades.ClickerUpgrade;
 import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
@@ -41,6 +43,10 @@ public class RealmProfile {
     private BigDecimal aura;
     private boolean realmPublic;
 
+    // Quests
+    private Set<Quest> completedQuests;
+    private long goldenCookiesCollected;
+
     // Per-profile relationships
     private Set<String> bans;                        // UUIDs banned from THIS profile
     private Map<String, RealmRole> roles;             // playerUuid -> role in THIS profile
@@ -66,6 +72,8 @@ public class RealmProfile {
             upgrades.put(type, 0);
         }
         this.purchasedUpgrades = EnumSet.noneOf(ClickerUpgrade.class);
+        this.completedQuests = EnumSet.noneOf(Quest.class);
+        this.goldenCookiesCollected = 0;
         this.prestigeLevel = 0;
         this.aura = BigDecimal.ZERO;
         this.realmPublic = false;
@@ -103,7 +111,8 @@ public class RealmProfile {
             baseCps = baseCps.add(buildingCps);
         }
         return baseCps.multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel))
-                .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER));
+                .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER))
+                .multiply(getQuestBonusMultiplier(QuestEffect.CPS_PERCENT));
     }
 
     public BigDecimal getCpc() {
@@ -115,7 +124,23 @@ public class RealmProfile {
         }
         return baseCpc.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura))
                 .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER))
+                .multiply(getQuestBonusMultiplier(QuestEffect.CPC_PERCENT))
                 .add(PrestigeManager.getBaseClickAdditive(prestigeLevel));
+    }
+
+    /**
+     * Get the combined multiplier from all completed quests of a given effect type.
+     * Each quest grants +X%, so the multiplier is 1 + (sum of all percents / 100).
+     */
+    public BigDecimal getQuestBonusMultiplier(QuestEffect effectType) {
+        int totalPercent = 0;
+        for (Quest quest : completedQuests) {
+            if (quest.getEffect() == effectType) {
+                totalPercent += quest.getEffectPercent();
+            }
+        }
+        if (totalPercent == 0) return BigDecimal.ONE;
+        return BigDecimal.ONE.add(BigDecimal.valueOf(totalPercent).divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
     }
 
     private BigDecimal getBuildingMultiplier(UpgradeType building) {
@@ -123,6 +148,19 @@ public class RealmProfile {
         for (ClickerUpgrade upgrade : purchasedUpgrades) {
             if (upgrade.getEffect() == ClickerUpgradeEffect.BUILDING_MULTIPLIER
                     && upgrade.getTargetBuilding() == building) {
+                mult = mult.multiply(upgrade.getEffectValue());
+            }
+        }
+        return mult;
+    }
+
+    /**
+     * Get the combined multiplier from purchased upgrades of a given effect type targeting a specific building.
+     */
+    public BigDecimal getEffectMultiplier(ClickerUpgradeEffect effectType, UpgradeType targetBuilding) {
+        BigDecimal mult = BigDecimal.ONE;
+        for (ClickerUpgrade upgrade : purchasedUpgrades) {
+            if (upgrade.getEffect() == effectType && upgrade.getTargetBuilding() == targetBuilding) {
                 mult = mult.multiply(upgrade.getEffectValue());
             }
         }
@@ -197,6 +235,24 @@ public class RealmProfile {
 
     public String serializePurchasedUpgrades() {
         return ClickerUpgrade.serialize(purchasedUpgrades);
+    }
+
+    // --- Completed quests ---
+
+    public boolean hasCompletedQuest(Quest quest) {
+        return completedQuests.contains(quest);
+    }
+
+    public void completeQuest(Quest quest) {
+        completedQuests.add(quest);
+    }
+
+    public String serializeCompletedQuests() {
+        return Quest.serialize(completedQuests);
+    }
+
+    public static Set<Quest> deserializeCompletedQuests(String data) {
+        return Quest.deserialize(data);
     }
 
     public static EnumMap<UpgradeType, Integer> deserializeUpgrades(String data) {
@@ -284,6 +340,7 @@ public class RealmProfile {
             upgrades.put(type, 0);
         }
         this.purchasedUpgrades.clear();
+        // completedQuests and goldenCookiesCollected survive prestige (permanent progress)
         this.prestigeLevel = 0;
         this.aura = BigDecimal.ZERO;
         this.lastCurrentDigitCount = 0;
@@ -306,7 +363,9 @@ public class RealmProfile {
             this.upgrades.put(type, Math.max(this.getUpgradeCount(type), other.getUpgradeCount(type)));
         }
         this.purchasedUpgrades.addAll(other.purchasedUpgrades);
-        this.prestigeLevel += other.prestigeLevel;
-        this.aura = this.aura.add(other.aura);
+        this.completedQuests.addAll(other.completedQuests);
+        this.goldenCookiesCollected += other.goldenCookiesCollected;
+        this.prestigeLevel = Math.max(this.prestigeLevel, other.prestigeLevel);
+        this.aura = this.aura.max(other.aura);
     }
 }

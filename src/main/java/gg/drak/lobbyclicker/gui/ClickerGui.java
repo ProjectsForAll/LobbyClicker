@@ -47,13 +47,33 @@ public class ClickerGui extends SimpleGuiMonitor {
     private int goldenCookieTicksLeft = 0;
     private ItemStack savedGoldenSlotItem = null;
     private BukkitTask goldenCookieTask;
-    private int nextSpawnCountdown;
-    private int frenzyCountdown;
-    private int frenzyRemaining = -1;
-    private int frenzySpawnInterval;
+    private boolean showBanners = true;
 
-    // Click tracking for the green info pane
-    private final java.util.Deque<ClickRecord> recentClicks = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    // Golden cookie timer state — persisted per-player across GUI reopens
+    private static final ConcurrentHashMap<UUID, GoldenCookieState> GOLDEN_STATE = new ConcurrentHashMap<>();
+
+    private static class GoldenCookieState {
+        int nextSpawnCountdown;
+        int frenzyCountdown;
+        int frenzyRemaining = -1;
+        int frenzySpawnInterval;
+    }
+
+    public static void clearGoldenState(UUID uuid) {
+        GOLDEN_STATE.remove(uuid);
+    }
+
+    // Click tracking — static per-player cache so data persists across GUI reopens
+    private static final ConcurrentHashMap<UUID, java.util.Deque<ClickRecord>> CLICK_HISTORY = new ConcurrentHashMap<>();
+
+    private java.util.Deque<ClickRecord> getClickHistory() {
+        return CLICK_HISTORY.computeIfAbsent(java.util.UUID.fromString(ownerData.getIdentifier()),
+                k -> new java.util.concurrent.ConcurrentLinkedDeque<>());
+    }
+
+    public static void clearClickHistory(UUID uuid) {
+        CLICK_HISTORY.remove(uuid);
+    }
 
     private static class ClickRecord {
         final String clickerName;
@@ -95,8 +115,10 @@ public class ClickerGui extends SimpleGuiMonitor {
         updateClickInfoPane();
         addCookieItem(player);
 
-        // Mail icon (owner only, 2nd row 1st slot = index 9)
-        if (!isVisiting) {
+        boolean simpleMode = LobbyClicker.getMainConfig().isSimpleMode();
+
+        if (!simpleMode) {
+            // Quick action: Mail (index 9)
             Icon mail = GuiHelper.createIcon(Material.WRITABLE_BOOK,
                     ChatColor.YELLOW + "" + ChatColor.BOLD + "Mail",
                     "",
@@ -105,34 +127,92 @@ public class ClickerGui extends SimpleGuiMonitor {
                     ChatColor.WHITE + " - Payment Requests",
                     ChatColor.WHITE + " - Gambling Requests");
             mail.onClick(e -> {
-                stopGoldenCookieTask();
                 unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
                 new MailGui(player, viewerData).open();
             });
             addItem(9, mail);
+
+            // Quick action: Friends (index 18, below Mail)
+            // Show longest-online friend's head, or viewer's own head if none online
+            String friendHeadUuid = viewerData.getIdentifier();
+            long longestOnline = -1;
+            for (String fUuid : viewerData.getFriends()) {
+                Player fp = Bukkit.getPlayer(java.util.UUID.fromString(fUuid));
+                if (fp != null && fp.isOnline()) {
+                    long ticks = fp.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE);
+                    if (ticks > longestOnline) {
+                        longestOnline = ticks;
+                        friendHeadUuid = fUuid;
+                    }
+                }
+            }
+            Icon friends = GuiHelper.playerHead(friendHeadUuid,
+                    ChatColor.GREEN + "" + ChatColor.BOLD + "Friends",
+                    "", ChatColor.GRAY + "View your friends list");
+            friends.onClick(e -> {
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new FriendsListGui(player, viewerData, 0).open();
+            });
+            addItem(18, friends);
+
+            // Quick action: Quests (index 17, right side of row 2)
+            gg.drak.lobbyclicker.realm.RealmProfile questProfile = viewerData.getActiveProfile();
+            int questsCompleted = 0;
+            if (questProfile != null) {
+                for (gg.drak.lobbyclicker.quests.Quest q : gg.drak.lobbyclicker.quests.Quest.values()) {
+                    if (questProfile.hasCompletedQuest(q)) questsCompleted++;
+                }
+            }
+            int questsTotal = gg.drak.lobbyclicker.quests.Quest.values().length;
+            Icon quests = GuiHelper.createIcon(Material.WRITTEN_BOOK,
+                    ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Quests",
+                    "", ChatColor.GRAY + "Progress: " + questsCompleted + "/" + questsTotal,
+                    "", ChatColor.YELLOW + "Click to view quests");
+            quests.onClick(e -> {
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new QuestsGui(player, viewerData).open();
+            });
+            addItem(17, quests);
+
+            // Quick action: Boosters (index 26, right side of row 3)
+            int activeCount = gg.drak.lobbyclicker.boosters.BoosterManager.getActiveBoosters(viewerData.getIdentifier()).size();
+            Icon boosters = GuiHelper.createIcon(Material.BREWING_STAND,
+                    ChatColor.AQUA + "" + ChatColor.BOLD + "Boosters",
+                    "", activeCount > 0 ? ChatColor.GREEN + "" + activeCount + " active booster" + (activeCount != 1 ? "s" : "")
+                            : ChatColor.GRAY + "No active boosters",
+                    "", ChatColor.YELLOW + "Click to manage boosters");
+            boosters.onClick(e -> {
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new BoostersMenuGui(player, viewerData).open();
+            });
+            addItem(26, boosters);
         }
 
         // === BOTTOM ROW ACTION BAR ===
         int b = (getSize() / 9 - 1) * 9; // bottom row start index
 
         // Slot 1 (b+0): Social button
-        Icon social = GuiHelper.playerHead(player,
-                ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Social",
-                "", ChatColor.GRAY + "Friends, realms, players");
-        social.onClick(e -> {
-            stopGoldenCookieTask();
-            unregisterGui(player.getUniqueId());
-            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new SocialMainGui(player, viewerData, isVisiting ? ownerData : null).open();
-        });
-        addItem(b, social);
+        if (!simpleMode) {
+            Icon social = GuiHelper.playerHead(player,
+                    ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Social",
+                    "", ChatColor.GRAY + "Friends, realms, players");
+            social.onClick(e -> {
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new SocialMainGui(player, viewerData, isVisiting ? ownerData : null).open();
+            });
+            addItem(b, social);
+        }
 
         // Slot 2 (b+1): Settings button
         Icon settings = GuiHelper.createIcon(Material.COMPARATOR,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Settings",
                 "", ChatColor.GRAY + "Configure preferences");
         settings.onClick(e -> {
-            stopGoldenCookieTask();
             new SettingsMainGui(player, viewerData, isVisiting ? ownerData : null).open();
         });
         addItem(b + 1, settings);
@@ -143,7 +223,6 @@ public class ClickerGui extends SimpleGuiMonitor {
                     ChatColor.GREEN + "" + ChatColor.BOLD + "Shop",
                     "", ChatColor.GRAY + "Buy helpers and upgrades!");
             shop.onClick(e -> {
-                stopGoldenCookieTask();
                 unregisterGui(player.getUniqueId());
                 new ShopGui(player, viewerData, ownerData).open();
             });
@@ -159,7 +238,6 @@ public class ClickerGui extends SimpleGuiMonitor {
                         ChatColor.GREEN + "" + ChatColor.BOLD + "Shop",
                         "", ChatColor.DARK_GREEN + "Role: " + viewerRole.getDisplayName());
                 shop.onClick(e -> {
-                    stopGoldenCookieTask();
                     unregisterGui(player.getUniqueId());
                     new ShopGui(player, viewerData, ownerData).open();
                 });
@@ -179,7 +257,6 @@ public class ClickerGui extends SimpleGuiMonitor {
                 ChatColor.AQUA + "" + ChatColor.BOLD + "Leaderboard",
                 "", ChatColor.GRAY + "Top cookie earners");
         leaderboard.onClick(e -> {
-            stopGoldenCookieTask();
             unregisterGui(player.getUniqueId());
             if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
             new LeaderboardGui(player, viewerData, isVisiting ? ownerData : null).open();
@@ -192,7 +269,6 @@ public class ClickerGui extends SimpleGuiMonitor {
                 "", ChatColor.GRAY + "Level: " + ChatColor.WHITE + ownerData.getPrestigeLevel(),
                 ChatColor.GRAY + "Aura: " + ChatColor.WHITE + FormatUtils.format(ownerData.getAura()));
         prestige.onClick(e -> {
-            stopGoldenCookieTask();
             unregisterGui(player.getUniqueId());
             if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
             new PrestigeGui(player, viewerData, isVisiting ? ownerData : null).open();
@@ -200,16 +276,17 @@ public class ClickerGui extends SimpleGuiMonitor {
         addItem(b + 6, prestige);
 
         // Slot 8 (b+7): Profiles button
-        Icon profiles = GuiHelper.createIcon(Material.BOOK,
-                ChatColor.GOLD + "" + ChatColor.BOLD + "Profiles",
-                "", ChatColor.GRAY + "Switch realm profiles");
-        profiles.onClick(e -> {
-            stopGoldenCookieTask();
-            unregisterGui(player.getUniqueId());
-            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new ProfileSelectorGui(player, viewerData, isVisiting ? ownerData : null).open();
-        });
-        addItem(b + 7, profiles);
+        if (!simpleMode) {
+            Icon profiles = GuiHelper.createIcon(Material.BOOK,
+                    ChatColor.GOLD + "" + ChatColor.BOLD + "Profiles",
+                    "", ChatColor.GRAY + "Switch realm profiles");
+            profiles.onClick(e -> {
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new ProfileSelectorGui(player, viewerData, isVisiting ? ownerData : null).open();
+            });
+            addItem(b + 7, profiles);
+        }
 
         // Slot 9 (b+8): Close or My Realm button
         if (isVisiting) {
@@ -217,7 +294,6 @@ public class ClickerGui extends SimpleGuiMonitor {
                     ChatColor.GOLD + "" + ChatColor.BOLD + "My Realm",
                     "", ChatColor.GRAY + "Return to your realm");
             myRealm.onClick(e -> {
-                stopGoldenCookieTask();
                 unregisterGui(player.getUniqueId());
                 RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
                 new ClickerGui(player, viewerData).open();
@@ -226,7 +302,6 @@ public class ClickerGui extends SimpleGuiMonitor {
         } else {
             Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
             close.onClick(e -> {
-                stopGoldenCookieTask();
                 unregisterGui(player.getUniqueId());
                 player.closeInventory();
             });
@@ -258,7 +333,8 @@ public class ClickerGui extends SimpleGuiMonitor {
             if (meta != null) {
                 meta.setLore(java.util.Arrays.asList(
                         "", ChatColor.YELLOW + "Click to earn cookies!",
-                        ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc())));
+                        ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
+                        ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks())));
                 cookieItem.setItemMeta(meta);
             }
         }
@@ -269,7 +345,8 @@ public class ClickerGui extends SimpleGuiMonitor {
         Icon cookie = GuiHelper.createIcon(Material.COOKIE,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Cookie",
                 "", ChatColor.YELLOW + "Click to earn cookies!",
-                ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()));
+                ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
+                ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()));
         addItem(22, cookie);
     }
 
@@ -311,11 +388,13 @@ public class ClickerGui extends SimpleGuiMonitor {
 
         if (!viewerData.tryClick()) return;
 
-            // Record click for the green info pane
-            BigDecimal clickAmount = ownerData.getCpc();
-            recentClicks.addFirst(new ClickRecord(viewerData.getName(), clickAmount));
+            // Record click for the green info pane (apply CPC booster multiplier)
+            BigDecimal clickAmount = ownerData.getCpc().multiply(
+                    gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
+                            ownerData.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.CPC_MULTIPLIER));
+            getClickHistory().addFirst(new ClickRecord(viewerData.getName(), clickAmount));
             long cutoff = now - 30 * 60 * 1000;
-            recentClicks.removeIf(r -> r.timestamp < cutoff);
+            getClickHistory().removeIf(r -> r.timestamp < cutoff);
 
             // Check if the owner is on a remote server (OBO player)
             boolean ownerIsRemote = isVisiting && !ownerData.isOnline()
@@ -325,7 +404,7 @@ public class ClickerGui extends SimpleGuiMonitor {
             if (ownerIsRemote) {
                 RedisSyncHandler.publishClick(ownerData.getIdentifier(), viewerData.getIdentifier(), viewerData.getName());
             } else {
-                ownerData.addCookies(ownerData.getCpc());
+                ownerData.addCookies(clickAmount);
                 ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
                 gg.drak.lobbyclicker.realm.RealmProfile profile = ownerData.getActiveProfile();
                 if (profile != null) {
@@ -377,7 +456,15 @@ public class ClickerGui extends SimpleGuiMonitor {
                 ChatColor.LIGHT_PURPLE + "Aura: " + ChatColor.WHITE + FormatUtils.format(ownerData.getAura()),
                 ChatColor.LIGHT_PURPLE + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(ownerData.getClickerEntropy()),
                 "",
-                ChatColor.AQUA + "Your Global Clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()));
+                ChatColor.AQUA + "Your Global Clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()),
+                "",
+                ChatColor.YELLOW + "Click to toggle banner display");
+        stats.onClick(e -> {
+            showBanners = !showBanners;
+            updateStats();
+            updateDigitDisplay();
+            updateServerBalance();
+        });
         addItem(4, stats);
     }
 
@@ -386,23 +473,50 @@ public class ClickerGui extends SimpleGuiMonitor {
      * Shows the sum of all loaded players' cookies.
      */
     private void updateServerBalance() {
-        BigDecimal totalServerCookies = BigDecimal.ZERO;
-        for (gg.drak.lobbyclicker.realm.RealmProfile profile : gg.drak.lobbyclicker.realm.ProfileManager.getAllLoadedProfiles()) {
-            totalServerCookies = totalServerCookies.add(profile.getLifetimeCookiesEarned());
+        if (!showBanners) {
+            Icon blackPane = GuiHelper.createIcon(Material.BLACK_STAINED_GLASS_PANE, " ");
+            for (int i = 0; i < 4; i++) {
+                addItem(i, blackPane);
+            }
+            return;
         }
-        String serverLore = ChatColor.GRAY + "Server Total Earned: " + ChatColor.WHITE + FormatUtils.format(totalServerCookies);
-        String[] serverDisplay = BannerUtil.parseBannerDisplay(totalServerCookies);
-        // Show all 4 chars at indexes 0-3 (to the left of the info star at index 4)
+        boolean simpleMode = LobbyClicker.getMainConfig().isSimpleMode();
+        BigDecimal displayValue;
+        String loreText;
+        BannerChar.BannerColor baseColor;
+
+        if (simpleMode) {
+            displayValue = ownerData.getLifetimeCookiesEarned();
+            loreText = ChatColor.GRAY + "Your Total Earned: " + ChatColor.WHITE + FormatUtils.format(displayValue);
+            baseColor = BannerChar.BannerColor.BLUE;
+        } else {
+            displayValue = BigDecimal.ZERO;
+            for (gg.drak.lobbyclicker.realm.RealmProfile profile : gg.drak.lobbyclicker.realm.ProfileManager.getAllLoadedProfiles()) {
+                displayValue = displayValue.add(profile.getLifetimeCookiesEarned());
+            }
+            loreText = ChatColor.GRAY + "Server Total Earned: " + ChatColor.WHITE + FormatUtils.format(displayValue);
+            baseColor = BannerChar.BannerColor.BLACK;
+        }
+        String[] serverDisplay = BannerUtil.parseBannerDisplay(displayValue);
         for (int i = 0; i < 4; i++) {
-            addItem(i, BannerChar.of(serverDisplay[i], BannerChar.BannerColor.BLACK, BannerChar.BannerColor.WHITE).toIcon(serverLore));
+            addItem(i, BannerChar.of(serverDisplay[i], baseColor, BannerChar.BannerColor.WHITE).toIcon(loreText));
         }
     }
 
     private void updateDigitDisplay() {
+        if (!showBanners) {
+            Icon blackPane = GuiHelper.createIcon(Material.BLACK_STAINED_GLASS_PANE, " ");
+            for (int i = 0; i < 4; i++) {
+                addItem(5 + i, blackPane);
+            }
+            return;
+        }
+        boolean simpleMode = LobbyClicker.getMainConfig().isSimpleMode();
+        BannerChar.BannerColor baseColor = simpleMode ? BannerChar.BannerColor.BLUE : BannerChar.BannerColor.RED;
         String cookieDisplay = ChatColor.GRAY + "Current Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies());
         String[] display = BannerUtil.parseBannerDisplay(ownerData.getCookies());
         for (int i = 0; i < 4; i++) {
-            addItem(5 + i, BannerChar.of(display[i], BannerChar.BannerColor.RED, BannerChar.BannerColor.WHITE).toIcon(cookieDisplay));
+            addItem(5 + i, BannerChar.of(display[i], baseColor, BannerChar.BannerColor.WHITE).toIcon(cookieDisplay));
         }
     }
 
@@ -410,43 +524,16 @@ public class ClickerGui extends SimpleGuiMonitor {
      * Green glass pane below the cookie (index 31) showing click stats and visitors.
      */
     private void updateClickInfoPane() {
+        boolean simpleMode = LobbyClicker.getMainConfig().isSimpleMode();
         long now = System.currentTimeMillis();
         BigDecimal gained5s = BigDecimal.ZERO, gained30s = BigDecimal.ZERO, gained5m = BigDecimal.ZERO, gained30m = BigDecimal.ZERO;
-        java.util.LinkedHashSet<String> recentClickers = new java.util.LinkedHashSet<>();
 
-        for (ClickRecord r : recentClicks) {
+        for (ClickRecord r : getClickHistory()) {
             long age = now - r.timestamp;
             if (age <= 5_000) gained5s = gained5s.add(r.amount);
             if (age <= 30_000) gained30s = gained30s.add(r.amount);
             if (age <= 5 * 60_000) gained5m = gained5m.add(r.amount);
             if (age <= 30 * 60_000) gained30m = gained30m.add(r.amount);
-
-            // Track clickers from last minute (exclude owner if owner=viewer)
-            if (age <= 60_000 && recentClickers.size() < 5) {
-                if (!isVisiting || !r.clickerName.equals(ownerData.getName())) {
-                    // Don't include owner if owner = gui viewer
-                    if (!(ownerData.getIdentifier().equals(viewerData.getIdentifier()) && r.clickerName.equals(ownerData.getName()))) {
-                        recentClickers.add(r.clickerName);
-                    }
-                }
-            }
-        }
-
-        // Visitors (from RealmManager)
-        java.util.Set<String> viewerUuids = RealmManager.getViewers(ownerData.getIdentifier());
-        java.util.List<String> visitorNames = new java.util.ArrayList<>();
-        for (String vuuid : viewerUuids) {
-            // Don't include owner if owner = gui viewer
-            if (ownerData.getIdentifier().equals(viewerData.getIdentifier()) && vuuid.equals(viewerData.getIdentifier())) continue;
-            String name = vuuid.substring(0, 8);
-            gg.drak.lobbyclicker.data.PlayerManager.getPlayer(vuuid).ifPresent(d -> {});
-            java.util.Optional<gg.drak.lobbyclicker.data.PlayerData> pd = gg.drak.lobbyclicker.data.PlayerManager.getPlayer(vuuid);
-            if (pd.isPresent()) name = pd.get().getName();
-            else {
-                try { String n = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(vuuid)).getName(); if (n != null) name = n; } catch (Exception ignored) {}
-            }
-            visitorNames.add(name);
-            if (visitorNames.size() >= 5) break;
         }
 
         java.util.List<String> lore = new java.util.ArrayList<>();
@@ -457,43 +544,82 @@ public class ClickerGui extends SimpleGuiMonitor {
         lore.add(ChatColor.GRAY + "  5m: " + ChatColor.WHITE + FormatUtils.format(gained5m));
         lore.add(ChatColor.GRAY + "  30m: " + ChatColor.WHITE + FormatUtils.format(gained30m));
 
-        if (!recentClickers.isEmpty()) {
-            lore.add("");
-            lore.add(ChatColor.YELLOW + "Recent clickers (1m):");
-            for (String name : recentClickers) {
-                lore.add(ChatColor.GRAY + "  " + ChatColor.WHITE + name);
+        if (!simpleMode) {
+            // Recent clickers (social feature)
+            java.util.LinkedHashSet<String> recentClickers = new java.util.LinkedHashSet<>();
+            for (ClickRecord r : getClickHistory()) {
+                long age = now - r.timestamp;
+                if (age <= 60_000 && recentClickers.size() < 5) {
+                    if (!isVisiting || !r.clickerName.equals(ownerData.getName())) {
+                        if (!(ownerData.getIdentifier().equals(viewerData.getIdentifier()) && r.clickerName.equals(ownerData.getName()))) {
+                            recentClickers.add(r.clickerName);
+                        }
+                    }
+                }
             }
-        }
 
-        if (!visitorNames.isEmpty()) {
-            lore.add("");
-            lore.add(ChatColor.AQUA + "Realm visitors:");
-            for (String name : visitorNames) {
-                lore.add(ChatColor.GRAY + "  " + ChatColor.WHITE + name);
+            // Visitors (social feature)
+            java.util.Set<String> viewerUuids = RealmManager.getViewers(ownerData.getIdentifier());
+            java.util.List<String> visitorNames = new java.util.ArrayList<>();
+            for (String vuuid : viewerUuids) {
+                if (ownerData.getIdentifier().equals(viewerData.getIdentifier()) && vuuid.equals(viewerData.getIdentifier())) continue;
+                String name = vuuid.substring(0, 8);
+                java.util.Optional<gg.drak.lobbyclicker.data.PlayerData> pd = gg.drak.lobbyclicker.data.PlayerManager.getPlayer(vuuid);
+                if (pd.isPresent()) name = pd.get().getName();
+                else {
+                    try { String n = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(vuuid)).getName(); if (n != null) name = n; } catch (Exception ignored) {}
+                }
+                visitorNames.add(name);
+                if (visitorNames.size() >= 5) break;
             }
-        }
 
-        lore.add("");
-        lore.add(ChatColor.YELLOW + "Click to view all visitors");
+            if (!recentClickers.isEmpty()) {
+                lore.add("");
+                lore.add(ChatColor.YELLOW + "Recent clickers (1m):");
+                for (String name : recentClickers) {
+                    lore.add(ChatColor.GRAY + "  " + ChatColor.WHITE + name);
+                }
+            }
+
+            if (!visitorNames.isEmpty()) {
+                lore.add("");
+                lore.add(ChatColor.AQUA + "Realm visitors:");
+                for (String name : visitorNames) {
+                    lore.add(ChatColor.GRAY + "  " + ChatColor.WHITE + name);
+                }
+            }
+
+            lore.add("");
+            lore.add(ChatColor.YELLOW + "Click to view all visitors");
+        }
 
         Icon pane = GuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Activity",
                 lore.toArray(new String[0]));
-        pane.onClick(e -> {
-            stopGoldenCookieTask();
-            unregisterGui(player.getUniqueId());
-            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
-            new RealmViewersGui(player, viewerData).open();
-        });
+        if (!simpleMode) {
+            pane.onClick(e -> {
+                unregisterGui(player.getUniqueId());
+                if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+                new RealmViewersGui(player, viewerData).open();
+            });
+        }
         addItem(31, pane);
     }
 
     // --- Golden Cookie System ---
 
+    private GoldenCookieState goldenState;
+
     private void initGoldenCookieTimers() {
-        nextSpawnCountdown = getWeightedSpawnDelay();
-        frenzyCountdown = 1800 + RANDOM.nextInt(901);
-        frenzyRemaining = -1;
+        UUID ownerUuid = java.util.UUID.fromString(ownerData.getIdentifier());
+        goldenState = GOLDEN_STATE.get(ownerUuid);
+        if (goldenState == null) {
+            goldenState = new GoldenCookieState();
+            goldenState.nextSpawnCountdown = getWeightedSpawnDelay();
+            goldenState.frenzyCountdown = 1800 + RANDOM.nextInt(901);
+            goldenState.frenzyRemaining = -1;
+            GOLDEN_STATE.put(ownerUuid, goldenState);
+        }
     }
 
     /**
@@ -506,7 +632,14 @@ public class ClickerGui extends SimpleGuiMonitor {
         int baseDelay = 30 + (int) (raw * 270); // 30s to 300s
         double freqMult = ownerData.getEffectMultiplier(
                 gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_FREQ_MULTIPLIER).doubleValue();
-        return Math.max(5, (int) (baseDelay / freqMult));
+        double boosterFreqMult = gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
+                ownerData.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.GOLDEN_FREQ).doubleValue();
+        double questFreqMult = 1.0;
+        gg.drak.lobbyclicker.realm.RealmProfile profile = ownerData.getActiveProfile();
+        if (profile != null) {
+            questFreqMult = profile.getQuestBonusMultiplier(gg.drak.lobbyclicker.quests.QuestEffect.GOLDEN_FREQ_PERCENT).doubleValue();
+        }
+        return Math.max(5, (int) (baseDelay / freqMult / boosterFreqMult / questFreqMult));
     }
 
     private void startGoldenCookieTask(Player player) {
@@ -528,30 +661,30 @@ public class ClickerGui extends SimpleGuiMonitor {
             return;
         }
 
-        if (frenzyRemaining > 0) {
-            frenzyRemaining--;
-            nextSpawnCountdown--;
-            if (nextSpawnCountdown <= 0) {
+        if (goldenState.frenzyRemaining > 0) {
+            goldenState.frenzyRemaining--;
+            goldenState.nextSpawnCountdown--;
+            if (goldenState.nextSpawnCountdown <= 0) {
                 spawnGoldenCookie(player);
-                nextSpawnCountdown = frenzySpawnInterval;
+                goldenState.nextSpawnCountdown = goldenState.frenzySpawnInterval;
             }
-            if (frenzyRemaining <= 0) {
-                frenzyRemaining = -1;
-                nextSpawnCountdown = getWeightedSpawnDelay();
-                frenzyCountdown = 1800 + RANDOM.nextInt(901);
+            if (goldenState.frenzyRemaining <= 0) {
+                goldenState.frenzyRemaining = -1;
+                goldenState.nextSpawnCountdown = getWeightedSpawnDelay();
+                goldenState.frenzyCountdown = 1800 + RANDOM.nextInt(901);
                 player.sendMessage(ChatColor.GOLD + "Cookie Frenzy has ended!");
             }
         } else {
-            nextSpawnCountdown--;
-            frenzyCountdown--;
-            if (nextSpawnCountdown <= 0) {
+            goldenState.nextSpawnCountdown--;
+            goldenState.frenzyCountdown--;
+            if (goldenState.nextSpawnCountdown <= 0) {
                 spawnGoldenCookie(player);
-                nextSpawnCountdown = getWeightedSpawnDelay();
+                goldenState.nextSpawnCountdown = getWeightedSpawnDelay();
             }
-            if (frenzyCountdown <= 0) {
-                frenzyRemaining = 300;
-                frenzySpawnInterval = 10 + RANDOM.nextInt(21);
-                nextSpawnCountdown = frenzySpawnInterval;
+            if (goldenState.frenzyCountdown <= 0) {
+                goldenState.frenzyRemaining = 300;
+                goldenState.frenzySpawnInterval = 10 + RANDOM.nextInt(21);
+                goldenState.nextSpawnCountdown = goldenState.frenzySpawnInterval;
                 player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "COOKIE FRENZY! " +
                         ChatColor.YELLOW + "Golden cookies will appear rapidly for 5 minutes!");
                 if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
@@ -578,7 +711,9 @@ public class ClickerGui extends SimpleGuiMonitor {
         BigDecimal bonus = ownerData.getClickerEntropy().multiply(multiplier);
         BigDecimal rewardMult = ownerData.getEffectMultiplier(
                 gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER);
-        bonus = bonus.multiply(rewardMult);
+        BigDecimal boosterRewardMult = gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
+                ownerData.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.GOLDEN_REWARD);
+        bonus = bonus.multiply(rewardMult).multiply(boosterRewardMult);
         final BigDecimal finalBonus = bonus;
 
         // Tier based on raw multiplier: top 15% = block, middle 35% = ingot, bottom 50% = nugget
@@ -609,6 +744,8 @@ public class ClickerGui extends SimpleGuiMonitor {
         golden.onClick(e -> {
             if (goldenCookieSlot < 0) return;
             ownerData.addCookies(finalBonus);
+            gg.drak.lobbyclicker.realm.RealmProfile gcProfile = ownerData.getActiveProfile();
+            if (gcProfile != null) gcProfile.setGoldenCookiesCollected(gcProfile.getGoldenCookiesCollected() + 1);
             int clickedSlot = goldenCookieSlot;
             goldenCookieSlot = -1;
             goldenCookieTicksLeft = 0;
@@ -620,6 +757,19 @@ public class ClickerGui extends SimpleGuiMonitor {
                     ChatColor.YELLOW + "+" + FormatUtils.format(finalBonus) + " cookies");
             if (viewerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+            }
+            // Broadcast to all other players in this realm
+            String broadcastMsg = ChatColor.GOLD + viewerData.getName() + ChatColor.YELLOW +
+                    " picked up a golden cookie worth " + ChatColor.GOLD + FormatUtils.format(finalBonus) + ChatColor.YELLOW + " cookies!";
+            // Notify owner if different from clicker
+            if (!ownerData.getIdentifier().equals(viewerData.getIdentifier())) {
+                ownerData.asPlayer().ifPresent(op -> op.sendMessage(broadcastMsg));
+            }
+            // Notify all realm viewers except the clicker
+            for (String vuuid : RealmManager.getViewers(ownerData.getIdentifier())) {
+                if (vuuid.equals(viewerData.getIdentifier())) continue;
+                Player vp = Bukkit.getPlayer(java.util.UUID.fromString(vuuid));
+                if (vp != null) vp.sendMessage(broadcastMsg);
             }
         });
         addItem(slot, golden);

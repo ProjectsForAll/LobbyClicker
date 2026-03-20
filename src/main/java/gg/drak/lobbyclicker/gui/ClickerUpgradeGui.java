@@ -151,23 +151,37 @@ public class ClickerUpgradeGui extends PaginationMonitor {
     }
 
     private String describeEffect(ClickerUpgrade upgrade) {
+        String mult = formatMultiplier(upgrade.getEffectValue());
         switch (upgrade.getEffect()) {
             case CPC_MULTIPLIER:
-                return "×" + FormatUtils.format(upgrade.getEffectValue()) + " cookies per click";
+                return mult + " cookies per click";
             case CPS_MULTIPLIER:
-                return "×" + FormatUtils.format(upgrade.getEffectValue()) + " cookies per second";
+                return mult + " cookies per second";
             case BUILDING_MULTIPLIER:
                 String buildingName = upgrade.getTargetBuilding() != null ? upgrade.getTargetBuilding().getDisplayName() : "?";
-                return buildingName + " output ×" + FormatUtils.format(upgrade.getEffectValue());
+                return buildingName + " output " + mult;
             case GOLDEN_FREQ_MULTIPLIER:
-                return "Golden cookies appear ×" + FormatUtils.format(upgrade.getEffectValue()) + " as often";
+                return "Golden cookies appear " + mult + " as often";
             case GOLDEN_REWARD_MULTIPLIER:
-                return "Golden cookie rewards ×" + FormatUtils.format(upgrade.getEffectValue());
+                return "Golden cookie rewards " + mult;
             case GOLDEN_DURATION_MULTIPLIER:
-                return "Golden cookies last ×" + FormatUtils.format(upgrade.getEffectValue()) + " as long";
+                return "Golden cookies last " + mult + " as long";
             default:
                 return "Unknown";
         }
+    }
+
+    /** Format a multiplier like 2 → "Double", 1.5 → "×1.5", 1.1 → "+10%", 1.25 → "+25%" */
+    private static String formatMultiplier(java.math.BigDecimal value) {
+        if (value.compareTo(java.math.BigDecimal.valueOf(2)) == 0) return "Double";
+        if (value.compareTo(java.math.BigDecimal.valueOf(3)) == 0) return "Triple";
+        // For values like 1.1, 1.25, 1.5 — show as percentage bonus
+        if (value.compareTo(java.math.BigDecimal.ONE) > 0 && value.compareTo(java.math.BigDecimal.valueOf(2)) < 0) {
+            java.math.BigDecimal pct = value.subtract(java.math.BigDecimal.ONE).multiply(java.math.BigDecimal.valueOf(100));
+            String pctStr = pct.stripTrailingZeros().toPlainString();
+            return "+" + pctStr + "%";
+        }
+        return "×" + value.stripTrailingZeros().toPlainString();
     }
 
     private String describeRequirement(ClickerUpgrade upgrade) {

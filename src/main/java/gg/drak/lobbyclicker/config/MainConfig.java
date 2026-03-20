@@ -19,6 +19,7 @@ public class MainConfig extends SimpleConfiguration {
         getRedisPort();
         getRedisPassword();
         getRedisChannelPrefix();
+        isSimpleMode();
     }
 
     public String getServerId() {
@@ -59,5 +60,10 @@ public class MainConfig extends SimpleConfiguration {
     public int getMaxClicksPerSecond() {
         reloadResource();
         return getOrSetDefault("clicker.max-clicks-per-second", 20);
+    }
+
+    public boolean isSimpleMode() {
+        reloadResource();
+        return getOrSetDefault("clicker.simple-mode", false);
     }
 }

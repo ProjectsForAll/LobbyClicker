@@ -46,4 +46,37 @@ public class FormatUtils {
     public static String format(long value) {
         return format(BigDecimal.valueOf(value));
     }
+
+    /**
+     * Parse shorthand amount strings like "2.5m", "20000", "5k", "1b", "100".
+     * Returns null if the input cannot be parsed.
+     */
+    public static BigDecimal parseShorthand(String input) {
+        if (input == null || input.isBlank()) return null;
+        input = input.trim().toLowerCase().replace(",", "");
+
+        BigDecimal multiplier = BigDecimal.ONE;
+        // Check for suffix
+        if (input.endsWith("k")) {
+            multiplier = new BigDecimal("1000");
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("m")) {
+            multiplier = new BigDecimal("1000000");
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("b")) {
+            multiplier = new BigDecimal("1000000000");
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("t")) {
+            multiplier = new BigDecimal("1000000000000");
+            input = input.substring(0, input.length() - 1);
+        }
+
+        try {
+            BigDecimal base = new BigDecimal(input);
+            if (base.signum() < 0) return null;
+            return base.multiply(multiplier).setScale(0, RoundingMode.FLOOR);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 }

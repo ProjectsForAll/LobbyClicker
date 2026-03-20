@@ -17,8 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
 /**
- * Admin control panel GUI. Shows admin actions as a bordered monitor.
- * Red + black themed for admin distinction.
+ * Admin control panel GUI.
  */
 public class AdminMainGui extends SimpleGuiMonitor {
 
@@ -31,7 +30,6 @@ public class AdminMainGui extends SimpleGuiMonitor {
         super.onOpen(event);
         fillMonitorBorder();
 
-        // Title item at top center
         addItem(4, GuiHelper.createIcon(Material.COMMAND_BLOCK,
                 ChatColor.DARK_RED + "" + ChatColor.BOLD + "LobbyClicker Admin",
                 "",
@@ -39,14 +37,12 @@ public class AdminMainGui extends SimpleGuiMonitor {
                 ChatColor.GRAY + "Loaded players: " + ChatColor.WHITE + PlayerManager.getLoadedPlayers().size()));
 
         // Row 1: Player management
-        setContent(0, makeButton(Material.PLAYER_HEAD, ChatColor.GOLD, "Manage Player",
-                "Set cookies, upgrades, etc.", "Use: /clickeradmin <action> <player>"));
-
-        setContent(1, makeButton(Material.BOOK, ChatColor.YELLOW, "Manage Profiles",
-                "View & delete player profiles", "Click, then select a player"));
-
-        setContent(2, makeButton(Material.DIAMOND, ChatColor.AQUA, "Manage Upgrades",
-                "Add/remove/set upgrades", "Use: /clickeradmin upgrade ..."));
+        Icon managePlayers = GuiHelper.createIcon(Material.PLAYER_HEAD,
+                ChatColor.GOLD + "" + ChatColor.BOLD + "Manage Players",
+                "", ChatColor.GRAY + "Browse all players",
+                "", ChatColor.YELLOW + "Click to open");
+        managePlayers.onClick(e -> new AdminPlayerListGui(player).open());
+        setContent(0, managePlayers);
 
         // Row 2: Server actions
         setContent(7, makeAction(Material.CHEST, ChatColor.GREEN, "Force Save All",
@@ -79,36 +75,27 @@ public class AdminMainGui extends SimpleGuiMonitor {
                     new AdminMainGui(p).open();
                 }));
 
-        setContent(9, makeAction(Material.OAK_SIGN, ChatColor.AQUA, "Online Players",
-                PlayerManager.getLoadedPlayers().size() + " loaded", p -> {
-                    new AdminPlayerListGui(p).open();
-                }));
-
         // Row 3: Info
         setContent(14, GuiHelper.createIcon(Material.PAPER,
                 ChatColor.WHITE + "" + ChatColor.BOLD + "Quick Help",
                 "",
+                ChatColor.YELLOW + "/clickeradmin" + ChatColor.GRAY + " - Open this GUI",
                 ChatColor.YELLOW + "/clickeradmin set <player> <cookies>",
                 ChatColor.YELLOW + "/clickeradmin add <player> <cookies>",
                 ChatColor.YELLOW + "/clickeradmin reset <player>",
                 ChatColor.YELLOW + "/clickeradmin info <player>",
-                ChatColor.YELLOW + "/clickeradmin upgrade <player> ...",
+                ChatColor.YELLOW + "/clickeradmin prestige <player> <set|add|remove> <amount>",
+                ChatColor.YELLOW + "/clickeradmin upgrade <player> <add|remove|set> <upgrade> <amount>",
                 ChatColor.YELLOW + "/clickeradmin profiles <player>",
-                ChatColor.YELLOW + "/clickeradmin openfor <player>"));
+                ChatColor.YELLOW + "/clickeradmin openfor <player>",
+                ChatColor.YELLOW + "/clickeradmin save",
+                ChatColor.YELLOW + "/clickeradmin reload"));
 
-        // Close button bottom-right
+        // Close button
         int b = (getSize() / 9 - 1) * 9;
         Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
         close.onClick(e -> player.closeInventory());
         addItem(b + 8, close);
-    }
-
-    private Icon makeButton(Material mat, ChatColor color, String label, String... desc) {
-        String[] lore = new String[desc.length + 2];
-        lore[0] = "";
-        for (int i = 0; i < desc.length; i++) lore[i + 1] = ChatColor.GRAY + desc[i];
-        lore[lore.length - 1] = ChatColor.YELLOW + "Use command for this action";
-        return GuiHelper.createIcon(mat, color + "" + ChatColor.BOLD + label, lore);
     }
 
     private Icon makeAction(Material mat, ChatColor color, String label, String desc, java.util.function.Consumer<Player> onClick) {

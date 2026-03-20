@@ -251,6 +251,31 @@ public class PlayerData implements Identifiable {
         return p != null ? p.serializePurchasedUpgrades() : "";
     }
 
+    public java.util.Set<gg.drak.lobbyclicker.quests.Quest> getCompletedQuests() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getCompletedQuests() : java.util.EnumSet.noneOf(gg.drak.lobbyclicker.quests.Quest.class);
+    }
+
+    public boolean hasCompletedQuest(gg.drak.lobbyclicker.quests.Quest quest) {
+        RealmProfile p = getActiveProfile();
+        return p != null && p.hasCompletedQuest(quest);
+    }
+
+    public void completeQuest(gg.drak.lobbyclicker.quests.Quest quest) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.completeQuest(quest);
+    }
+
+    public long getGoldenCookiesCollected() {
+        RealmProfile p = getActiveProfile();
+        return p != null ? p.getGoldenCookiesCollected() : 0;
+    }
+
+    public void setGoldenCookiesCollected(long count) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.setGoldenCookiesCollected(count);
+    }
+
     public java.math.BigDecimal getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect effectType) {
         RealmProfile p = getActiveProfile();
         return p != null ? p.getEffectMultiplier(effectType) : java.math.BigDecimal.ONE;

@@ -123,8 +123,13 @@ public class ProfileSelectorGui extends PaginationMonitor {
                             ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + profile.getPrestigeLevel(),
                             ChatColor.GRAY + "Aura: " + ChatColor.WHITE + FormatUtils.format(profile.getAura()),
                             "",
-                            isActive ? ChatColor.GREEN + "Currently selected" : ChatColor.YELLOW + "Click to select");
+                            isActive ? ChatColor.GREEN + "Currently selected" : ChatColor.YELLOW + "Left-click to select",
+                            ChatColor.LIGHT_PURPLE + "Right-click to manage");
                     icon.onClick(e -> {
+                        if (e.isRightClick()) {
+                            new ProfileManageGui(player, data, profile).open();
+                            return;
+                        }
                         data.setActiveProfileId(profile.getProfileId());
                         data.save(true);
                         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);

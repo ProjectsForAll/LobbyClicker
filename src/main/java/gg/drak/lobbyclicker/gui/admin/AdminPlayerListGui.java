@@ -113,12 +113,12 @@ public class AdminPlayerListGui extends PaginationMonitor {
                 meta.setDisplayName(nameColor + entry.name);
                 meta.setLore(Arrays.asList(
                         "", status,
-                        "", ChatColor.YELLOW + "Click to manage profiles"));
+                        "", ChatColor.YELLOW + "Click to manage player"));
                 head.setItemMeta(meta);
             }
 
             Icon icon = new Icon(head);
-            icon.onClick(e -> new AdminProfilesGui(player, entry.uuid, entry.name).open());
+            icon.onClick(e -> new AdminPlayerManageGui(player, entry.uuid, entry.name).open());
             addItem(slot, icon);
         });
 

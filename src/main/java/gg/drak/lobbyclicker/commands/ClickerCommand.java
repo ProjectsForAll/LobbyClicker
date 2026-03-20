@@ -1,5 +1,6 @@
 package gg.drak.lobbyclicker.commands;
 
+import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
@@ -49,6 +50,26 @@ public class ClickerCommand implements CommandExecutor {
         PendingTransaction pendingBet = PendingTransaction.getForReceiver(data.getIdentifier(), TransactionType.GAMBLE);
         if (pendingBet != null) {
             new GambleAcceptGui(player, data, pendingBet).open();
+            return true;
+        }
+
+        // In simple mode, skip profile selector — auto-create if needed
+        if (LobbyClicker.getMainConfig().isSimpleMode()) {
+            if (!data.hasActiveProfile()) {
+                java.util.List<gg.drak.lobbyclicker.realm.RealmProfile> profiles =
+                    gg.drak.lobbyclicker.realm.ProfileManager.getProfilesForOwner(data.getIdentifier());
+                if (profiles.isEmpty()) {
+                    gg.drak.lobbyclicker.realm.RealmProfile newProfile =
+                        gg.drak.lobbyclicker.realm.ProfileManager.createProfile(data.getIdentifier(), "Main");
+                    LobbyClicker.getDatabase().putProfileThreaded(newProfile);
+                    data.setActiveProfileId(newProfile.getProfileId());
+                    data.save(true);
+                } else {
+                    data.setActiveProfileId(profiles.get(0).getProfileId());
+                    data.save(true);
+                }
+            }
+            new gg.drak.lobbyclicker.gui.ClickerGui(player, data).open();
             return true;
         }
 

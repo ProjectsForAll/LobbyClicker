@@ -1,14 +1,11 @@
 package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.data.PlayerData;
-import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.SimpleGuiMonitor;
 import gg.drak.lobbyclicker.social.PendingTransaction;
 import gg.drak.lobbyclicker.social.TransactionType;
-import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -51,9 +48,8 @@ public class MailGui extends SimpleGuiMonitor {
                         : ChatColor.GRAY + "No incoming requests",
                 "",
                 friendReqCount > 0 ? ChatColor.YELLOW + "Click to view" : "");
-        if (friendReqCount > 0) {
-            friendReqs.onClick(e -> new FriendRequestsGui(player, data).open());
-        }
+        java.util.function.Consumer<Player> returnToMail = p -> new MailGui(p, data).open();
+        friendReqs.onClick(e -> new FriendRequestsGui(player, data, returnToMail).open());
         setContent(1, friendReqs);
 
         // Payments
@@ -65,17 +61,8 @@ public class MailGui extends SimpleGuiMonitor {
                         ? ChatColor.YELLOW + "" + paymentCount + " pending payment" + (paymentCount != 1 ? "s" : "")
                         : ChatColor.GRAY + "No pending payments",
                 "",
-                paymentCount > 0 ? ChatColor.YELLOW + "Click to view" : "");
-        if (paymentCount > 0) {
-            payments.onClick(e -> {
-                PendingTransaction tx = PendingTransaction.getForReceiver(data.getIdentifier(), TransactionType.PAYMENT);
-                if (tx != null) {
-                    new PaymentAcceptGui(player, data, tx).open();
-                } else {
-                    player.sendMessage(ChatColor.RED + "No pending payments.");
-                }
-            });
-        }
+                ChatColor.YELLOW + "Click to view");
+        payments.onClick(e -> new PaymentRequestsGui(player, data, returnToMail).open());
         setContent(3, payments);
 
         // Gambles
@@ -87,17 +74,8 @@ public class MailGui extends SimpleGuiMonitor {
                         ? ChatColor.YELLOW + "" + gambleCount + " pending bet" + (gambleCount != 1 ? "s" : "")
                         : ChatColor.GRAY + "No pending bets",
                 "",
-                gambleCount > 0 ? ChatColor.YELLOW + "Click to view" : "");
-        if (gambleCount > 0) {
-            gambles.onClick(e -> {
-                PendingTransaction tx = PendingTransaction.getForReceiver(data.getIdentifier(), TransactionType.GAMBLE);
-                if (tx != null) {
-                    new GambleAcceptGui(player, data, tx).open();
-                } else {
-                    player.sendMessage(ChatColor.RED + "No pending bets.");
-                }
-            });
-        }
+                ChatColor.YELLOW + "Click to view");
+        gambles.onClick(e -> new GambleRequestsGui(player, data, returnToMail).open());
         setContent(5, gambles);
     }
 }

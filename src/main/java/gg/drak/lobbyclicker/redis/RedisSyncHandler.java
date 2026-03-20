@@ -101,7 +101,9 @@ public class RedisSyncHandler {
                 + "|" + (profile.isRealmPublic() ? 1 : 0)
                 + "|" + data.getSettings().serialize()
                 + "|" + profile.serializePurchasedUpgrades()
-                + "|" + profile.getLifetimeCookiesEarned().toPlainString();
+                + "|" + profile.getLifetimeCookiesEarned().toPlainString()
+                + "|" + profile.serializeCompletedQuests()
+                + "|" + profile.getGoldenCookiesCollected();
         rm.publishData(msg);
     }
 
@@ -317,6 +319,12 @@ public class RedisSyncHandler {
             }
             if (parts.length > 15) {
                 profile.setLifetimeCookiesEarned(CookieMath.parse(parts[15]));
+            }
+            if (parts.length > 16) {
+                profile.setCompletedQuests(gg.drak.lobbyclicker.quests.Quest.deserialize(parts[16]));
+            }
+            if (parts.length > 17) {
+                try { profile.setGoldenCookiesCollected(Long.parseLong(parts[17])); } catch (NumberFormatException ignored) {}
             }
         });
 

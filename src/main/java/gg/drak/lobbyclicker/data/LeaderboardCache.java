@@ -21,81 +21,103 @@ public class LeaderboardCache {
     @Getter
     private static final List<LeaderboardEntry> entries = new CopyOnWriteArrayList<>();
     private static long lastUpdate = 0;
-    private static final long UPDATE_INTERVAL_MS = 30_000; // 30 seconds
+    private static long lastDbPull = 0;
+    private static final long UPDATE_INTERVAL_MS = 500; // 0.5 seconds (fast in-memory refresh)
+    private static final long DB_PULL_INTERVAL_MS = 30_000; // 30 seconds (slow DB pull for offline players)
     private static boolean updating = false;
+    private static boolean dbPulling = false;
+    private static final List<LeaderboardEntry> dbCache = new CopyOnWriteArrayList<>();
 
     /**
-     * Get the cached leaderboard entries. Triggers an async refresh if stale.
+     * Get the cached leaderboard entries. Triggers a fast refresh if stale.
      */
     public static List<LeaderboardEntry> getLeaderboard() {
         if (System.currentTimeMillis() - lastUpdate > UPDATE_INTERVAL_MS && !updating) {
-            refreshAsync();
+            refreshFromMemory();
         }
         return Collections.unmodifiableList(entries);
     }
 
     /**
-     * Force a refresh of the leaderboard data from the database.
+     * Force a full refresh including DB pull.
      */
     public static void refreshAsync() {
+        refreshDbCache();
+        refreshFromMemory();
+    }
+
+    /**
+     * Fast refresh from loaded in-memory profiles + cached DB entries.
+     * Called every 500ms when the leaderboard GUI is viewed.
+     */
+    public static void refreshFromMemory() {
         if (updating) return;
         updating = true;
 
-        // Pull all profiles from loaded players first
-        List<LeaderboardEntry> newEntries = new ArrayList<>();
-        for (RealmProfile profile : ProfileManager.getAllLoadedProfiles()) {
-            String ownerName = PlayerManager.getPlayer(profile.getOwnerUuid())
-                    .map(PlayerData::getName).orElse(null);
-            if (ownerName == null) {
-                try {
-                    ownerName = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(profile.getOwnerUuid())).getName();
-                } catch (Exception ignored) {}
-            }
-            if (ownerName == null) ownerName = profile.getOwnerUuid().substring(0, 8);
-
-            newEntries.add(new LeaderboardEntry(
-                    profile.getOwnerUuid(),
-                    ownerName,
-                    profile.getProfileId(),
-                    profile.getProfileName(),
-                    profile.getCookies(),
-                    profile.getTotalCookiesEarned(),
-                    profile.getLifetimeCookiesEarned(),
-                    profile.getPrestigeLevel(),
-                    profile.getCps()
-            ));
-        }
-
-        // Also pull from database for offline players
-        if (LobbyClicker.getDatabase() != null) {
-            LobbyClicker.getDatabase().pullLeaderboardFromDb().thenAccept(dbEntries -> {
-                // Merge: add DB entries that aren't already in the loaded set
-                for (LeaderboardEntry dbEntry : dbEntries) {
-                    boolean exists = newEntries.stream().anyMatch(e ->
-                            e.getProfileId().equals(dbEntry.getProfileId()));
-                    if (!exists) {
-                        newEntries.add(dbEntry);
-                    }
+        try {
+            List<LeaderboardEntry> newEntries = new ArrayList<>();
+            for (RealmProfile profile : ProfileManager.getAllLoadedProfiles()) {
+                String ownerName = PlayerManager.getPlayer(profile.getOwnerUuid())
+                        .map(PlayerData::getName).orElse(null);
+                if (ownerName == null) {
+                    try {
+                        ownerName = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(profile.getOwnerUuid())).getName();
+                    } catch (Exception ignored) {}
                 }
+                if (ownerName == null) ownerName = profile.getOwnerUuid().substring(0, 8);
 
-                // Sort by total cookies earned descending
-                newEntries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
+                newEntries.add(new LeaderboardEntry(
+                        profile.getOwnerUuid(),
+                        ownerName,
+                        profile.getProfileId(),
+                        profile.getProfileName(),
+                        profile.getCookies(),
+                        profile.getTotalCookiesEarned(),
+                        profile.getLifetimeCookiesEarned(),
+                        profile.getPrestigeLevel(),
+                        profile.getCps()
+                ));
+            }
 
-                entries.clear();
-                entries.addAll(newEntries);
-                lastUpdate = System.currentTimeMillis();
-                updating = false;
-            }).exceptionally(ex -> {
-                updating = false;
-                return null;
-            });
-        } else {
+            // Merge cached DB entries (offline players)
+            for (LeaderboardEntry dbEntry : dbCache) {
+                boolean exists = newEntries.stream().anyMatch(e ->
+                        e.getProfileId().equals(dbEntry.getProfileId()));
+                if (!exists) {
+                    newEntries.add(dbEntry);
+                }
+            }
+
             newEntries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
+
             entries.clear();
             entries.addAll(newEntries);
             lastUpdate = System.currentTimeMillis();
+
+            // Trigger a DB pull if stale
+            if (System.currentTimeMillis() - lastDbPull > DB_PULL_INTERVAL_MS && !dbPulling) {
+                refreshDbCache();
+            }
+        } finally {
             updating = false;
         }
+    }
+
+    /**
+     * Async pull from DB to refresh the offline player cache.
+     */
+    private static void refreshDbCache() {
+        if (dbPulling || LobbyClicker.getDatabase() == null) return;
+        dbPulling = true;
+        LobbyClicker.getDatabase().pullLeaderboardFromDb().thenAccept(dbEntries -> {
+            dbCache.clear();
+            dbCache.addAll(dbEntries);
+            lastDbPull = System.currentTimeMillis();
+            dbPulling = false;
+        }).exceptionally(ex -> {
+            dbPulling = false;
+            return null;
+        });
     }
 
     @Getter

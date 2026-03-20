@@ -71,8 +71,8 @@ public abstract class SimpleGuiMonitor extends BaseGui {
             addItem(row * 9 + 8, yellowPane);     // right edge
         }
 
-        // If visiting another player's realm, add a return-to-realm head at top-left
-        if (viewedData != null) {
+        // If visiting another player's realm, add a return-to-realm head at top-left (not in simple mode)
+        if (viewedData != null && !gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode()) {
             Icon realmHead = gg.drak.lobbyclicker.gui.GuiHelper.playerHead(viewedData.getIdentifier(),
                     org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + viewedData.getName() + "'s Realm",
                     "", org.bukkit.ChatColor.GRAY + "Click to return to their realm");
@@ -101,8 +101,8 @@ public abstract class SimpleGuiMonitor extends BaseGui {
             addItem(bottomStart, myInfo);
         }
 
-        // Slot 2 (index bottomStart+1): Viewed player info (if viewing someone else)
-        if (viewedData != null) {
+        // Slot 2 (index bottomStart+1): Viewed player info (if viewing someone else, not in simple mode)
+        if (viewedData != null && !gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode()) {
             Icon viewedInfo = GuiHelper.playerHead(viewedData.getIdentifier(),
                     ChatColor.AQUA + "" + ChatColor.BOLD + viewedData.getName() + "'s Info",
                     "",
@@ -120,10 +120,11 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         back.onClick(e -> backAction.accept(player));
         addItem(bottomStart + 7, back);
 
-        // Slot 9 (index bottomStart+8): My Realm button
+        // Slot 9 (index bottomStart+8): My Realm / My Cookie button
+        boolean simple = gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode();
         Icon myRealm = GuiHelper.createIcon(Material.COOKIE,
-                ChatColor.GOLD + "" + ChatColor.BOLD + "My Realm",
-                "", ChatColor.GRAY + "Return to your realm");
+                ChatColor.GOLD + "" + ChatColor.BOLD + (simple ? "My Cookie" : "My Realm"),
+                "", ChatColor.GRAY + (simple ? "Return to your clicker" : "Return to your realm"));
         myRealm.onClick(e -> {
             if (viewerData != null) {
                 new gg.drak.lobbyclicker.gui.ClickerGui(player, viewerData).open();

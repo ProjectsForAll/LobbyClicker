@@ -1,5 +1,6 @@
 package gg.drak.lobbyclicker.gui;
 
+import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.monitor.MenuMonitor;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
@@ -33,10 +34,12 @@ public class SettingsMainGui extends MenuMonitor {
         playerSettings.onClick(e -> new PlayerSettingsGui(player, data).open());
         addOption(playerSettings);
 
-        Icon realmSettings = MonitorStyle.menuButton(Material.BEACON, ChatColor.LIGHT_PURPLE,
-                "Realm Settings", "Manage members, realm options");
-        realmSettings.onClick(e -> new RealmSettingsGui(player, data).open());
-        addOption(realmSettings);
+        if (!LobbyClicker.getMainConfig().isSimpleMode()) {
+            Icon realmSettings = MonitorStyle.menuButton(Material.BEACON, ChatColor.LIGHT_PURPLE,
+                    "Realm Settings", "Manage members, realm options");
+            realmSettings.onClick(e -> new RealmSettingsGui(player, data).open());
+            addOption(realmSettings);
+        }
 
         buildMenu(p -> new ClickerGui(p, data).open());
     }

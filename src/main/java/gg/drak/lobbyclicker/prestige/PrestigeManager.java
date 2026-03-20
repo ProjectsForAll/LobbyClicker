@@ -13,8 +13,8 @@ public class PrestigeManager {
     private static final BigDecimal AURA_DIVISOR = new BigDecimal("1000000"); // 1M
 
     // Prestige multipliers
-    private static final BigDecimal UPGRADE_MULT_PER_LEVEL = new BigDecimal("0.05"); // 5% per prestige
-    private static final BigDecimal CLICK_MULT_PER_LEVEL = new BigDecimal("0.1");    // 10% per prestige
+    private static final BigDecimal UPGRADE_MULT_PER_LEVEL = new BigDecimal("0.25"); // 25% per prestige
+    private static final BigDecimal CLICK_MULT_PER_LEVEL = new BigDecimal("0.2");   // 20% per prestige
     private static final BigDecimal CLICK_MULT_PER_AURA = new BigDecimal("0.01");    // 1% per aura
 
     /**
@@ -45,7 +45,7 @@ public class PrestigeManager {
 
     /**
      * Multiplier applied to upgrade effectiveness (CPS).
-     * Formula: 1 + 0.05 * prestigeLevel (linear, 5% per level)
+     * Formula: 1 + 0.25 * prestigeLevel (linear, 25% per level)
      */
     public static BigDecimal getUpgradeMultiplier(int prestigeLevel) {
         return BigDecimal.ONE.add(UPGRADE_MULT_PER_LEVEL.multiply(BigDecimal.valueOf(prestigeLevel)));
@@ -53,7 +53,7 @@ public class PrestigeManager {
 
     /**
      * Multiplier applied to click value (CPC).
-     * Formula: 1 + 0.1 * prestigeLevel + 0.01 * aura
+     * Formula: 1 + 0.2 * prestigeLevel + 0.01 * aura
      */
     public static BigDecimal getClickMultiplier(int prestigeLevel, BigDecimal aura) {
         return BigDecimal.ONE
