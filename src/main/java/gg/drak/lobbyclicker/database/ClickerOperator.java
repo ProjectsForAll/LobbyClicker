@@ -53,6 +53,12 @@ public class ClickerOperator extends DBOperator {
                     " NOT NULL DEFAULT 0;", stmt -> {});
             LobbyClicker.getInstance().logInfo("Added GlobalClicks column to Players table.");
         }
+        if (!existingPlayerCols.contains("LastLogoutEpochMs")) {
+            execute("ALTER TABLE `" + prefix + "Players` ADD COLUMN `LastLogoutEpochMs` " +
+                    (getConnectorSet().getType() == DatabaseType.MYSQL ? "BIGINT" : "INTEGER") +
+                    " NOT NULL DEFAULT 0;", stmt -> {});
+            LobbyClicker.getInstance().logInfo("Added LastLogoutEpochMs column to Players table.");
+        }
         // Add missing columns to Profiles table
         Set<String> existingProfileCols = getColumnNames(prefix + "Profiles");
         if (!existingProfileCols.isEmpty()) {
@@ -184,6 +190,8 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(2, row.getOrDefault("Name", ""));
                     stmt.setString(3, settings);
                     stmt.setString(4, profileId);
+                    stmt.setLong(5, 0L);
+                    stmt.setLong(6, 0L);
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to update player row for " + uuid, e);
                 }
@@ -258,6 +266,7 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(3, playerData.getSettings().serialize());
                     stmt.setString(4, playerData.getActiveProfileId() != null ? playerData.getActiveProfileId() : "");
                     stmt.setLong(5, playerData.getGlobalClicks());
+                    stmt.setLong(6, playerData.getLastLogoutEpochMs());
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to push player", e);
                 }
@@ -293,6 +302,7 @@ public class ClickerOperator extends DBOperator {
                         data.setSettings(new gg.drak.lobbyclicker.settings.PlayerSettings(settings));
                         data.setActiveProfileId(activeProfileId != null && !activeProfileId.isEmpty() ? activeProfileId : null);
                         try { data.setGlobalClicks(rs.getLong("GlobalClicks")); } catch (Throwable ignored) {}
+                        try { data.setLastLogoutEpochMs(rs.getLong("LastLogoutEpochMs")); } catch (Throwable ignored) {}
 
                         ref.set(Optional.of(data));
                     }
@@ -325,6 +335,7 @@ public class ClickerOperator extends DBOperator {
                         data.setSettings(new gg.drak.lobbyclicker.settings.PlayerSettings(settings));
                         data.setActiveProfileId(activeProfileId);
                         try { data.setGlobalClicks(rs.getLong("GlobalClicks")); } catch (Throwable ignored) {}
+                        try { data.setLastLogoutEpochMs(rs.getLong("LastLogoutEpochMs")); } catch (Throwable ignored) {}
                         players.add(data);
                     }
                 } catch (Throwable e) {

@@ -12,9 +12,11 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class SettingsVolumeGui extends PaginationMonitor {
     private final PlayerData data;
+    private final Consumer<Player> backToPlayerSettings;
 
     private static final List<SettingType> VOLUME_SETTINGS = Arrays.asList(
             SettingType.VOLUME_CLICKER, SettingType.VOLUME_MILESTONE_CURRENT,
@@ -27,8 +29,13 @@ public class SettingsVolumeGui extends PaginationMonitor {
     );
 
     public SettingsVolumeGui(Player player, PlayerData data) {
+        this(player, data, p -> new PlayerSettingsGui(p, data, p2 -> new SettingsMainGui(p2, data).open()).open());
+    }
+
+    public SettingsVolumeGui(Player player, PlayerData data, Consumer<Player> backToPlayerSettings) {
         super(player, "settings-volume", MonitorStyle.title(ChatColor.AQUA, "Sound Volumes"), 0);
         this.data = data;
+        this.backToPlayerSettings = backToPlayerSettings;
     }
 
     @Override
@@ -36,7 +43,7 @@ public class SettingsVolumeGui extends PaginationMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new PlayerSettingsGui(p, data).open());
+        buildStandardActionBar(backToPlayerSettings);
 
         populatePage(VOLUME_SETTINGS, type -> {
             int rawVal = data.getSettings().get(type);
@@ -54,7 +61,7 @@ public class SettingsVolumeGui extends PaginationMonitor {
                     ChatColor.GRAY + "Volume: " + ChatColor.WHITE + volStr,
                     "",
                     ChatColor.YELLOW + "Click to adjust");
-            icon.onClick(e -> new VolumeAdjustGui(player, data, type).open());
+            icon.onClick(e -> new VolumeAdjustGui(player, data, type, backToPlayerSettings).open());
             return icon;
         });
 

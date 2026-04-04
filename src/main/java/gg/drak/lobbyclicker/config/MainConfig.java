@@ -20,6 +20,8 @@ public class MainConfig extends SimpleConfiguration {
         getRedisPassword();
         getRedisChannelPrefix();
         isSimpleMode();
+        isSocialFeaturesEnabled();
+        isRealmSettingsMenuEnabled();
     }
 
     public String getServerId() {
@@ -65,5 +67,21 @@ public class MainConfig extends SimpleConfiguration {
     public boolean isSimpleMode() {
         reloadResource();
         return getOrSetDefault("clicker.simple-mode", false);
+    }
+
+    /**
+     * When false, the Social hub button is hidden on the main clicker GUI and Settings shifts into its slot.
+     */
+    public boolean isSocialFeaturesEnabled() {
+        reloadResource();
+        return getOrSetDefault("clicker.gui.social-enabled", true);
+    }
+
+    /**
+     * When false, opening Settings from the main clicker goes straight to Player Settings (no realm hub step).
+     */
+    public boolean isRealmSettingsMenuEnabled() {
+        reloadResource();
+        return getOrSetDefault("clicker.gui.realm-settings-enabled", true);
     }
 }

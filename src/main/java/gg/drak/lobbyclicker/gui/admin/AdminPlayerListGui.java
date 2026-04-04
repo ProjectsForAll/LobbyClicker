@@ -75,26 +75,24 @@ public class AdminPlayerListGui extends PaginationMonitor {
     }
 
     private void loadAndShow() {
-        LobbyClicker.getDatabase().pullAllPlayersThreaded().thenAccept(players -> {
-            cachedPlayers.clear();
-            // Online players first
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                cachedPlayers.add(new PlayerEntry(p.getUniqueId().toString(), p.getName(), true));
-            }
-            // DB players (skip already added online ones)
-            Set<String> onlineUuids = new HashSet<>();
-            for (Player p : Bukkit.getOnlinePlayers()) onlineUuids.add(p.getUniqueId().toString());
-            for (PlayerData pd : players) {
-                if (!onlineUuids.contains(pd.getIdentifier())) {
-                    String name = pd.getName();
-                    if (name == null || name.isEmpty()) name = pd.getIdentifier().substring(0, 8);
-                    cachedPlayers.add(new PlayerEntry(pd.getIdentifier(), name, false));
-                }
-            }
-            lastCacheUpdate = System.currentTimeMillis();
-
-            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), this::showPlayers);
-        });
+        LobbyClicker.getDatabase().pullAllPlayersThreaded().thenAccept(players ->
+                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                    cachedPlayers.clear();
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        cachedPlayers.add(new PlayerEntry(p.getUniqueId().toString(), p.getName(), true));
+                    }
+                    Set<String> onlineUuids = new HashSet<>();
+                    for (Player p : Bukkit.getOnlinePlayers()) onlineUuids.add(p.getUniqueId().toString());
+                    for (PlayerData pd : players) {
+                        if (!onlineUuids.contains(pd.getIdentifier())) {
+                            String name = pd.getName();
+                            if (name == null || name.isEmpty()) name = pd.getIdentifier().substring(0, 8);
+                            cachedPlayers.add(new PlayerEntry(pd.getIdentifier(), name, false));
+                        }
+                    }
+                    lastCacheUpdate = System.currentTimeMillis();
+                    showPlayers();
+                }));
     }
 
     private void showPlayers() {

@@ -11,8 +11,11 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
+import java.util.function.Consumer;
+
 public class SettingsSoundGui extends SimpleGuiMonitor {
     private final PlayerData data;
+    private final Consumer<Player> backToPlayerSettings;
 
     private static final SettingType[] SOUND_SETTINGS = {
             SettingType.SOUND_MASTER, SettingType.SOUND_CLICKER,
@@ -25,8 +28,13 @@ public class SettingsSoundGui extends SimpleGuiMonitor {
     };
 
     public SettingsSoundGui(Player player, PlayerData data) {
+        this(player, data, p -> new PlayerSettingsGui(p, data, p2 -> new SettingsMainGui(p2, data).open()).open());
+    }
+
+    public SettingsSoundGui(Player player, PlayerData data, Consumer<Player> backToPlayerSettings) {
         super(player, "settings-sound", MonitorStyle.title(ChatColor.GREEN, "Sound Toggles"), MonitorStyle.ROWS_FULL);
         this.data = data;
+        this.backToPlayerSettings = backToPlayerSettings;
     }
 
     @Override
@@ -34,7 +42,7 @@ public class SettingsSoundGui extends SimpleGuiMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new PlayerSettingsGui(p, data).open());
+        buildStandardActionBar(backToPlayerSettings);
 
         int[] contentSlots = getContentSlots();
         for (int i = 0; i < SOUND_SETTINGS.length && i < contentSlots.length; i++) {
@@ -51,7 +59,7 @@ public class SettingsSoundGui extends SimpleGuiMonitor {
                 data.getSettings().toggle(type);
                 data.save(true);
                 RedisSyncHandler.publishSettingsSync(data);
-                new SettingsSoundGui(player, data).open();
+                new SettingsSoundGui(player, data, backToPlayerSettings).open();
             });
             addItem(contentSlots[i], icon);
         }

@@ -37,6 +37,7 @@ public class MainListener extends AbstractConglomerate {
 
         PlayerData data = PlayerManager.getPlayer(uuid).orElse(null);
         if (data != null) {
+            data.setLastLogoutEpochMs(System.currentTimeMillis());
             // Save all profiles owned by this player
             for (RealmProfile profile : ProfileManager.getProfilesForOwner(uuid)) {
                 LobbyClicker.getDatabase().putProfileThreaded(profile);

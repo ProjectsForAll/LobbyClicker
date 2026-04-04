@@ -2,6 +2,7 @@ package gg.drak.lobbyclicker.data;
 
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.math.CookieMath;
+import org.bukkit.Bukkit;
 import gg.drak.lobbyclicker.realm.ProfileManager;
 import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.utils.FormatUtils;
@@ -109,13 +110,14 @@ public class LeaderboardCache {
     private static void refreshDbCache() {
         if (dbPulling || LobbyClicker.getDatabase() == null) return;
         dbPulling = true;
-        LobbyClicker.getDatabase().pullLeaderboardFromDb().thenAccept(dbEntries -> {
-            dbCache.clear();
-            dbCache.addAll(dbEntries);
-            lastDbPull = System.currentTimeMillis();
-            dbPulling = false;
-        }).exceptionally(ex -> {
-            dbPulling = false;
+        LobbyClicker.getDatabase().pullLeaderboardFromDb().thenAccept(dbEntries ->
+                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                    dbCache.clear();
+                    dbCache.addAll(dbEntries);
+                    lastDbPull = System.currentTimeMillis();
+                    dbPulling = false;
+                })).exceptionally(ex -> {
+            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> dbPulling = false);
             return null;
         });
     }

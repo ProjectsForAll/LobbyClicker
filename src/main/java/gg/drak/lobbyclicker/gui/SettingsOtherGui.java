@@ -11,8 +11,11 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
+import java.util.function.Consumer;
+
 public class SettingsOtherGui extends SimpleGuiMonitor {
     private final PlayerData data;
+    private final Consumer<Player> backToPlayerSettings;
 
     private static final SettingType[] SETTINGS = {
             SettingType.ALLOW_FRIEND_REQUESTS,
@@ -31,8 +34,13 @@ public class SettingsOtherGui extends SimpleGuiMonitor {
     };
 
     public SettingsOtherGui(Player player, PlayerData data) {
+        this(player, data, p -> new PlayerSettingsGui(p, data, p2 -> new SettingsMainGui(p2, data).open()).open());
+    }
+
+    public SettingsOtherGui(Player player, PlayerData data, Consumer<Player> backToPlayerSettings) {
         super(player, "settings-other", MonitorStyle.title(ChatColor.RED, "Other Settings"), MonitorStyle.ROWS_SMALL);
         this.data = data;
+        this.backToPlayerSettings = backToPlayerSettings;
     }
 
     @Override
@@ -40,7 +48,7 @@ public class SettingsOtherGui extends SimpleGuiMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new PlayerSettingsGui(p, data).open());
+        buildStandardActionBar(backToPlayerSettings);
 
         int[] contentSlots = getContentSlots();
         for (int i = 0; i < SETTINGS.length && i < contentSlots.length; i++) {
@@ -55,7 +63,7 @@ public class SettingsOtherGui extends SimpleGuiMonitor {
                 }
                 data.save(true);
                 RedisSyncHandler.publishSettingsSync(data);
-                new SettingsOtherGui(player, data).open();
+                new SettingsOtherGui(player, data, backToPlayerSettings).open();
             });
             addItem(contentSlots[i], icon);
         }

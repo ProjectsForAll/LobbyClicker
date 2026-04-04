@@ -44,6 +44,9 @@ public class PlayerData implements Identifiable {
     // Global click counter (all clicks across all profiles + other players' realms)
     private long globalClicks;
 
+    /** Wall-clock ms when this player last disconnected (for offline passive cookies). Persisted. */
+    private long lastLogoutEpochMs;
+
     // Click rate limiting
     private transient long[] clickTimestamps = new long[20];
     private transient int clickIndex = 0;
@@ -396,29 +399,41 @@ public class PlayerData implements Identifiable {
 
     public void augment(CompletableFuture<Optional<PlayerData>> future, boolean isGet) {
         fullyLoaded.set(false);
+        LobbyClicker plugin = LobbyClicker.getInstance();
 
-        future.whenComplete((data, error) -> {
-            if (error != null) {
-                LobbyClicker.getInstance().logWarning("Failed to augment player data", error);
-                this.fullyLoaded.set(true);
-                return;
+        future.whenComplete((opt, error) ->
+                Bukkit.getScheduler().runTask(plugin, () -> handleAugmentAfterPull(opt, error, isGet)));
+    }
+
+    /**
+     * Runs on the main thread: apply pulled row, fire creation event, then load profiles/social from DB
+     * with results applied back on the main thread.
+     */
+    private void handleAugmentAfterPull(Optional<PlayerData> opt, Throwable error, boolean isGet) {
+        if (error != null) {
+            LobbyClicker.getInstance().logWarning("Failed to augment player data", error);
+            this.fullyLoaded.set(true);
+            return;
+        }
+
+        if (opt != null && opt.isPresent()) {
+            PlayerData newData = opt.get();
+            this.name = newData.getName();
+            this.settings = newData.getSettings();
+            this.activeProfileId = newData.getActiveProfileId();
+            this.globalClicks = newData.getGlobalClicks();
+        } else {
+            if (!isGet) {
+                new PlayerCreationEvent(this).fire();
+                this.save();
             }
+        }
 
-            if (data.isPresent()) {
-                PlayerData newData = data.get();
-                this.name = newData.getName();
-                this.settings = newData.getSettings();
-                this.activeProfileId = newData.getActiveProfileId();
-                this.globalClicks = newData.getGlobalClicks();
-            } else {
-                if (!isGet) {
-                    new PlayerCreationEvent(this).fire();
-                    this.save();
-                }
+        loadProfiles().thenCompose(v -> loadSocialData()).whenComplete((v, ex) -> {
+            if (ex != null) {
+                LobbyClicker.getInstance().logWarning("Failed to load profiles or social data", ex);
             }
-
-            // Load profiles from DB, then social data
-            loadProfiles().thenCompose(v -> loadSocialData()).thenRun(() -> this.fullyLoaded.set(true));
+            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> this.fullyLoaded.set(true));
         });
     }
 
@@ -427,25 +442,46 @@ public class PlayerData implements Identifiable {
      * If an activeProfileId is set, ensure that profile is loaded.
      */
     private CompletableFuture<Void> loadProfiles() {
-        return LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(this.identifier).thenAccept(profiles -> {
-            for (RealmProfile profile : profiles) {
-                ProfileManager.loadProfile(profile);
-            }
-            // If no active profile is set but profiles exist, use the first one
-            if ((this.activeProfileId == null || this.activeProfileId.isEmpty()) && !profiles.isEmpty()) {
-                this.activeProfileId = profiles.get(0).getProfileId();
-            }
+        return LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(this.identifier).thenCompose(profiles -> {
+            CompletableFuture<Void> done = new CompletableFuture<>();
+            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                try {
+                    for (RealmProfile profile : profiles) {
+                        ProfileManager.loadProfile(profile);
+                    }
+                    if ((this.activeProfileId == null || this.activeProfileId.isEmpty()) && !profiles.isEmpty()) {
+                        this.activeProfileId = profiles.get(0).getProfileId();
+                    }
+                    done.complete(null);
+                } catch (Throwable t) {
+                    done.completeExceptionally(t);
+                }
+            });
+            return done;
         });
     }
 
     private CompletableFuture<Void> loadSocialData() {
         String uuid = this.identifier;
-        return CompletableFuture.allOf(
-                LobbyClicker.getDatabase().pullFriendsThreaded(uuid).thenAccept(this.friends::addAll),
-                LobbyClicker.getDatabase().pullBlocksThreaded(uuid).thenAccept(this.blocks::addAll),
-                LobbyClicker.getDatabase().pullIncomingRequestsThreaded(uuid).thenAccept(this.incomingFriendRequests::addAll),
-                LobbyClicker.getDatabase().pullOutgoingRequestsThreaded(uuid).thenAccept(this.outgoingFriendRequests::addAll)
-        );
+        CompletableFuture<Set<String>> friendsF = LobbyClicker.getDatabase().pullFriendsThreaded(uuid);
+        CompletableFuture<Set<String>> blocksF = LobbyClicker.getDatabase().pullBlocksThreaded(uuid);
+        CompletableFuture<Set<String>> inF = LobbyClicker.getDatabase().pullIncomingRequestsThreaded(uuid);
+        CompletableFuture<Set<String>> outF = LobbyClicker.getDatabase().pullOutgoingRequestsThreaded(uuid);
+        return CompletableFuture.allOf(friendsF, blocksF, inF, outF).thenCompose(v -> {
+            CompletableFuture<Void> done = new CompletableFuture<>();
+            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                try {
+                    this.friends.addAll(friendsF.join());
+                    this.blocks.addAll(blocksF.join());
+                    this.incomingFriendRequests.addAll(inF.join());
+                    this.outgoingFriendRequests.addAll(outF.join());
+                    done.complete(null);
+                } catch (Throwable t) {
+                    done.completeExceptionally(t);
+                }
+            });
+            return done;
+        });
     }
 
     /**
