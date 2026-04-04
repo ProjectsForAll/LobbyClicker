@@ -4,7 +4,10 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
+import gg.drak.lobbyclicker.prestige.PrestigeManager;
+import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
+import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
@@ -117,7 +120,8 @@ public class UpgradeGui extends PaginationMonitor {
         boolean hasPrevious = prev != null && ownerData.getUpgradeCount(prev) > 0;
         boolean chainRevealed = !type.isHidden() || owned > 0 || canAfford || hasPrevious;
         int needPrestige = type.getRequiredPrestigeLevel();
-        boolean meetsPrestige = needPrestige == 0 || ownerData.getPrestigeLevel() >= needPrestige;
+        int prestigeLevel = ownerData.getPrestigeLevel();
+        boolean meetsPrestige = needPrestige == 0 || prestigeLevel >= needPrestige;
 
         if (!chainRevealed) {
             List<String> lore = new ArrayList<>();
@@ -141,27 +145,29 @@ public class UpgradeGui extends PaginationMonitor {
             return icon;
         }
 
+        RealmProfile profile = ownerData.getActiveProfile();
+        BigDecimal pUpgMult = PrestigeManager.getUpgradeMultiplier(prestigeLevel);
+        BigDecimal pClickMult = PrestigeManager.getClickMultiplier(prestigeLevel, ownerData.getAura());
+
         List<String> lore = new ArrayList<>();
         lore.add("");
         lore.add(ChatColor.GRAY + type.getDescription());
         if (needPrestige > 0 && !meetsPrestige) {
             lore.add("");
             lore.add(ChatColor.LIGHT_PURPLE + "Requires prestige " + ChatColor.WHITE + needPrestige
-                    + ChatColor.GRAY + " (yours: " + ChatColor.WHITE + ownerData.getPrestigeLevel() + ChatColor.GRAY + ")");
+                    + ChatColor.GRAY + " (yours: " + ChatColor.WHITE + prestigeLevel + ChatColor.GRAY + ")");
         }
         lore.add("");
         lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
 
         if (type.getCpsPerLevel().signum() > 0) {
-            gg.drak.lobbyclicker.realm.RealmProfile profile = ownerData.getActiveProfile();
-            BigDecimal baseCpsEach = type.getCpsPerLevel()
-                    .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getUpgradeMultiplier(ownerData.getPrestigeLevel()));
+            BigDecimal baseCpsEach = type.getCpsPerLevel().multiply(pUpgMult);
             BigDecimal effectiveCpsEach = baseCpsEach;
             if (profile != null) {
                 effectiveCpsEach = type.getCpsPerLevel()
-                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
-                        .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getUpgradeMultiplier(ownerData.getPrestigeLevel()))
-                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.CPS_MULTIPLIER));
+                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
+                        .multiply(pUpgMult)
+                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER));
             }
             BigDecimal upgradeBonus = effectiveCpsEach.subtract(baseCpsEach);
             lore.add(ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(effectiveCpsEach)
@@ -172,15 +178,13 @@ public class UpgradeGui extends PaginationMonitor {
                     + (totalUpgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(totalUpgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
         }
         if (type.getCpcPerLevel().signum() > 0) {
-            gg.drak.lobbyclicker.realm.RealmProfile profile = ownerData.getActiveProfile();
-            BigDecimal baseCpcEach = type.getCpcPerLevel()
-                    .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getClickMultiplier(ownerData.getPrestigeLevel(), ownerData.getAura()));
+            BigDecimal baseCpcEach = type.getCpcPerLevel().multiply(pClickMult);
             BigDecimal effectiveCpcEach = baseCpcEach;
             if (profile != null) {
                 effectiveCpcEach = type.getCpcPerLevel()
-                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
-                        .multiply(gg.drak.lobbyclicker.prestige.PrestigeManager.getClickMultiplier(ownerData.getPrestigeLevel(), ownerData.getAura()))
-                        .multiply(profile.getEffectMultiplier(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.CPC_MULTIPLIER));
+                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
+                        .multiply(pClickMult)
+                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER));
             }
             BigDecimal upgradeBonus = effectiveCpcEach.subtract(baseCpcEach);
             lore.add(ChatColor.GRAY + "CPC each: " + ChatColor.WHITE + "+" + FormatUtils.format(effectiveCpcEach)
@@ -207,7 +211,7 @@ public class UpgradeGui extends PaginationMonitor {
 
         icon.onClick(e -> {
             if (!e.isLeftClick()) return;
-            if (needPrestige > 0 && ownerData.getPrestigeLevel() < needPrestige) {
+            if (needPrestige > 0 && prestigeLevel < needPrestige) {
                 player.sendMessage(ChatColor.RED + "Reach prestige " + needPrestige + " to buy this helper!");
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
                 return;

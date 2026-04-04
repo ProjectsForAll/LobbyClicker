@@ -55,19 +55,31 @@ public final class MenuText {
         return component.children(newChildren);
     }
 
-    public static String legacySection(String miniMessage) {
-        return LEGACY_SECTION.serialize(withSmallCaps(mm(miniMessage)));
+    /**
+     * Inventory title / any string that must become legacy § for BukkitOfUtils.
+     * MiniMessage 4.25+ rejects § in {@link MiniMessage#deserialize}; legacy inputs are parsed with
+     * {@link LegacyComponentSerializer} instead.
+     */
+    public static String legacySection(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        // Fast path: ChatColor-built lines skip Adventure parse/serialize (hot in upgrade GUIs).
+        if (text.indexOf('\u00A7') >= 0) {
+            return smallCaps(text);
+        }
+        return LEGACY_SECTION.serialize(withSmallCaps(mm(text)));
     }
 
     /**
-     * One line for item name/lore: MiniMessage → small caps → legacy §, or legacy § → small caps → legacy §.
+     * One line for item name/lore: MiniMessage → small caps → legacy §, or legacy § → small caps (fast scan).
      */
     public static String itemLine(String text) {
         if (text == null || text.isEmpty()) {
             return text == null ? "" : text;
         }
         if (text.indexOf('\u00A7') >= 0) {
-            return LEGACY_SECTION.serialize(withSmallCaps(LEGACY_SECTION.deserialize(text)));
+            return smallCaps(text);
         }
         return legacySection(text);
     }
