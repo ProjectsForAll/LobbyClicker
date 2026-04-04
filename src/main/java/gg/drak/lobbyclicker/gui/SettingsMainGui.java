@@ -35,14 +35,14 @@ public class SettingsMainGui extends MenuMonitor {
                 ? p -> new SettingsMainGui(p, data, realmOwner).open()
                 : p -> new SettingsMainGui(p, data).open();
 
-        Icon playerSettings = MonitorStyle.menuButton(Material.COMPARATOR, ChatColor.YELLOW,
+        Icon playerSettings = MonitorStyle.menuButton(Material.COMPARATOR, "yellow",
                 "Player Settings", "Sounds, volumes, preferences");
         playerSettings.onClick(e -> new PlayerSettingsGui(player, data, backToThisHub).open());
         addOption(playerSettings);
 
         if (!LobbyClicker.getMainConfig().isSimpleMode()
                 && LobbyClicker.getMainConfig().isRealmSettingsMenuEnabled()) {
-            Icon realmSettings = MonitorStyle.menuButton(Material.BEACON, ChatColor.LIGHT_PURPLE,
+            Icon realmSettings = MonitorStyle.menuButton(Material.BEACON, "light_purple",
                     "Realm Settings", "Manage members, realm options");
             realmSettings.onClick(e -> new RealmSettingsGui(player, data).open());
             addOption(realmSettings);

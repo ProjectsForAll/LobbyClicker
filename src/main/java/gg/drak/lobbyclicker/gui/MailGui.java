@@ -19,7 +19,7 @@ public class MailGui extends SimpleGuiMonitor {
     private final PlayerData data;
 
     public MailGui(Player player, PlayerData data) {
-        super(player, "mail", MonitorStyle.title(ChatColor.YELLOW, "Mail"), MonitorStyle.ROWS_SMALL);
+        super(player, "mail", MonitorStyle.title("yellow", "Mail"), MonitorStyle.ROWS_SMALL);
         this.data = data;
     }
 

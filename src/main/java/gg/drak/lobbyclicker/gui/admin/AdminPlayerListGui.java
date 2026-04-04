@@ -4,6 +4,7 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.MenuText;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
@@ -108,10 +109,12 @@ public class AdminPlayerListGui extends PaginationMonitor {
                     OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(entry.uuid));
                     meta.setOwningPlayer(offlinePlayer);
                 } catch (Exception ignored) {}
-                meta.setDisplayName(nameColor + entry.name);
+                meta.setDisplayName(MenuText.itemLine(nameColor + entry.name));
                 meta.setLore(Arrays.asList(
-                        "", status,
-                        "", ChatColor.YELLOW + "Click to manage player"));
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(status),
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Click to manage player")));
                 head.setItemMeta(meta);
             }
 

@@ -78,7 +78,9 @@ public class MainConfig extends SimpleConfiguration {
     }
 
     /**
-     * When false, opening Settings from the main clicker goes straight to Player Settings (no realm hub step).
+     * When false, realm management UIs are hidden (no realm hub in Settings, no Profiles button on the clicker).
+     * Players still use one {@link gg.drak.lobbyclicker.realm.RealmProfile} under the hood; {@code /clicker} auto-creates
+     * or selects a profile like simple mode so the core loop (click, shop, prestige) never dead-ends on profile pickers.
      */
     public boolean isRealmSettingsMenuEnabled() {
         reloadResource();

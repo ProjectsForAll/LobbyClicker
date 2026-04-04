@@ -492,6 +492,24 @@ public class PlayerData implements Identifiable {
     }
 
     /**
+     * If this player has no active realm profile, create "Main" or activate the first owned profile.
+     * Used when profile-picker UIs are unavailable or when an admin opens the clicker for a misconfigured player.
+     */
+    public void ensureDefaultProfileIfMissing() {
+        if (hasActiveProfile()) return;
+        List<RealmProfile> profiles = ProfileManager.getProfilesForOwner(identifier);
+        if (profiles.isEmpty()) {
+            RealmProfile created = ProfileManager.createProfile(identifier, "Main");
+            LobbyClicker.getDatabase().putProfileThreaded(created);
+            setActiveProfileId(created.getProfileId());
+            save(true);
+        } else {
+            setActiveProfileId(profiles.get(0).getProfileId());
+            save(true);
+        }
+    }
+
+    /**
      * Get the max number of profiles this player can have, based on permissions.
      * Checks lobbyclicker.profiles.max.<amount> permissions.
      */

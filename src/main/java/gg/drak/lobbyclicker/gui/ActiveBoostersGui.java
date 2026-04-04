@@ -17,7 +17,7 @@ public class ActiveBoostersGui extends PaginationMonitor {
     private final PlayerData data;
 
     public ActiveBoostersGui(Player player, PlayerData data, int page) {
-        super(player, "active-boosters", MonitorStyle.title(ChatColor.AQUA, "Active Boosters"), page);
+        super(player, "active-boosters", MonitorStyle.title("aqua", "Active Boosters"), page);
         this.data = data;
     }
 

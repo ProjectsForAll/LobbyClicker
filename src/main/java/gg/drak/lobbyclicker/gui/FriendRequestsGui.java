@@ -39,7 +39,7 @@ public class FriendRequestsGui extends PaginationMonitor {
     }
 
     public FriendRequestsGui(Player player, PlayerData data, int page, Consumer<Player> backAction) {
-        super(player, "friend-requests", MonitorStyle.title(ChatColor.GOLD, "Incoming Requests"), page);
+        super(player, "friend-requests", MonitorStyle.title("gold", "Incoming Requests"), page);
         this.data = data;
         this.backAction = backAction;
     }
@@ -68,13 +68,14 @@ public class FriendRequestsGui extends PaginationMonitor {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             if (meta != null) {
                 try { meta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(senderUuid))); } catch (Exception ignored) {}
-                meta.setDisplayName(ChatColor.GREEN + senderName);
+                meta.setDisplayName(MenuText.itemLine(ChatColor.GREEN + senderName));
                 meta.setLore(Arrays.asList(
-                        "", ChatColor.GRAY + "Friend request",
-                        "",
-                        ChatColor.YELLOW + "Left-click: " + ChatColor.WHITE + "View details",
-                        ChatColor.GREEN + "Shift+left-click: " + ChatColor.WHITE + "Accept",
-                        ChatColor.RED + "Shift+right-click: " + ChatColor.WHITE + "Decline"));
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.GRAY + "Friend request"),
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Left-click: " + ChatColor.WHITE + "View details"),
+                        MenuText.itemLine(ChatColor.GREEN + "Shift+left-click: " + ChatColor.WHITE + "Accept"),
+                        MenuText.itemLine(ChatColor.RED + "Shift+right-click: " + ChatColor.WHITE + "Decline")));
                 head.setItemMeta(meta);
             }
             Icon icon = new Icon(head);

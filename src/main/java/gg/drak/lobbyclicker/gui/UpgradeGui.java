@@ -32,7 +32,7 @@ public class UpgradeGui extends PaginationMonitor {
     }
 
     public UpgradeGui(Player player, PlayerData viewerData, PlayerData ownerData) {
-        super(player, "clicker-upgrades", MonitorStyle.title(ChatColor.GREEN, "Cookie Helpers"), 0);
+        super(player, "clicker-upgrades", MonitorStyle.title("green", "Cookie Helpers"), 0);
         this.viewerData = viewerData;
         this.ownerData = ownerData;
     }
@@ -93,6 +93,10 @@ public class UpgradeGui extends PaginationMonitor {
         layout.add(UpgradeType.TIME_MACHINE);
         layout.add(UpgradeType.ANTIMATTER);
         layout.add(UpgradeType.PRISM);
+        layout.add(UpgradeType.STARFORGE);
+        layout.add(UpgradeType.VOID_VAULT);
+        layout.add(UpgradeType.SINGULARITY);
+        layout.add(UpgradeType.OMNIBAKERY);
 
         populatePagedContent(layout, (type, slot) -> {
             if (type != null) {
@@ -111,9 +115,11 @@ public class UpgradeGui extends PaginationMonitor {
 
         UpgradeType prev = type.getPreviousInChain();
         boolean hasPrevious = prev != null && ownerData.getUpgradeCount(prev) > 0;
-        boolean revealed = !type.isHidden() || owned > 0 || canAfford || hasPrevious;
+        boolean chainRevealed = !type.isHidden() || owned > 0 || canAfford || hasPrevious;
+        int needPrestige = type.getRequiredPrestigeLevel();
+        boolean meetsPrestige = needPrestige == 0 || ownerData.getPrestigeLevel() >= needPrestige;
 
-        if (!revealed) {
+        if (!chainRevealed) {
             List<String> lore = new ArrayList<>();
             lore.add("");
             lore.add(ChatColor.GRAY + "" + ChatColor.MAGIC + "??????????????????");
@@ -138,6 +144,11 @@ public class UpgradeGui extends PaginationMonitor {
         List<String> lore = new ArrayList<>();
         lore.add("");
         lore.add(ChatColor.GRAY + type.getDescription());
+        if (needPrestige > 0 && !meetsPrestige) {
+            lore.add("");
+            lore.add(ChatColor.LIGHT_PURPLE + "Requires prestige " + ChatColor.WHITE + needPrestige
+                    + ChatColor.GRAY + " (yours: " + ChatColor.WHITE + ownerData.getPrestigeLevel() + ChatColor.GRAY + ")");
+        }
         lore.add("");
         lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
 
@@ -181,16 +192,26 @@ public class UpgradeGui extends PaginationMonitor {
         }
 
         lore.add("");
-        lore.add(ChatColor.GRAY + "Cost: " + (canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies");
+        lore.add(ChatColor.GRAY + "Cost: " + (meetsPrestige && canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies");
         lore.add("");
-        lore.add(canAfford ? ChatColor.YELLOW + "Click to buy!" : ChatColor.RED + "Not enough cookies!");
+        if (!meetsPrestige) {
+            lore.add(ChatColor.RED + "Prestige to unlock purchasing!");
+        } else {
+            lore.add(canAfford ? ChatColor.YELLOW + "Click to buy!" : ChatColor.RED + "Not enough cookies!");
+        }
 
-        String color = canAfford ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
-        Icon icon = GuiHelper.createIcon(type.getMaterial(), color + ChatColor.BOLD + type.getDisplayName(),
+        String nameColor = !meetsPrestige ? ChatColor.LIGHT_PURPLE.toString()
+                : (canAfford ? ChatColor.GREEN.toString() : ChatColor.RED.toString());
+        Icon icon = GuiHelper.createIcon(type.getMaterial(), nameColor + ChatColor.BOLD + type.getDisplayName(),
                 lore.toArray(new String[0]));
 
         icon.onClick(e -> {
             if (!e.isLeftClick()) return;
+            if (needPrestige > 0 && ownerData.getPrestigeLevel() < needPrestige) {
+                player.sendMessage(ChatColor.RED + "Reach prestige " + needPrestige + " to buy this helper!");
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
+                return;
+            }
             if (isOwnerRemote()) {
                 RedisSyncHandler.publishBuyUpgrade(ownerData.getIdentifier(), viewerData.getIdentifier(), type.name());
                 if (viewerData.getSettings().isSoundEnabled(gg.drak.lobbyclicker.settings.SettingType.SOUND_BUY)) {

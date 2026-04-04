@@ -38,7 +38,7 @@ public class SettingsOtherGui extends SimpleGuiMonitor {
     }
 
     public SettingsOtherGui(Player player, PlayerData data, Consumer<Player> backToPlayerSettings) {
-        super(player, "settings-other", MonitorStyle.title(ChatColor.RED, "Other Settings"), MonitorStyle.ROWS_SMALL);
+        super(player, "settings-other", MonitorStyle.title("red", "Other Settings"), MonitorStyle.ROWS_SMALL);
         this.data = data;
         this.backToPlayerSettings = backToPlayerSettings;
     }

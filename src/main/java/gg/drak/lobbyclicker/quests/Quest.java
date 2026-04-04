@@ -76,7 +76,7 @@ public enum Quest {
     // === Late-game clicker upgrades ===
     UPGRADE_MASTER("Upgrade Master", "Purchase 10 clicker upgrades.", Material.DIAMOND_BLOCK, "500000", QuestType.TOTAL_CLICKER_UPGRADES, 10, QuestEffect.CPC_PERCENT, 15),
     UPGRADE_COLLECTOR("Upgrade Collector", "Purchase 20 clicker upgrades.", Material.DIAMOND_BLOCK, "5000000", QuestType.TOTAL_CLICKER_UPGRADES, 20, QuestEffect.CPC_PERCENT, 25),
-    UPGRADE_COMPLETIONIST("Upgrade Completionist", "Purchase all clicker upgrades.", Material.DIAMOND_BLOCK, "50000000", QuestType.TOTAL_CLICKER_UPGRADES, 34, QuestEffect.CPC_PERCENT, 50),
+    UPGRADE_COMPLETIONIST("Upgrade Completionist", "Purchase all clicker upgrades.", Material.DIAMOND_BLOCK, "50000000", QuestType.TOTAL_CLICKER_UPGRADES, 45, QuestEffect.CPC_PERCENT, 50),
 
     // === Mid-prestige milestones ===
     PRESTIGE_VETERAN("Prestige Veteran", "Reach prestige level 20.", Material.BEACON, "1000000000", QuestType.PRESTIGE, 20, QuestEffect.CPS_PERCENT, 30),

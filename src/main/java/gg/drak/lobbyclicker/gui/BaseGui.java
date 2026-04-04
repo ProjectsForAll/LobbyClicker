@@ -15,10 +15,12 @@ import org.jetbrains.annotations.NotNull;
  */
 public abstract class BaseGui extends ScreenInstance {
 
-    public BaseGui(@NotNull Player player, String id, String title, int rows) {
-        super(player, new SimpleGuiType(id, title), InventorySheet.empty(rows * 9), true);
-        // Override the title since ScreenInstance runs it through colorize
-        setTitle(title);
+    /**
+     * @param titleMiniMessage inventory title as MiniMessage (converted to legacy § for the GUI framework)
+     */
+    public BaseGui(@NotNull Player player, String id, String titleMiniMessage, int rows) {
+        super(player, new SimpleGuiType(id, MenuText.legacySection(titleMiniMessage)), InventorySheet.empty(rows * 9), true);
+        setTitle(MenuText.legacySection(titleMiniMessage));
     }
 
     @Override

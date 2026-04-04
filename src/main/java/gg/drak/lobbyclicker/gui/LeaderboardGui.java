@@ -46,7 +46,7 @@ public class LeaderboardGui extends PaginationMonitor {
     }
 
     public LeaderboardGui(Player player, PlayerData data, int page, PlayerData realmOwner) {
-        super(player, "clicker-leaderboard", MonitorStyle.title(ChatColor.AQUA, "Leaderboard"), page);
+        super(player, "clicker-leaderboard", MonitorStyle.title("aqua", "Leaderboard"), page);
         this.data = data;
         this.realmOwner = realmOwner;
     }
@@ -159,16 +159,16 @@ public class LeaderboardGui extends PaginationMonitor {
             SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
             if (skullMeta != null) {
                 try { skullMeta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(entry.getPlayerUuid()))); } catch (Exception ignored) {}
-                skullMeta.setDisplayName(rankColor + "#" + rank + " " + ChatColor.WHITE + entry.getPlayerName() + tag);
+                skullMeta.setDisplayName(MenuText.itemLine(rankColor + "#" + rank + " " + ChatColor.WHITE + entry.getPlayerName() + tag));
                 skullMeta.setLore(Arrays.asList(
-                        "",
-                        ChatColor.GRAY + "Profile: " + ChatColor.WHITE + entry.getProfileName()
-                                + (isSelected ? ChatColor.GREEN + " (Selected)" : ""),
-                        ChatColor.GRAY + "Cookies: " + ChatColor.GOLD + FormatUtils.format(entry.getCookies()),
-                        ChatColor.GRAY + "Total Earned: " + ChatColor.GOLD + FormatUtils.format(entry.getLifetimeCookiesEarned()),
-                        ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + entry.getPrestigeLevel(),
-                        "",
-                        ChatColor.YELLOW + "Click to view profile"
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.GRAY + "Profile: " + ChatColor.WHITE + entry.getProfileName()
+                                + (isSelected ? ChatColor.GREEN + " (Selected)" : "")),
+                        MenuText.itemLine(ChatColor.GRAY + "Cookies: " + ChatColor.GOLD + FormatUtils.format(entry.getCookies())),
+                        MenuText.itemLine(ChatColor.GRAY + "Total Earned: " + ChatColor.GOLD + FormatUtils.format(entry.getLifetimeCookiesEarned())),
+                        MenuText.itemLine(ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + entry.getPrestigeLevel()),
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Click to view profile")
                 ));
                 head.setItemMeta(skullMeta);
             }

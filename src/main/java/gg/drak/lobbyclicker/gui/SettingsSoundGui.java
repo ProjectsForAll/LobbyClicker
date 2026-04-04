@@ -32,7 +32,7 @@ public class SettingsSoundGui extends SimpleGuiMonitor {
     }
 
     public SettingsSoundGui(Player player, PlayerData data, Consumer<Player> backToPlayerSettings) {
-        super(player, "settings-sound", MonitorStyle.title(ChatColor.GREEN, "Sound Toggles"), MonitorStyle.ROWS_FULL);
+        super(player, "settings-sound", MonitorStyle.title("green", "Sound Toggles"), MonitorStyle.ROWS_FULL);
         this.data = data;
         this.backToPlayerSettings = backToPlayerSettings;
     }

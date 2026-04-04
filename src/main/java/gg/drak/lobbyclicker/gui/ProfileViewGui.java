@@ -47,7 +47,7 @@ public class ProfileViewGui extends SimpleGuiMonitor {
      * View a loaded player's profile.
      */
     public ProfileViewGui(Player player, PlayerData viewerData, PlayerData targetData, Consumer<Player> backAction) {
-        super(player, "profile-view", MonitorStyle.title(ChatColor.GOLD, targetData.getName() + "'s Profile"), MonitorStyle.ROWS_FULL);
+        super(player, "profile-view", MonitorStyle.title("gold", targetData.getName() + "'s Profile"), MonitorStyle.ROWS_FULL);
         this.viewerData = viewerData;
         this.targetUuid = targetData.getIdentifier();
         this.targetName = targetData.getName();
@@ -73,7 +73,7 @@ public class ProfileViewGui extends SimpleGuiMonitor {
      * View from a leaderboard entry (limited data).
      */
     public ProfileViewGui(Player player, PlayerData viewerData, LeaderboardCache.LeaderboardEntry entry, Consumer<Player> backAction) {
-        super(player, "profile-view", MonitorStyle.title(ChatColor.GOLD, entry.getPlayerName() + "'s Profile"), MonitorStyle.ROWS_FULL);
+        super(player, "profile-view", MonitorStyle.title("gold", entry.getPlayerName() + "'s Profile"), MonitorStyle.ROWS_FULL);
         this.viewerData = viewerData;
         this.targetUuid = entry.getPlayerUuid();
         this.targetName = entry.getPlayerName();

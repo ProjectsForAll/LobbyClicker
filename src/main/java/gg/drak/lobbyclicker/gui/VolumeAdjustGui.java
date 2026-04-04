@@ -29,7 +29,7 @@ public class VolumeAdjustGui extends SimpleGuiMonitor {
     }
 
     public VolumeAdjustGui(Player player, PlayerData data, SettingType volumeType, Consumer<Player> backToPlayerSettings) {
-        super(player, "volume-adjust", MonitorStyle.title(ChatColor.AQUA, "Volume: " + volumeType.displayName()), 3);
+        super(player, "volume-adjust", MonitorStyle.title("aqua", "Volume: " + volumeType.displayName()), 3);
         this.data = data;
         this.volumeType = volumeType;
         this.backToPlayerSettings = backToPlayerSettings;

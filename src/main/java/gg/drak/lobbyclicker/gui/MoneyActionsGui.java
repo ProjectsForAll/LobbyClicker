@@ -17,7 +17,7 @@ public class MoneyActionsGui extends SimpleGuiMonitor {
     private final String returnTo;
 
     public MoneyActionsGui(Player player, PlayerData viewerData, String targetUuid, String returnTo) {
-        super(player, "money-actions", MonitorStyle.title(ChatColor.GOLD, "Money Actions"), MonitorStyle.ROWS_SMALL);
+        super(player, "money-actions", MonitorStyle.title("gold", "Money Actions"), MonitorStyle.ROWS_SMALL);
         this.viewerData = viewerData;
         this.targetUuid = targetUuid;
         this.returnTo = returnTo;

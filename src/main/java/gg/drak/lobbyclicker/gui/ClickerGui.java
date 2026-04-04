@@ -292,8 +292,8 @@ public class ClickerGui extends SimpleGuiMonitor {
         });
         addItem(b + 6, prestige);
 
-        // Slot 8 (b+7): Profiles button
-        if (!simpleMode) {
+        // Slot 8 (b+7): Profiles button (hidden when realm management menu is disabled — same as auto single-profile flow)
+        if (!simpleMode && LobbyClicker.getMainConfig().isRealmSettingsMenuEnabled()) {
             Icon profiles = GuiHelper.createIcon(Material.BOOK,
                     ChatColor.GOLD + "" + ChatColor.BOLD + "Profiles",
                     "", ChatColor.GRAY + "Switch realm profiles");
@@ -349,9 +349,10 @@ public class ClickerGui extends SimpleGuiMonitor {
             ItemMeta meta = cookieItem.getItemMeta();
             if (meta != null) {
                 meta.setLore(java.util.Arrays.asList(
-                        "", ChatColor.YELLOW + "Click to earn cookies!",
-                        ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
-                        ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks())));
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Click to earn cookies!"),
+                        MenuText.itemLine(ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc())),
+                        MenuText.itemLine(ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()))));
                 cookieItem.setItemMeta(meta);
             }
         }

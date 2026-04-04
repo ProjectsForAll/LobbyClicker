@@ -19,7 +19,7 @@ public class SocialMainGui extends MenuMonitor {
     }
 
     public SocialMainGui(Player player, PlayerData data, PlayerData realmOwner) {
-        super(player, "social-main", MonitorStyle.title(ChatColor.LIGHT_PURPLE, "Social"), MonitorStyle.ROWS_SMALL);
+        super(player, "social-main", MonitorStyle.title("light_purple", "Social"), MonitorStyle.ROWS_SMALL);
         this.data = data;
         this.realmOwner = realmOwner;
     }
@@ -32,13 +32,13 @@ public class SocialMainGui extends MenuMonitor {
         int friendCount = data.getFriends().size();
         int requestCount = data.getIncomingFriendRequests().size();
         String requestNote = requestCount > 0 ? ChatColor.YELLOW + " (" + requestCount + " incoming)" : "";
-        Icon friends = MonitorStyle.menuButton(Material.TOTEM_OF_UNDYING, ChatColor.GREEN,
+        Icon friends = MonitorStyle.menuButton(Material.TOTEM_OF_UNDYING, "green",
                 "Manage Friends", friendCount + " friend(s)" + requestNote);
         friends.onClick(e -> new FriendsMenuGui(player, data).open());
         addOption(friends);
 
         int viewerCount = RealmManager.getViewers(data.getIdentifier()).size();
-        Icon viewers = MonitorStyle.menuButton(Material.SPYGLASS, ChatColor.AQUA,
+        Icon viewers = MonitorStyle.menuButton(Material.SPYGLASS, "aqua",
                 "Realm Viewers", viewerCount + " viewing your realm");
         viewers.onClick(e -> new RealmViewersGui(player, data).open());
         addOption(viewers);
@@ -50,13 +50,13 @@ public class SocialMainGui extends MenuMonitor {
         addOption(allPlayers);
 
         int banCount = data.getBans().size();
-        Icon bans = MonitorStyle.menuButton(Material.IRON_DOOR, ChatColor.RED,
+        Icon bans = MonitorStyle.menuButton(Material.IRON_DOOR, "red",
                 "Manage Bans", "Banned: " + banCount);
         bans.onClick(e -> new BanListGui(player, data, 0).open());
         addOption(bans);
 
         int blockCount = data.getBlocks().size();
-        Icon blocks = MonitorStyle.menuButton(Material.BARRIER, ChatColor.DARK_RED,
+        Icon blocks = MonitorStyle.menuButton(Material.BARRIER, "dark_red",
                 "Manage Blocks", "Blocked: " + blockCount);
         blocks.onClick(e -> new BlockListGui(player, data, 0).open());
         addOption(blocks);

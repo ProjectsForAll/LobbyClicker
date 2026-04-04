@@ -19,7 +19,7 @@ public class ProfileDeleteConfirmGui extends ConfirmationMonitor {
     private final RealmProfile profile;
 
     public ProfileDeleteConfirmGui(Player player, PlayerData data, RealmProfile profile) {
-        super(player, "profile-delete", MonitorStyle.title(ChatColor.RED, "Delete Profile?"));
+        super(player, "profile-delete", MonitorStyle.title("red", "Delete Profile?"));
         this.data = data;
         this.profile = profile;
     }

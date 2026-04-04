@@ -3,16 +3,15 @@ package gg.drak.lobbyclicker.gui.monitor;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.BaseGui;
 import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.MenuText;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
 import java.util.function.Consumer;
 
 /**
@@ -33,98 +32,81 @@ public abstract class SimpleGuiMonitor extends BaseGui {
     protected PlayerData viewerData;
     protected PlayerData viewedData; // null if viewing own stuff
 
-    public SimpleGuiMonitor(@NotNull Player player, String id, String title, int rows) {
-        super(player, id, title, rows);
+    public SimpleGuiMonitor(@NotNull Player player, String id, String titleMiniMessage, int rows) {
+        super(player, id, titleMiniMessage, rows);
     }
 
-    /**
-     * Set the viewer and viewed player data for action bar info icons.
-     */
     public void setPlayerContext(PlayerData viewer, PlayerData viewed) {
         this.viewerData = viewer;
         this.viewedData = (viewed != null && !viewed.getIdentifier().equals(viewer.getIdentifier())) ? viewed : null;
     }
 
-    /**
-     * Fill the monitor border: black top/bottom, yellow left/right, clear interior.
-     */
     protected void fillMonitorBorder() {
         int rows = getSize() / 9;
         Icon blackPane = pane(Material.BLACK_STAINED_GLASS_PANE);
         Icon yellowPane = pane(Material.YELLOW_STAINED_GLASS_PANE);
 
-        // Fill everything with air first (clear)
         fillGui(pane(Material.AIR));
 
-        // Top row: all black
         for (int col = 0; col < 9; col++) {
             addItem(col, blackPane);
         }
-        // Bottom row: all black (action bar will overwrite)
         int bottomStart = (rows - 1) * 9;
         for (int col = 0; col < 9; col++) {
             addItem(bottomStart + col, blackPane);
         }
-        // Left and right edges for middle rows
         for (int row = 1; row < rows - 1; row++) {
-            addItem(row * 9, yellowPane);         // left edge
-            addItem(row * 9 + 8, yellowPane);     // right edge
+            addItem(row * 9, yellowPane);
+            addItem(row * 9 + 8, yellowPane);
         }
 
-        // If visiting another player's realm, add a return-to-realm head at top-left (not in simple mode)
         if (viewedData != null && !gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode()) {
-            Icon realmHead = gg.drak.lobbyclicker.gui.GuiHelper.playerHead(viewedData.getIdentifier(),
-                    org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + viewedData.getName() + "'s Realm",
-                    "", org.bukkit.ChatColor.GRAY + "Click to return to their realm");
+            Icon realmHead = GuiHelper.playerHead(viewedData.getIdentifier(),
+                    "<gold><bold>" + MenuText.esc(viewedData.getName() + "'s Realm") + "</bold></gold>",
+                    "",
+                    "<gray>" + MenuText.esc("Click to return to their realm") + "</gray>");
             realmHead.onClick(e -> new gg.drak.lobbyclicker.gui.ClickerGui(player, viewerData, viewedData).open());
             addItem(0, realmHead);
         }
     }
 
-    /**
-     * Build the standard "other GUI" action bar (bottom row).
-     * Slot 1: My Info (nether star), Slot 2: Viewed player info (head),
-     * Slot 8: Back (dark oak door), Slot 9: My Realm (cookie).
-     */
     protected void buildStandardActionBar(Consumer<Player> backAction) {
         int bottomStart = (getSize() / 9 - 1) * 9;
 
-        // Slot 1 (index bottomStart+0): My Information
         if (viewerData != null) {
             Icon myInfo = GuiHelper.createIcon(Material.NETHER_STAR,
-                    ChatColor.GOLD + "" + ChatColor.BOLD + "My Info",
+                    MenuText.title("My Info"),
                     "",
-                    ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(viewerData.getCookies()),
-                    ChatColor.GRAY + "CPS: " + ChatColor.WHITE + FormatUtils.format(viewerData.getCps()),
-                    ChatColor.GRAY + "CPC: " + ChatColor.WHITE + FormatUtils.format(viewerData.getCpc()),
-                    ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + viewerData.getPrestigeLevel());
+                    MenuText.grayWhite("Cookies: ", FormatUtils.format(viewerData.getCookies())),
+                    MenuText.grayWhite("CPS: ", FormatUtils.format(viewerData.getCps())),
+                    MenuText.grayWhite("CPC: ", FormatUtils.format(viewerData.getCpc())),
+                    MenuText.grayWhite("Prestige: ", String.valueOf(viewerData.getPrestigeLevel())));
             addItem(bottomStart, myInfo);
         }
 
-        // Slot 2 (index bottomStart+1): Viewed player info (if viewing someone else, not in simple mode)
         if (viewedData != null && !gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode()) {
             Icon viewedInfo = GuiHelper.playerHead(viewedData.getIdentifier(),
-                    ChatColor.AQUA + "" + ChatColor.BOLD + viewedData.getName() + "'s Info",
+                    "<aqua><bold>" + MenuText.esc(viewedData.getName() + "'s Info") + "</bold></aqua>",
                     "",
-                    ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(viewedData.getCookies()),
-                    ChatColor.GRAY + "CPS: " + ChatColor.WHITE + FormatUtils.format(viewedData.getCps()),
-                    ChatColor.GRAY + "CPC: " + ChatColor.WHITE + FormatUtils.format(viewedData.getCpc()),
-                    ChatColor.GRAY + "Prestige: " + ChatColor.WHITE + viewedData.getPrestigeLevel());
+                    MenuText.grayWhite("Cookies: ", FormatUtils.format(viewedData.getCookies())),
+                    MenuText.grayWhite("CPS: ", FormatUtils.format(viewedData.getCps())),
+                    MenuText.grayWhite("CPC: ", FormatUtils.format(viewedData.getCpc())),
+                    MenuText.grayWhite("Prestige: ", String.valueOf(viewedData.getPrestigeLevel())));
             addItem(bottomStart + 1, viewedInfo);
         }
 
-        // Slot 8 (index bottomStart+7): Back button
         Icon back = GuiHelper.createIcon(Material.DARK_OAK_DOOR,
-                ChatColor.RED + "" + ChatColor.BOLD + "Back",
-                "", ChatColor.GRAY + "Go back");
+                "<red><bold>" + MenuText.esc("Back") + "</bold></red>",
+                "",
+                "<gray>" + MenuText.esc("Go back") + "</gray>");
         back.onClick(e -> backAction.accept(player));
         addItem(bottomStart + 7, back);
 
-        // Slot 9 (index bottomStart+8): My Realm / My Cookie button
         boolean simple = gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode();
         Icon myRealm = GuiHelper.createIcon(Material.COOKIE,
-                ChatColor.GOLD + "" + ChatColor.BOLD + (simple ? "My Cookie" : "My Realm"),
-                "", ChatColor.GRAY + (simple ? "Return to your clicker" : "Return to your realm"));
+                "<gold><bold>" + MenuText.esc(simple ? "My Cookie" : "My Realm") + "</bold></gold>",
+                "",
+                "<gray>" + MenuText.esc(simple ? "Return to your clicker" : "Return to your realm") + "</gray>");
         myRealm.onClick(e -> {
             if (viewerData != null) {
                 new gg.drak.lobbyclicker.gui.ClickerGui(player, viewerData).open();
@@ -133,13 +115,9 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         addItem(bottomStart + 8, myRealm);
     }
 
-    /**
-     * Get the content slot indexes (inner area, excluding all borders).
-     * For a 6-row GUI: indexes 10-16, 19-25, 28-34, 37-43.
-     */
     public int[] getContentSlots() {
         int rows = getSize() / 9;
-        int contentRows = rows - 2; // exclude top and bottom rows
+        int contentRows = rows - 2;
         if (contentRows <= 0) return new int[0];
 
         int[] slots = new int[contentRows * 7];
@@ -156,9 +134,6 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         return getContentSlots().length;
     }
 
-    /**
-     * Place an icon in a content slot by content index (0-based within inner area).
-     */
     public void setContent(int contentIndex, Icon icon) {
         int[] slots = getContentSlots();
         if (contentIndex >= 0 && contentIndex < slots.length) {
@@ -166,9 +141,6 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         }
     }
 
-    /**
-     * Place an icon at a raw inventory index.
-     */
     public void setSlot(int index, Icon icon) {
         addItem(index, icon);
     }
@@ -179,12 +151,13 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(" ");
+            MenuText.hideVanillaTooltips(meta);
             item.setItemMeta(meta);
         }
         return new Icon(item);
     }
 
-    public static Icon icon(Material material, String name, String... lore) {
-        return GuiHelper.createIcon(material, name, lore);
+    public static Icon icon(Material material, String mmName, String... mmLore) {
+        return GuiHelper.createIcon(material, mmName, mmLore);
     }
 }

@@ -26,7 +26,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
     private final String returnTo; // "friends", "all", "viewers", "social"
 
     public PlayerActionGui(Player player, PlayerData viewerData, String targetUuid, String returnTo) {
-        super(player, "player-action", MonitorStyle.title(ChatColor.YELLOW, "Player Actions"), MonitorStyle.ROWS_SMALL);
+        super(player, "player-action", MonitorStyle.title("yellow", "Player Actions"), MonitorStyle.ROWS_SMALL);
         this.viewerData = viewerData;
         this.targetUuid = targetUuid;
         this.returnTo = returnTo;
@@ -60,11 +60,11 @@ public class PlayerActionGui extends SimpleGuiMonitor {
         SkullMeta meta = (SkullMeta) head.getItemMeta();
         if (meta != null) {
             try { meta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(targetUuid))); } catch (Exception ignored) {}
-            meta.setDisplayName(ChatColor.WHITE + targetName);
+            meta.setDisplayName(MenuText.itemLine(ChatColor.WHITE + targetName));
             meta.setLore(Arrays.asList(
-                    isFriend ? ChatColor.GREEN + "Friend" : ChatColor.GRAY + "Not a friend",
-                    isBanned ? ChatColor.RED + "Banned" : "",
-                    isBlocked ? ChatColor.DARK_RED + "Blocked" : ""
+                    MenuText.itemLine(isFriend ? ChatColor.GREEN + "Friend" : ChatColor.GRAY + "Not a friend"),
+                    MenuText.itemLine(isBanned ? ChatColor.RED + "Banned" : ""),
+                    MenuText.itemLine(isBlocked ? ChatColor.DARK_RED + "Blocked" : "")
             ));
             head.setItemMeta(meta);
         }

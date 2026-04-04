@@ -108,6 +108,33 @@ public enum ClickerUpgrade {
             Material.GOLDEN_APPLE, "7777777", ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER, "2", null, 0),
     GET_LUCKY("Get Lucky", "Golden cookies stick around twice as long.",
             Material.GOLDEN_CARROT, "77777777", ClickerUpgradeEffect.GOLDEN_DURATION_MULTIPLIER, "2", null, 0),
+
+    // === Prestige-gated late game (helpers + global production) ===
+    STELLAR_BLUEPRINTS("Stellar Blueprints", "Engineer cookie forges that run on captured starlight.",
+            Material.END_CRYSTAL, "260000000000000000", ClickerUpgradeEffect.BUILDING_MULTIPLIER, "2", UpgradeType.STARFORGE, 1, 5),
+    VOID_SEAL("Void Seals", "Lock unstable void energy into stable cookie storage.",
+            Material.CRYING_OBSIDIAN, "3200000000000000000", ClickerUpgradeEffect.BUILDING_MULTIPLIER, "2", UpgradeType.VOID_VAULT, 1, 10),
+    GRAVITY_WHISK("Gravity Whisk", "Stir singularities until they cough up crumbs.",
+            Material.NETHER_STAR, "40000000000000000000", ClickerUpgradeEffect.BUILDING_MULTIPLIER, "2", UpgradeType.SINGULARITY, 1, 18),
+    INFINITE_BATCH("Infinite Batch License", "Legal in most timelines for bulk omniversal baking.",
+            Material.LODESTONE, "500000000000000000000", ClickerUpgradeEffect.BUILDING_MULTIPLIER, "2", UpgradeType.OMNIBAKERY, 1, 25),
+
+    ASTRAL_SUPPLY_CHAIN("Astral Supply Chain", "Route ingredients through low-orbit logistics.",
+            Material.END_STONE, "5000000000000", ClickerUpgradeEffect.CPS_MULTIPLIER, "1.75", null, 0, 5),
+    CHRONOS_SYNERGY("Chronos Synergy", "When every second counts, steal a few from yesterday.",
+            Material.PURPUR_BLOCK, "80000000000000", ClickerUpgradeEffect.CPS_MULTIPLIER, "2", null, 0, 12),
+    REALITY_GLAZE("Reality Glaze", "A finish so shiny it bends production upward.",
+            Material.SCULK_SHRIEKER, "5000000000000000", ClickerUpgradeEffect.CPS_MULTIPLIER, "2.25", null, 0, 22),
+
+    COSMIC_FORTUNE("Cosmic Fortune", "Golden cookies sense your ascended bakery.",
+            Material.SUNFLOWER, "888888888", ClickerUpgradeEffect.GOLDEN_FREQ_MULTIPLIER, "2", null, 0, 7),
+    JACKPOT_INFINITY("Jackpot Infinity", "Golden payouts scale with your ambition.",
+            Material.GLISTERING_MELON_SLICE, "8888888888", ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER, "2", null, 0, 14),
+    TIMELESS_SNACK("Timeless Snack", "Golden cookies linger like legends.",
+            Material.HONEY_BOTTLE, "88888888888", ClickerUpgradeEffect.GOLDEN_DURATION_MULTIPLIER, "2", null, 0, 18),
+
+    CELESTIAL_MOUSE("Celestial Mouse", "Clicks blessed by the outer realms.",
+            Material.END_ROD, "500000000000", ClickerUpgradeEffect.CPC_MULTIPLIER, "2", null, 75000, 8),
     ;
 
     private final String displayName;
@@ -118,9 +145,16 @@ public enum ClickerUpgrade {
     private final BigDecimal effectValue;
     private final UpgradeType targetBuilding;
     private final int requiredCount;
+    private final int requiredPrestigeLevel;
 
     ClickerUpgrade(String displayName, String description, Material material, String cost,
                    ClickerUpgradeEffect effect, String effectValue, UpgradeType targetBuilding, int requiredCount) {
+        this(displayName, description, material, cost, effect, effectValue, targetBuilding, requiredCount, 0);
+    }
+
+    ClickerUpgrade(String displayName, String description, Material material, String cost,
+                   ClickerUpgradeEffect effect, String effectValue, UpgradeType targetBuilding, int requiredCount,
+                   int requiredPrestigeLevel) {
         this.displayName = displayName;
         this.description = description;
         this.material = material;
@@ -129,6 +163,7 @@ public enum ClickerUpgrade {
         this.effectValue = new BigDecimal(effectValue);
         this.targetBuilding = targetBuilding;
         this.requiredCount = requiredCount;
+        this.requiredPrestigeLevel = requiredPrestigeLevel;
     }
 
     /**
@@ -138,6 +173,10 @@ public enum ClickerUpgrade {
      * Other upgrades are always unlocked.
      */
     public boolean isUnlocked(RealmProfile profile) {
+        if (profile == null) return false;
+        if (requiredPrestigeLevel > 0 && profile.getPrestigeLevel() < requiredPrestigeLevel) {
+            return false;
+        }
         if (requiredCount <= 0) return true;
         if (effect == ClickerUpgradeEffect.CPC_MULTIPLIER) {
             return profile.getTimesClicked() >= requiredCount;
@@ -155,6 +194,7 @@ public enum ClickerUpgrade {
     public boolean isHidden(RealmProfile profile) {
         if (targetBuilding == null) return false;
         if (!targetBuilding.isHidden()) return false;
+        if (profile == null) return true;
         // Hidden building upgrade: only show if the building itself is owned or revealed
         return profile.getUpgradeCount(targetBuilding) == 0
                 && profile.getTotalCookiesEarned().compareTo(targetBuilding.getBaseCost()) < 0;

@@ -17,7 +17,7 @@ public class BanListGui extends PaginationMonitor {
     private final PlayerData data;
 
     public BanListGui(Player player, PlayerData data, int page) {
-        super(player, "ban-list", MonitorStyle.title(ChatColor.RED, "Banned Players"), page);
+        super(player, "ban-list", MonitorStyle.title("red", "Banned Players"), page);
         this.data = data;
     }
 

@@ -35,7 +35,7 @@ public class OutgoingRequestsGui extends PaginationMonitor {
     }
 
     public OutgoingRequestsGui(Player player, PlayerData data, int page, Consumer<Player> backAction) {
-        super(player, "outgoing-requests", MonitorStyle.title(ChatColor.YELLOW, "Outgoing Requests"), page);
+        super(player, "outgoing-requests", MonitorStyle.title("yellow", "Outgoing Requests"), page);
         this.data = data;
         this.backAction = backAction;
     }
@@ -65,10 +65,12 @@ public class OutgoingRequestsGui extends PaginationMonitor {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             if (meta != null) {
                 try { meta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(receiverUuid))); } catch (Exception ignored) {}
-                meta.setDisplayName(ChatColor.YELLOW + name);
+                meta.setDisplayName(MenuText.itemLine(ChatColor.YELLOW + name));
                 meta.setLore(Arrays.asList(
-                        "", ChatColor.GRAY + "Request sent",
-                        "", ChatColor.RED + "Click to cancel request"));
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.GRAY + "Request sent"),
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.RED + "Click to cancel request")));
                 head.setItemMeta(meta);
             }
 

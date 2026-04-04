@@ -14,7 +14,7 @@ public class BoostersMenuGui extends MenuMonitor {
     private final PlayerData data;
 
     public BoostersMenuGui(Player player, PlayerData data) {
-        super(player, "boosters-menu", MonitorStyle.title(ChatColor.AQUA, "Boosters"), MonitorStyle.ROWS_SMALL);
+        super(player, "boosters-menu", MonitorStyle.title("aqua", "Boosters"), MonitorStyle.ROWS_SMALL);
         this.data = data;
     }
 

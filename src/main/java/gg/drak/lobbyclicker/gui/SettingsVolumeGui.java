@@ -33,7 +33,7 @@ public class SettingsVolumeGui extends PaginationMonitor {
     }
 
     public SettingsVolumeGui(Player player, PlayerData data, Consumer<Player> backToPlayerSettings) {
-        super(player, "settings-volume", MonitorStyle.title(ChatColor.AQUA, "Sound Volumes"), 0);
+        super(player, "settings-volume", MonitorStyle.title("aqua", "Sound Volumes"), 0);
         this.data = data;
         this.backToPlayerSettings = backToPlayerSettings;
     }

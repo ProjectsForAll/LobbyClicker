@@ -19,7 +19,7 @@ public class AllPlayersGui extends PaginationMonitor {
     private final PlayerData data;
 
     public AllPlayersGui(Player player, PlayerData data, int page) {
-        super(player, "all-players", MonitorStyle.title(ChatColor.YELLOW, "All Players"), page);
+        super(player, "all-players", MonitorStyle.title("yellow", "All Players"), page);
         this.data = data;
     }
 
