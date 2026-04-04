@@ -28,7 +28,7 @@ public class QuestsGui extends PaginationMonitor {
     }
 
     public QuestsGui(Player player, PlayerData data, int page) {
-        super(player, "quests", MonitorStyle.title(ChatColor.LIGHT_PURPLE, "Quests"), page);
+        super(player, "quests", MonitorStyle.title("light_purple", "Quests"), page);
         this.data = data;
     }
 
@@ -40,7 +40,16 @@ public class QuestsGui extends PaginationMonitor {
         buildStandardActionBar(p -> new ClickerGui(p, data).open());
 
         RealmProfile profile = data.getActiveProfile();
-        if (profile == null) return;
+        if (profile == null) {
+            addItem(4, GuiHelper.createIcon(Material.BARRIER,
+                    ChatColor.RED + "" + ChatColor.BOLD + "Profile unavailable",
+                    "",
+                    ChatColor.GRAY + "Your realm profile is not loaded yet.",
+                    ChatColor.GRAY + "Close and open the clicker again in a moment.",
+                    "",
+                    ChatColor.YELLOW + "If this persists, rejoin the server."));
+            return;
+        }
 
         // Initialize daily quest system
         DailyQuestManager.checkAndRefresh();

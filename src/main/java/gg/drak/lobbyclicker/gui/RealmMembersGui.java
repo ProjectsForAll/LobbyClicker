@@ -13,7 +13,7 @@ public class RealmMembersGui extends MenuMonitor {
     private final PlayerData data;
 
     public RealmMembersGui(Player player, PlayerData data) {
-        super(player, "realm-members", MonitorStyle.title(ChatColor.GREEN, "Manage Members"), MonitorStyle.ROWS_SMALL);
+        super(player, "realm-members", MonitorStyle.title("green", "Manage Members"), MonitorStyle.ROWS_SMALL);
         this.data = data;
     }
 
@@ -22,12 +22,12 @@ public class RealmMembersGui extends MenuMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
 
-        Icon friends = MonitorStyle.menuButton(Material.TOTEM_OF_UNDYING, ChatColor.GREEN,
+        Icon friends = MonitorStyle.menuButton(Material.TOTEM_OF_UNDYING, "green",
                 "Manage Friends", "View and manage friends", "Includes non-contributors");
         friends.onClick(e -> new RealmMemberListGui(player, data, true, 0).open());
         addOption(friends);
 
-        Icon all = MonitorStyle.menuButton(Material.PLAYER_HEAD, ChatColor.AQUA,
+        Icon all = MonitorStyle.menuButton(Material.PLAYER_HEAD, "aqua",
                 "Manage All", "All contributors + friends", "Paginated list");
         all.onClick(e -> new RealmMemberListGui(player, data, false, 0).open());
         addOption(all);

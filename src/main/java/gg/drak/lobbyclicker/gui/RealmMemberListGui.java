@@ -1,13 +1,13 @@
 package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.data.PlayerData;
+import gg.drak.lobbyclicker.gui.MenuText;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.realm.RealmRole;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
@@ -19,8 +19,7 @@ public class RealmMemberListGui extends PaginationMonitor {
 
     public RealmMemberListGui(Player player, PlayerData data, boolean friendsOnly, int page) {
         super(player, "realm-member-list",
-                MonitorStyle.title(friendsOnly ? ChatColor.GREEN : ChatColor.AQUA,
-                        friendsOnly ? "Friends" : "All Members"),
+                friendsOnly ? MonitorStyle.title("green", "Friends") : MonitorStyle.title("aqua", "All Members"),
                 page);
         this.data = data;
         this.friendsOnly = friendsOnly;
@@ -61,13 +60,15 @@ public class RealmMemberListGui extends PaginationMonitor {
             boolean isFriend = data.getFriends().contains(uuid);
             RealmRole role = profile != null ? profile.getRole(uuid) : RealmRole.VISITOR;
 
-            String roleStr = ChatColor.GRAY + "Role: " + ChatColor.WHITE + role.getDisplayName();
-            String friendStr = isFriend ? ChatColor.GREEN + "Friend" : ChatColor.GRAY + "Not a friend";
+            String roleStr = MenuText.grayWhite("Role: ", role.getDisplayName());
+            String friendStr = isFriend
+                    ? "<green>" + MenuText.esc("Friend") + "</green>"
+                    : "<gray>" + MenuText.esc("Not a friend") + "</gray>";
 
             Icon head = playerHeadIcon(uuid,
-                    ChatColor.WHITE + name,
+                    "<white>" + MenuText.esc(name) + "</white>",
                     p -> new RealmPlayerManageGui(p, data, uuid, friendsOnly ? "friends" : "all").open(),
-                    "", friendStr, roleStr, "", ChatColor.YELLOW + "Click to manage");
+                    "", friendStr, roleStr, "", "<yellow>" + MenuText.esc("Click to manage") + "</yellow>");
             addItem(slot, head);
         });
 

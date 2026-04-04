@@ -13,7 +13,7 @@ public class FriendsMenuGui extends MenuMonitor {
     private final PlayerData data;
 
     public FriendsMenuGui(Player player, PlayerData data) {
-        super(player, "friends-menu", MonitorStyle.title(ChatColor.GREEN, "Manage Friends"), MonitorStyle.ROWS_SMALL);
+        super(player, "friends-menu", MonitorStyle.title("green", "Manage Friends"), MonitorStyle.ROWS_SMALL);
         this.data = data;
     }
 
@@ -23,20 +23,20 @@ public class FriendsMenuGui extends MenuMonitor {
         setPlayerContext(data, null);
 
         int friendCount = data.getFriends().size();
-        Icon friends = MonitorStyle.menuButton(Material.TOTEM_OF_UNDYING, ChatColor.GREEN,
+        Icon friends = MonitorStyle.menuButton(Material.TOTEM_OF_UNDYING, "green",
                 "Friends", friendCount + " friend(s)");
         friends.onClick(e -> new FriendsListGui(player, data, 0).open());
         addOption(friends);
 
         int incomingCount = data.getIncomingFriendRequests().size();
         Icon incoming = MonitorStyle.menuButton(
-                incomingCount > 0 ? Material.WRITABLE_BOOK : Material.BOOK, ChatColor.GOLD,
+                incomingCount > 0 ? Material.WRITABLE_BOOK : Material.BOOK, "gold",
                 "Incoming Requests", incomingCount > 0 ? incomingCount + " pending" : "No pending requests");
         incoming.onClick(e -> new FriendRequestsGui(player, data, 0).open());
         addOption(incoming);
 
         int outgoingCount = data.getOutgoingFriendRequests().size();
-        Icon outgoing = MonitorStyle.menuButton(Material.PAPER, ChatColor.YELLOW,
+        Icon outgoing = MonitorStyle.menuButton(Material.PAPER, "yellow",
                 "Outgoing Requests", outgoingCount > 0 ? outgoingCount + " sent" : "No outgoing requests");
         outgoing.onClick(e -> new OutgoingRequestsGui(player, data, 0).open());
         addOption(outgoing);

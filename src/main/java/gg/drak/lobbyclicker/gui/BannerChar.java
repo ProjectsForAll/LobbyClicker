@@ -2,7 +2,6 @@ package gg.drak.lobbyclicker.gui;
 
 import lombok.Getter;
 import mc.obliviate.inventory.Icon;
-import org.bukkit.ChatColor;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.block.banner.Pattern;
@@ -83,12 +82,16 @@ public class BannerChar {
         return banner;
     }
 
-    public Icon toIcon(String loreLine) {
+    public Icon toIcon(String mmLoreLine) {
         ItemStack stack = toStack();
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.WHITE + (character != null ? character.trim() : ""));
-            if (loreLine != null) meta.setLore(Collections.singletonList(loreLine));
+            String ch = character != null ? character.trim() : "";
+            meta.setDisplayName(MenuText.legacySection("<white>" + MenuText.esc(ch) + "</white>"));
+            if (mmLoreLine != null) {
+                meta.setLore(Collections.singletonList(MenuText.legacySection(mmLoreLine)));
+            }
+            MenuText.hideVanillaTooltips(meta);
             stack.setItemMeta(meta);
         }
         return new Icon(stack);

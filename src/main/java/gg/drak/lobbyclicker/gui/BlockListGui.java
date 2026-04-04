@@ -17,7 +17,7 @@ public class BlockListGui extends PaginationMonitor {
     private final PlayerData data;
 
     public BlockListGui(Player player, PlayerData data, int page) {
-        super(player, "block-list", MonitorStyle.title(ChatColor.DARK_RED, "Blocked Players"), page);
+        super(player, "block-list", MonitorStyle.title("dark_red", "Blocked Players"), page);
         this.data = data;
     }
 

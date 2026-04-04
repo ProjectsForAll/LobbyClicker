@@ -14,7 +14,7 @@ public class ShopGui extends MenuMonitor {
     private final PlayerData ownerData;
 
     public ShopGui(Player player, PlayerData viewerData, PlayerData ownerData) {
-        super(player, "shop", MonitorStyle.title(ChatColor.GREEN, "Shop"), MonitorStyle.ROWS_SMALL);
+        super(player, "shop", MonitorStyle.title("green", "Shop"), MonitorStyle.ROWS_SMALL);
         this.viewerData = viewerData;
         this.ownerData = ownerData;
     }
@@ -24,12 +24,12 @@ public class ShopGui extends MenuMonitor {
         super.onOpen(event);
         setPlayerContext(viewerData, ownerData);
 
-        Icon cookieHelpers = MonitorStyle.menuButton(Material.CHEST, ChatColor.GREEN,
+        Icon cookieHelpers = MonitorStyle.menuButton(Material.CHEST, "green",
                 "Cookie Helpers", "Buy helpers to earn more cookies!");
         cookieHelpers.onClick(e -> new UpgradeGui(player, viewerData, ownerData).open());
         addOption(cookieHelpers);
 
-        Icon upgrades = MonitorStyle.menuButton(Material.DIAMOND, ChatColor.AQUA,
+        Icon upgrades = MonitorStyle.menuButton(Material.DIAMOND, "aqua",
                 "Upgrades", "One-time boosts and bonuses!");
         upgrades.onClick(e -> new ClickerUpgradeGui(player, viewerData, ownerData).open());
         addOption(upgrades);

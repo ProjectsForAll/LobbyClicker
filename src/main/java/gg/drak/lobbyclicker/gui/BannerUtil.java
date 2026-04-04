@@ -2,7 +2,6 @@ package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
-import org.bukkit.ChatColor;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.block.banner.Pattern;
@@ -217,12 +216,14 @@ public class BannerUtil {
     /**
      * Creates a banner Icon for a character with a display name and lore line.
      */
-    public static Icon charBannerIcon(String ch, String loreLine) {
+    public static Icon charBannerIcon(String ch, String mmLoreLine) {
         ItemStack banner = createCharBanner(ch);
         ItemMeta meta = banner.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.WHITE + (ch != null ? ch.trim() : ""));
-            if (loreLine != null) meta.setLore(Arrays.asList(loreLine));
+            String c = ch != null ? ch.trim() : "";
+            meta.setDisplayName(MenuText.legacySection("<white>" + MenuText.esc(c) + "</white>"));
+            if (mmLoreLine != null) meta.setLore(Arrays.asList(MenuText.legacySection(mmLoreLine)));
+            MenuText.hideVanillaTooltips(meta);
             banner.setItemMeta(meta);
         }
         return new Icon(banner);
@@ -319,12 +320,14 @@ public class BannerUtil {
         return banner;
     }
 
-    public static Icon blackCharBannerIcon(String ch, String loreLine) {
+    public static Icon blackCharBannerIcon(String ch, String mmLoreLine) {
         ItemStack banner = createBlackCharBanner(ch);
         ItemMeta meta = banner.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.WHITE + (ch != null ? ch.trim() : ""));
-            if (loreLine != null) meta.setLore(Arrays.asList(loreLine));
+            String c = ch != null ? ch.trim() : "";
+            meta.setDisplayName(MenuText.legacySection("<white>" + MenuText.esc(c) + "</white>"));
+            if (mmLoreLine != null) meta.setLore(Arrays.asList(MenuText.legacySection(mmLoreLine)));
+            MenuText.hideVanillaTooltips(meta);
             banner.setItemMeta(meta);
         }
         return new Icon(banner);

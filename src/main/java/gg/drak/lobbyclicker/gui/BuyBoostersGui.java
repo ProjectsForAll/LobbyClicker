@@ -21,7 +21,7 @@ public class BuyBoostersGui extends PaginationMonitor {
     private final PlayerData data;
 
     public BuyBoostersGui(Player player, PlayerData data, int page) {
-        super(player, "buy-boosters", MonitorStyle.title(ChatColor.GREEN, "Buy Boosters"), page);
+        super(player, "buy-boosters", MonitorStyle.title("green", "Buy Boosters"), page);
         this.data = data;
     }
 

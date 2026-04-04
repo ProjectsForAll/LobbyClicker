@@ -21,7 +21,7 @@ public class ProfileManageGui extends SimpleGuiMonitor {
 
     public ProfileManageGui(Player player, PlayerData data, RealmProfile profile) {
         super(player, "profile-manage",
-                MonitorStyle.title(ChatColor.LIGHT_PURPLE, profile.getProfileName() + " Settings"),
+                MonitorStyle.title("light_purple", profile.getProfileName() + " Settings"),
                 MonitorStyle.ROWS_SMALL);
         this.data = data;
         this.profile = profile;

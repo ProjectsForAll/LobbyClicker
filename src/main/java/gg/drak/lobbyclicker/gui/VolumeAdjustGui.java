@@ -12,6 +12,8 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
+import java.util.function.Consumer;
+
 /**
  * Granular volume adjustment GUI for a specific sound setting.
  * Allows +/- 0.01, +/- 0.1, +/- 1.0. Range: 0.00 to 5.00.
@@ -20,11 +22,17 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 public class VolumeAdjustGui extends SimpleGuiMonitor {
     private final PlayerData data;
     private final SettingType volumeType;
+    private final Consumer<Player> backToPlayerSettings;
 
     public VolumeAdjustGui(Player player, PlayerData data, SettingType volumeType) {
-        super(player, "volume-adjust", MonitorStyle.title(ChatColor.AQUA, "Volume: " + volumeType.displayName()), 3);
+        this(player, data, volumeType, p -> new PlayerSettingsGui(p, data, p2 -> new SettingsMainGui(p2, data).open()).open());
+    }
+
+    public VolumeAdjustGui(Player player, PlayerData data, SettingType volumeType, Consumer<Player> backToPlayerSettings) {
+        super(player, "volume-adjust", MonitorStyle.title("aqua", "Volume: " + volumeType.displayName()), 3);
         this.data = data;
         this.volumeType = volumeType;
+        this.backToPlayerSettings = backToPlayerSettings;
     }
 
     @Override
@@ -32,7 +40,7 @@ public class VolumeAdjustGui extends SimpleGuiMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new SettingsVolumeGui(p, data).open());
+        buildStandardActionBar(p -> new SettingsVolumeGui(p, data, backToPlayerSettings).open());
 
         buildDisplay();
     }
@@ -99,6 +107,6 @@ public class VolumeAdjustGui extends SimpleGuiMonitor {
         float vol = newValue / 100.0f;
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, vol, 1.0f);
 
-        new VolumeAdjustGui(player, data, volumeType).open();
+        new VolumeAdjustGui(player, data, volumeType, backToPlayerSettings).open();
     }
 }

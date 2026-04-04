@@ -158,6 +158,7 @@ public class ClickerAdminCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(ChatColor.RED + "Player must be online for openfor.");
                     break;
                 }
+                data.ensureDefaultProfileIfMissing();
                 new ClickerGui(target, data).open();
                 sender.sendMessage(ChatColor.GREEN + "Opened clicker GUI for " + finalTargetName);
                 break;

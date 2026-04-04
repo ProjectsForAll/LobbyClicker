@@ -12,6 +12,8 @@ ext {
             'org.spigotmc:spigot:1.21.11-R0.1-SNAPSHOT',
             'gg.drak:BukkitOfUtils:1.18.0',
             'net.kyori:adventure-api:4.17.0',
+            'net.kyori:adventure-text-minimessage:4.17.0',
+            'net.kyori:adventure-text-serializer-legacy:4.17.0',
     ]
     FILES = [
     ]

@@ -10,6 +10,7 @@ import gg.drak.lobbyclicker.redis.RedisManager;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.RealmManager;
+import gg.drak.lobbyclicker.idle.OfflineCookieEarnings;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
@@ -26,6 +27,7 @@ import java.math.BigDecimal;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class ClickerGui extends SimpleGuiMonitor {
     private final PlayerData viewerData;
@@ -107,6 +109,10 @@ public class ClickerGui extends SimpleGuiMonitor {
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
 
+        if (!isVisiting) {
+            OfflineCookieEarnings.applyAndNotify(player, viewerData);
+        }
+
         fillMonitorBorder();
 
         updateStats();
@@ -116,6 +122,7 @@ public class ClickerGui extends SimpleGuiMonitor {
         addCookieItem(player);
 
         boolean simpleMode = LobbyClicker.getMainConfig().isSimpleMode();
+        boolean socialEnabled = LobbyClicker.getMainConfig().isSocialFeaturesEnabled();
 
         if (!simpleMode) {
             // Quick action: Mail (index 9)
@@ -134,7 +141,6 @@ public class ClickerGui extends SimpleGuiMonitor {
             addItem(9, mail);
 
             // Quick action: Friends (index 18, below Mail)
-            // Show longest-online friend's head, or viewer's own head if none online
             String friendHeadUuid = viewerData.getIdentifier();
             long longestOnline = -1;
             for (String fUuid : viewerData.getFriends()) {
@@ -195,8 +201,10 @@ public class ClickerGui extends SimpleGuiMonitor {
         // === BOTTOM ROW ACTION BAR ===
         int b = (getSize() / 9 - 1) * 9; // bottom row start index
 
-        // Slot 1 (b+0): Social button
-        if (!simpleMode) {
+        boolean showSocial = !simpleMode && socialEnabled;
+
+        // Slot 1 (b+0): Social button — hidden when social is disabled; settings moves here
+        if (showSocial) {
             Icon social = GuiHelper.playerHead(player,
                     ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Social",
                     "", ChatColor.GRAY + "Friends, realms, players");
@@ -208,14 +216,23 @@ public class ClickerGui extends SimpleGuiMonitor {
             addItem(b, social);
         }
 
-        // Slot 2 (b+1): Settings button
+        int settingsSlot = showSocial ? b + 1 : b;
         Icon settings = GuiHelper.createIcon(Material.COMPARATOR,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Settings",
                 "", ChatColor.GRAY + "Configure preferences");
         settings.onClick(e -> {
-            new SettingsMainGui(player, viewerData, isVisiting ? ownerData : null).open();
+            unregisterGui(player.getUniqueId());
+            if (isVisiting) RealmManager.removeViewer(ownerData.getIdentifier(), viewerData.getIdentifier());
+            if (simpleMode || !LobbyClicker.getMainConfig().isRealmSettingsMenuEnabled()) {
+                Consumer<Player> back = isVisiting
+                        ? p -> new ClickerGui(p, viewerData, ownerData).open()
+                        : p -> new ClickerGui(p, viewerData).open();
+                new PlayerSettingsGui(player, viewerData, back).open();
+            } else {
+                new SettingsMainGui(player, viewerData, isVisiting ? ownerData : null).open();
+            }
         });
-        addItem(b + 1, settings);
+        addItem(settingsSlot, settings);
 
         // Slot 4 (b+3): Shop button
         if (!isVisiting) {
@@ -275,8 +292,8 @@ public class ClickerGui extends SimpleGuiMonitor {
         });
         addItem(b + 6, prestige);
 
-        // Slot 8 (b+7): Profiles button
-        if (!simpleMode) {
+        // Slot 8 (b+7): Profiles button (hidden when realm management menu is disabled — same as auto single-profile flow)
+        if (!simpleMode && LobbyClicker.getMainConfig().isRealmSettingsMenuEnabled()) {
             Icon profiles = GuiHelper.createIcon(Material.BOOK,
                     ChatColor.GOLD + "" + ChatColor.BOLD + "Profiles",
                     "", ChatColor.GRAY + "Switch realm profiles");
@@ -332,9 +349,10 @@ public class ClickerGui extends SimpleGuiMonitor {
             ItemMeta meta = cookieItem.getItemMeta();
             if (meta != null) {
                 meta.setLore(java.util.Arrays.asList(
-                        "", ChatColor.YELLOW + "Click to earn cookies!",
-                        ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc()),
-                        ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks())));
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Click to earn cookies!"),
+                        MenuText.itemLine(ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc())),
+                        MenuText.itemLine(ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()))));
                 cookieItem.setItemMeta(meta);
             }
         }

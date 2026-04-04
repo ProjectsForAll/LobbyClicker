@@ -2,6 +2,7 @@ package gg.drak.lobbyclicker.gui.admin;
 
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
+import org.bukkit.Bukkit;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.GuiHelper;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
@@ -65,17 +66,17 @@ public class AdminProfilesGui extends PaginationMonitor {
         if (profiles.isEmpty()) {
             // Try loading from DB
             player.sendMessage(ChatColor.YELLOW + "Loading profiles from database...");
-            LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(targetUuid).thenAccept(dbProfiles -> {
-                if (dbProfiles.isEmpty()) {
-                    player.sendMessage(ChatColor.RED + "No profiles found for " + targetName);
-                } else {
-                    for (RealmProfile p : dbProfiles) {
-                        ProfileManager.loadProfile(p);
-                    }
-                    org.bukkit.Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () ->
-                            new AdminProfilesGui(player, targetUuid, targetName, page).open());
-                }
-            });
+            LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(targetUuid).thenAccept(dbProfiles ->
+                    Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                        if (dbProfiles.isEmpty()) {
+                            player.sendMessage(ChatColor.RED + "No profiles found for " + targetName);
+                        } else {
+                            for (RealmProfile p : dbProfiles) {
+                                ProfileManager.loadProfile(p);
+                            }
+                            new AdminProfilesGui(player, targetUuid, targetName, page).open();
+                        }
+                    }));
             return;
         }
 

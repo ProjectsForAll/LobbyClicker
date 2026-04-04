@@ -21,7 +21,7 @@ public class ClickerUpgradeGui extends PaginationMonitor {
     private final PlayerData ownerData;
 
     public ClickerUpgradeGui(Player player, PlayerData viewerData, PlayerData ownerData) {
-        super(player, "clicker-upgrades-store", MonitorStyle.title(ChatColor.AQUA, "Upgrades"), 0);
+        super(player, "clicker-upgrades-store", MonitorStyle.title("aqua", "Upgrades"), 0);
         this.viewerData = viewerData;
         this.ownerData = ownerData;
     }
@@ -185,12 +185,16 @@ public class ClickerUpgradeGui extends PaginationMonitor {
     }
 
     private String describeRequirement(ClickerUpgrade upgrade) {
-        if (upgrade.getEffect() == ClickerUpgradeEffect.CPC_MULTIPLIER) {
-            return upgrade.getRequiredCount() + " total realm clicks";
+        List<String> parts = new ArrayList<>();
+        if (upgrade.getRequiredPrestigeLevel() > 0) {
+            parts.add("Prestige " + upgrade.getRequiredPrestigeLevel());
         }
-        if (upgrade.getTargetBuilding() != null) {
-            return "Own " + upgrade.getRequiredCount() + " " + upgrade.getTargetBuilding().getDisplayName();
+        if (upgrade.getEffect() == ClickerUpgradeEffect.CPC_MULTIPLIER && upgrade.getRequiredCount() > 0) {
+            parts.add(upgrade.getRequiredCount() + " total realm clicks");
+        } else if (upgrade.getTargetBuilding() != null) {
+            parts.add("Own " + upgrade.getRequiredCount() + " " + upgrade.getTargetBuilding().getDisplayName());
         }
-        return "Unknown";
+        if (parts.isEmpty()) return "Unknown";
+        return String.join(" and ", parts);
     }
 }

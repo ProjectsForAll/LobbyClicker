@@ -202,6 +202,7 @@ public class RealmProfile {
     }
 
     public boolean buyUpgrade(UpgradeType type) {
+        if (prestigeLevel < type.getRequiredPrestigeLevel()) return false;
         BigDecimal cost = type.getCost(getUpgradeCount(type));
         if (!canAfford(cost)) return false;
         removeCookies(cost);

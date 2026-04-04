@@ -43,7 +43,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
     }
 
     public ProfileSelectorGui(Player player, PlayerData data, int page, PlayerData realmOwner) {
-        super(player, "profile-selector", MonitorStyle.title(ChatColor.GOLD, "Profiles"), page);
+        super(player, "profile-selector", MonitorStyle.title("gold", "Profiles"), page);
         this.data = data;
         this.realmOwner = realmOwner;
         setWrapAround(false);

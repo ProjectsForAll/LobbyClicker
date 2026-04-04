@@ -16,6 +16,7 @@ public class Statements {
                 "Settings TEXT NOT NULL DEFAULT '', " +
                 "ActiveProfileId VARCHAR(36) NOT NULL DEFAULT '', " +
                 "GlobalClicks BIGINT NOT NULL DEFAULT 0, " +
+                "LastLogoutEpochMs BIGINT NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (Uuid) " +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;;"
         ),
@@ -92,14 +93,15 @@ public class Statements {
 
         // Player CRUD (slim: just UUID, name, settings, active profile)
         PUSH_PLAYER_MAIN("INSERT INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Settings, ActiveProfileId, GlobalClicks " +
+                "Uuid, Name, Settings, ActiveProfileId, GlobalClicks, LastLogoutEpochMs " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ? " +
                 ") ON DUPLICATE KEY UPDATE " +
                 "Name = VALUES(Name), " +
                 "Settings = VALUES(Settings), " +
                 "ActiveProfileId = VALUES(ActiveProfileId), " +
-                "GlobalClicks = VALUES(GlobalClicks)" +
+                "GlobalClicks = VALUES(GlobalClicks), " +
+                "LastLogoutEpochMs = VALUES(LastLogoutEpochMs)" +
                 ";"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),
@@ -188,6 +190,7 @@ public class Statements {
                 "Settings TEXT NOT NULL DEFAULT '', " +
                 "ActiveProfileId TEXT NOT NULL DEFAULT '', " +
                 "GlobalClicks INTEGER NOT NULL DEFAULT 0, " +
+                "LastLogoutEpochMs INTEGER NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (Uuid) " +
                 ");;"
         ),
@@ -263,9 +266,9 @@ public class Statements {
 
         // Player CRUD
         PUSH_PLAYER_MAIN("INSERT OR REPLACE INTO `%table_prefix%Players` ( " +
-                "Uuid, Name, Settings, ActiveProfileId, GlobalClicks " +
+                "Uuid, Name, Settings, ActiveProfileId, GlobalClicks, LastLogoutEpochMs " +
                 ") VALUES ( " +
-                "?, ?, ?, ?, ? " +
+                "?, ?, ?, ?, ?, ? " +
                 ");"),
         PULL_PLAYER_MAIN("SELECT * FROM `%table_prefix%Players` WHERE Uuid = ?;"),
         PLAYER_EXISTS("SELECT COUNT(*) FROM `%table_prefix%Players` WHERE Uuid = ?;"),

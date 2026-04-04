@@ -19,6 +19,7 @@ commands:
   clicker:
     description: Open the Cookie Clicker GUI
     usage: /<command>
+    aliases: [cookieclicker]
     permission: lobbyclicker.use
   leaderboard:
     description: View the Cookie Clicker leaderboard

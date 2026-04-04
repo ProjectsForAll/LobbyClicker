@@ -29,7 +29,7 @@ public class GambleRequestsGui extends PaginationMonitor {
     }
 
     public GambleRequestsGui(Player player, PlayerData data, int page, Consumer<Player> backAction) {
-        super(player, "gamble-requests", MonitorStyle.title(ChatColor.GREEN, "Gambling Requests"), page);
+        super(player, "gamble-requests", MonitorStyle.title("green", "Gambling Requests"), page);
         this.data = data;
         this.backAction = backAction;
     }
@@ -60,14 +60,15 @@ public class GambleRequestsGui extends PaginationMonitor {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             if (meta != null) {
                 try { meta.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(tx.getSenderUuid()))); } catch (Exception ignored) {}
-                meta.setDisplayName(ChatColor.GREEN + senderName);
+                meta.setDisplayName(MenuText.itemLine(ChatColor.GREEN + senderName));
                 meta.setLore(Arrays.asList(
-                        "", ChatColor.GRAY + "Bet: " + ChatColor.GOLD + FormatUtils.format(tx.getAmount()) + " cookies",
-                        canAfford ? ChatColor.GREEN + "You can afford this" : ChatColor.RED + "You cannot afford this",
-                        "",
-                        ChatColor.YELLOW + "Left-click: " + ChatColor.WHITE + "View details",
-                        canAfford ? ChatColor.GREEN + "Shift+left-click: " + ChatColor.WHITE + "Accept" : "",
-                        ChatColor.RED + "Shift+right-click: " + ChatColor.WHITE + "Decline"));
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.GRAY + "Bet: " + ChatColor.GOLD + FormatUtils.format(tx.getAmount()) + " cookies"),
+                        MenuText.itemLine(canAfford ? ChatColor.GREEN + "You can afford this" : ChatColor.RED + "You cannot afford this"),
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Left-click: " + ChatColor.WHITE + "View details"),
+                        MenuText.itemLine(canAfford ? ChatColor.GREEN + "Shift+left-click: " + ChatColor.WHITE + "Accept" : ""),
+                        MenuText.itemLine(ChatColor.RED + "Shift+right-click: " + ChatColor.WHITE + "Decline")));
                 head.setItemMeta(meta);
             }
             Icon icon = new Icon(head);

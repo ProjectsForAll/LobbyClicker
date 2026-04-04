@@ -53,27 +53,15 @@ public class ClickerCommand implements CommandExecutor {
             return true;
         }
 
-        // In simple mode, skip profile selector — auto-create if needed
-        if (LobbyClicker.getMainConfig().isSimpleMode()) {
-            if (!data.hasActiveProfile()) {
-                java.util.List<gg.drak.lobbyclicker.realm.RealmProfile> profiles =
-                    gg.drak.lobbyclicker.realm.ProfileManager.getProfilesForOwner(data.getIdentifier());
-                if (profiles.isEmpty()) {
-                    gg.drak.lobbyclicker.realm.RealmProfile newProfile =
-                        gg.drak.lobbyclicker.realm.ProfileManager.createProfile(data.getIdentifier(), "Main");
-                    LobbyClicker.getDatabase().putProfileThreaded(newProfile);
-                    data.setActiveProfileId(newProfile.getProfileId());
-                    data.save(true);
-                } else {
-                    data.setActiveProfileId(profiles.get(0).getProfileId());
-                    data.save(true);
-                }
-            }
-            new gg.drak.lobbyclicker.gui.ClickerGui(player, data).open();
+        // Simple mode OR realm management UI off: never block on profile picker — auto-create/select one profile
+        if (LobbyClicker.getMainConfig().isSimpleMode()
+                || !LobbyClicker.getMainConfig().isRealmSettingsMenuEnabled()) {
+            data.ensureDefaultProfileIfMissing();
+            new ClickerGui(player, data).open();
             return true;
         }
 
-        // If player has no active profile, show profile selector
+        // Full UI: if player has no active profile, show profile selector
         if (!data.hasActiveProfile()) {
             new ProfileSelectorGui(player, data).open();
             return true;

@@ -16,7 +16,7 @@ public class RealmSettingsGui extends MenuMonitor {
     private final PlayerData data;
 
     public RealmSettingsGui(Player player, PlayerData data) {
-        super(player, "realm-settings", MonitorStyle.title(ChatColor.LIGHT_PURPLE, "Realm Settings"), MonitorStyle.ROWS_SMALL);
+        super(player, "realm-settings", MonitorStyle.title("light_purple", "Realm Settings"), MonitorStyle.ROWS_SMALL);
         this.data = data;
     }
 
@@ -65,7 +65,7 @@ public class RealmSettingsGui extends MenuMonitor {
         addOption(rename);
 
         // Manage Members
-        Icon members = MonitorStyle.menuButton(Material.PLAYER_HEAD, ChatColor.GREEN,
+        Icon members = MonitorStyle.menuButton(Material.PLAYER_HEAD, "green",
                 "Manage Members", "Manage friends and contributors");
         members.onClick(e -> new RealmMembersGui(player, data).open());
         addOption(members);

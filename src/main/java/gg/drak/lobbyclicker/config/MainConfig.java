@@ -20,6 +20,8 @@ public class MainConfig extends SimpleConfiguration {
         getRedisPassword();
         getRedisChannelPrefix();
         isSimpleMode();
+        isSocialFeaturesEnabled();
+        isRealmSettingsMenuEnabled();
     }
 
     public String getServerId() {
@@ -65,5 +67,23 @@ public class MainConfig extends SimpleConfiguration {
     public boolean isSimpleMode() {
         reloadResource();
         return getOrSetDefault("clicker.simple-mode", false);
+    }
+
+    /**
+     * When false, the Social hub button is hidden on the main clicker GUI and Settings shifts into its slot.
+     */
+    public boolean isSocialFeaturesEnabled() {
+        reloadResource();
+        return getOrSetDefault("clicker.gui.social-enabled", true);
+    }
+
+    /**
+     * When false, realm management UIs are hidden (no realm hub in Settings, no Profiles button on the clicker).
+     * Players still use one {@link gg.drak.lobbyclicker.realm.RealmProfile} under the hood; {@code /clicker} auto-creates
+     * or selects a profile like simple mode so the core loop (click, shop, prestige) never dead-ends on profile pickers.
+     */
+    public boolean isRealmSettingsMenuEnabled() {
+        reloadResource();
+        return getOrSetDefault("clicker.gui.realm-settings-enabled", true);
     }
 }

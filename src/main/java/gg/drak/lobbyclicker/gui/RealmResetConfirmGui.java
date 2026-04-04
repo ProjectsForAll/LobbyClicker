@@ -15,7 +15,7 @@ public class RealmResetConfirmGui extends ConfirmationMonitor {
     private final PlayerData data;
 
     public RealmResetConfirmGui(Player player, PlayerData data) {
-        super(player, "realm-reset", MonitorStyle.title(ChatColor.RED, "Reset Realm?"));
+        super(player, "realm-reset", MonitorStyle.title("red", "Reset Realm?"));
         this.data = data;
     }
 

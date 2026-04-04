@@ -21,7 +21,7 @@ public class RealmViewersGui extends PaginationMonitor {
     }
 
     public RealmViewersGui(Player player, PlayerData data, int page) {
-        super(player, "realm-viewers", MonitorStyle.title(ChatColor.AQUA, "Realm Viewers"), page);
+        super(player, "realm-viewers", MonitorStyle.title("aqua", "Realm Viewers"), page);
         this.data = data;
     }
 

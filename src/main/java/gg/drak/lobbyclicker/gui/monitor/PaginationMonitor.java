@@ -1,18 +1,16 @@
 package gg.drak.lobbyclicker.gui.monitor;
 
 import gg.drak.lobbyclicker.gui.BannerChar;
-import gg.drak.lobbyclicker.gui.BannerUtil;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.MenuText;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -21,20 +19,6 @@ import java.util.function.Function;
 
 /**
  * A bordered monitor with built-in pagination support.
- *
- * Layout (6-row):
- * <pre>
- *   K K K K K K K K K     (row 0: top border)
- *   Y [<] . . . . [>] Y   (row 1: banner arrows at index 10 and 16)
- *   Y  . . . . . . .  Y   (row 2: content)
- *   Y  . . . . . . .  Y   (row 3: content)
- *   Y  . . . . . . .  Y   (row 4: content)
- *   [action bar]           (row 5: action bar)
- * </pre>
- *
- * Pagination arrows: index 10 ("<" banner) and index 16 (">" banner).
- * Always visible. Wrap around by default (last->first, first->last).
- * Paginated content slots: 11-15, 19-25, 28-34, 37-43 (5+7+7+7 = 26 items per page).
  */
 public abstract class PaginationMonitor extends SimpleGuiMonitor {
 
@@ -48,8 +32,10 @@ public abstract class PaginationMonitor extends SimpleGuiMonitor {
             37, 38, 39, 40, 41, 42, 43
     };
 
-    public PaginationMonitor(Player player, String id, String title, int page) {
-        super(player, id, title + (page > 0 ? " " + ChatColor.GRAY + "(Page " + (page + 1) + ")" : ""), 6);
+    public PaginationMonitor(Player player, String id, String titleMiniMessage, int page) {
+        super(player, id, titleMiniMessage + (page > 0
+                ? " <gray>(" + MenuText.esc("Page") + " " + (page + 1) + ")</gray>"
+                : ""), 6);
         this.page = page;
     }
 
@@ -81,23 +67,22 @@ public abstract class PaginationMonitor extends SimpleGuiMonitor {
         }
     }
 
-    /**
-     * Add prev/next pagination banner arrows at indexes 10 and 16.
-     * Always shown. Wraps around by default (configurable via setWrapAround).
-     */
     protected <T> void addPaginationArrows(List<T> items, Consumer<Integer> pageOpener) {
         int totalPages = Math.max(1, (int) Math.ceil((double) items.size() / getItemsPerPage()));
 
-        // "<" banner at index 10 (always visible)
         boolean hasPrev = page > 0;
         boolean canWrapPrev = wrapAround && totalPages > 1 && page == 0;
-        String prevLore = hasPrev ? ChatColor.YELLOW + "Page " + page + "/" + totalPages
-                : (canWrapPrev ? ChatColor.GRAY + "Go to last page" : ChatColor.GRAY + "No previous page");
+        String prevLore = hasPrev
+                ? "<yellow>" + MenuText.esc("Page") + " " + page + "/" + totalPages + "</yellow>"
+                : (canWrapPrev
+                        ? "<gray>" + MenuText.esc("Go to last page") + "</gray>"
+                        : "<gray>" + MenuText.esc("No previous page") + "</gray>");
         Icon prev = BannerChar.of("<", BannerChar.BannerColor.RED, BannerChar.BannerColor.WHITE).toIcon(prevLore);
         ItemStack prevStack = prev.getItem();
         ItemMeta prevMeta = prevStack.getItemMeta();
         if (prevMeta != null) {
-            prevMeta.setDisplayName(ChatColor.YELLOW + "" + ChatColor.BOLD + "\u2190 Previous");
+            prevMeta.setDisplayName(MenuText.legacySection("<yellow><bold>← " + MenuText.esc("Previous") + "</bold></yellow>"));
+            MenuText.hideVanillaTooltips(prevMeta);
             prevStack.setItemMeta(prevMeta);
         }
         if (hasPrev) {
@@ -107,16 +92,19 @@ public abstract class PaginationMonitor extends SimpleGuiMonitor {
         }
         addItem(10, prev);
 
-        // ">" banner at index 16 (always visible)
         boolean hasNext = (page + 1) * PAGINATED_SLOTS.length < items.size();
         boolean canWrapNext = wrapAround && totalPages > 1 && !hasNext;
-        String nextLore = hasNext ? ChatColor.YELLOW + "Page " + (page + 2) + "/" + totalPages
-                : (canWrapNext ? ChatColor.GRAY + "Go to first page" : ChatColor.GRAY + "No next page");
+        String nextLore = hasNext
+                ? "<yellow>" + MenuText.esc("Page") + " " + (page + 2) + "/" + totalPages + "</yellow>"
+                : (canWrapNext
+                        ? "<gray>" + MenuText.esc("Go to first page") + "</gray>"
+                        : "<gray>" + MenuText.esc("No next page") + "</gray>");
         Icon next = BannerChar.of(">", BannerChar.BannerColor.RED, BannerChar.BannerColor.WHITE).toIcon(nextLore);
         ItemStack nextStack = next.getItem();
         ItemMeta nextMeta = nextStack.getItemMeta();
         if (nextMeta != null) {
-            nextMeta.setDisplayName(ChatColor.YELLOW + "" + ChatColor.BOLD + "Next \u2192");
+            nextMeta.setDisplayName(MenuText.legacySection("<yellow><bold>" + MenuText.esc("Next") + " →</bold></yellow>"));
+            MenuText.hideVanillaTooltips(nextMeta);
             nextStack.setItemMeta(nextMeta);
         }
         if (hasNext) {
@@ -127,16 +115,12 @@ public abstract class PaginationMonitor extends SimpleGuiMonitor {
         addItem(16, next);
     }
 
-    /**
-     * Creates a player head icon with name, lore, and click handler.
-     */
-    public static Icon playerHeadIcon(String uuid, String name, Consumer<Player> onClick, String... lore) {
+    public static Icon playerHeadIcon(String uuid, String mmName, Consumer<Player> onClick, String... mmLore) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
         if (meta != null) {
             try {
                 UUID uid = UUID.fromString(uuid);
-                // Prefer online player (has cached skin), fallback to offline
                 Player onlinePlayer = Bukkit.getPlayer(uid);
                 if (onlinePlayer != null) {
                     meta.setOwningPlayer(onlinePlayer);
@@ -144,8 +128,15 @@ public abstract class PaginationMonitor extends SimpleGuiMonitor {
                     meta.setOwningPlayer(Bukkit.getOfflinePlayer(uid));
                 }
             } catch (Exception ignored) {}
-            meta.setDisplayName(name);
-            if (lore.length > 0) meta.setLore(Arrays.asList(lore));
+            meta.setDisplayName(MenuText.legacySection(mmName));
+            if (mmLore.length > 0) {
+                List<String> lore = new ArrayList<>(mmLore.length);
+                for (String line : mmLore) {
+                    lore.add(MenuText.legacySection(line));
+                }
+                meta.setLore(lore);
+            }
+            MenuText.hideVanillaTooltips(meta);
             head.setItemMeta(meta);
         }
         Icon icon = new Icon(head);

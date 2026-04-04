@@ -22,7 +22,7 @@ public class FriendsListGui extends PaginationMonitor {
     private final PlayerData data;
 
     public FriendsListGui(Player player, PlayerData data, int page) {
-        super(player, "friends-list", MonitorStyle.title(ChatColor.GREEN, "Friends"), page);
+        super(player, "friends-list", MonitorStyle.title("green", "Friends"), page);
         this.data = data;
     }
 
@@ -95,10 +95,13 @@ public class FriendsListGui extends PaginationMonitor {
                     if (onlinePlayer != null) meta.setOwningPlayer(onlinePlayer);
                     else meta.setOwningPlayer(Bukkit.getOfflinePlayer(uid));
                 } catch (Exception ignored) {}
-                meta.setDisplayName(nameColor + friendName);
-                meta.setLore(Arrays.asList("", statusLine, "",
-                        ChatColor.YELLOW + "Left-click for actions",
-                        ChatColor.AQUA + "Right-click to visit realm"));
+                meta.setDisplayName(MenuText.itemLine(nameColor + friendName));
+                meta.setLore(Arrays.asList(
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(statusLine),
+                        MenuText.itemLine(""),
+                        MenuText.itemLine(ChatColor.YELLOW + "Left-click for actions"),
+                        MenuText.itemLine(ChatColor.AQUA + "Right-click to visit realm")));
                 head.setItemMeta(meta);
             }
             Icon icon = new Icon(head);

@@ -1,13 +1,11 @@
 package gg.drak.lobbyclicker.gui.monitor;
 
 import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.MenuText;
 import mc.obliviate.inventory.Icon;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.Arrays;
 
 /**
  * Common styling utilities for uniform GUI appearance.
@@ -27,56 +25,61 @@ public class MonitorStyle {
     public static final int ROWS_LARGE = 5;   // 45 slots, 3x7 content
     public static final int ROWS_FULL = 6;    // 54 slots, 4x7 content
 
-    // --- Standard title formatting ---
+    // --- Standard title formatting (MiniMessage; small caps) ---
 
     public static String title(String text) {
-        return ChatColor.GOLD + "" + ChatColor.BOLD + text;
+        return MenuText.title(text);
     }
 
-    public static String title(ChatColor color, String text) {
-        return color + "" + ChatColor.BOLD + text;
+    /** @param namedColor MiniMessage color name, e.g. {@code gold}, {@code light_purple} */
+    public static String title(String namedColor, String text) {
+        return MenuText.title(namedColor, text);
     }
 
     // --- Common button builders ---
 
     public static Icon confirmButton(String label) {
         return GuiHelper.createIcon(Material.LIME_DYE,
-                ChatColor.GREEN + "" + ChatColor.BOLD + label);
+                "<green><bold>" + MenuText.esc(label) + "</bold></green>");
     }
 
     public static Icon cancelButton(String label) {
         return GuiHelper.createIcon(Material.RED_DYE,
-                ChatColor.RED + "" + ChatColor.BOLD + label);
+                "<red><bold>" + MenuText.esc(label) + "</bold></red>");
     }
 
-    public static Icon infoItem(Material material, String title, String... lore) {
-        return GuiHelper.createIcon(material, title, lore);
+    public static Icon infoItem(Material material, String mmTitle, String... mmLore) {
+        return GuiHelper.createIcon(material, mmTitle, mmLore);
     }
 
     public static Icon toggleButton(String label, boolean on, String description) {
         Material mat = on ? Material.LIME_DYE : Material.GRAY_DYE;
-        String status = on ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF";
+        String status = on ? "<green>" + MenuText.esc("ON") + "</green>" : "<red>" + MenuText.esc("OFF") + "</red>";
         return GuiHelper.createIcon(mat,
-                ChatColor.YELLOW + label + " " + status,
-                "", ChatColor.GRAY + description, "", ChatColor.GRAY + "Click to toggle");
+                "<yellow>" + MenuText.esc(label) + " " + status + "</yellow>",
+                "",
+                "<gray>" + MenuText.esc(description) + "</gray>",
+                "",
+                "<gray>" + MenuText.esc("Click to toggle") + "</gray>");
     }
 
     /**
      * Creates a category/section button for navigation menus.
+     *
+     * @param labelColor MiniMessage color name for the label, e.g. {@code yellow}
      */
-    public static Icon menuButton(Material material, ChatColor color, String label, String... description) {
+    public static Icon menuButton(Material material, String labelColor, String label, String... description) {
         String[] lore = new String[description.length + 2];
         lore[0] = "";
         for (int i = 0; i < description.length; i++) {
-            lore[i + 1] = ChatColor.GRAY + description[i];
+            lore[i + 1] = "<gray>" + MenuText.esc(description[i]) + "</gray>";
         }
-        lore[lore.length - 1] = ChatColor.YELLOW + "Click to open";
-        return GuiHelper.createIcon(material, color + "" + ChatColor.BOLD + label, lore);
+        lore[lore.length - 1] = "<yellow>" + MenuText.esc("Click to open") + "</yellow>";
+        return GuiHelper.createIcon(material,
+                "<" + labelColor + "><bold>" + MenuText.esc(label) + "</bold></" + labelColor + ">",
+                lore);
     }
 
-    /**
-     * Creates a filler/spacer icon (invisible).
-     */
     public static Icon filler() {
         return GuiHelper.filler();
     }
@@ -86,19 +89,12 @@ public class MonitorStyle {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(" ");
+            MenuText.hideVanillaTooltips(meta);
             item.setItemMeta(meta);
         }
         return new Icon(item);
     }
 
-    // --- Standard slot positions for common layouts ---
-
-    /**
-     * For a 3-row bordered monitor (27 slots):
-     * Content area is row 1, cols 1-7 (indexes 10-16).
-     * Good positions for centered 2-option menus: indexes 12, 14
-     * Good positions for centered 3-option menus: indexes 11, 13, 15
-     */
     public static int[] centeredSlots3Row(int count) {
         switch (count) {
             case 1: return new int[]{13};
@@ -110,13 +106,8 @@ public class MonitorStyle {
         }
     }
 
-    /**
-     * For a 4-row bordered monitor (36 slots):
-     * Content area is rows 1-2, cols 1-7 (indexes 10-16, 19-25).
-     */
     public static int[] centeredSlots4Row(int count) {
         if (count <= 7) return centeredSlots3Row(count);
-        // Use both content rows
         int[] row1 = {10, 11, 12, 13, 14, 15, 16};
         int[] row2 = {19, 20, 21, 22, 23, 24, 25};
         int[] result = new int[Math.min(count, 14)];
