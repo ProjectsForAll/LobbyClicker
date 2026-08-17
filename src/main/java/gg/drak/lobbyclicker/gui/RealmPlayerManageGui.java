@@ -31,10 +31,10 @@ public class RealmPlayerManageGui extends BaseGui {
     @Override
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
-        fillGui(GuiHelper.filler());
+        fillGui(ClickerGuiHelper.filler());
 
         // Home button
-        Icon home = GuiHelper.homeButton();
+        Icon home = ClickerGuiHelper.homeButton();
         home.onClick(e -> new ClickerGui(player, data).open());
         addItem(0, home);
 
@@ -42,10 +42,10 @@ public class RealmPlayerManageGui extends BaseGui {
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
         // Player head
-        addItem(4, GuiHelper.playerHead(targetUuid, ChatColor.WHITE + targetName));
+        addItem(4, ClickerGuiHelper.playerHead(targetUuid, ChatColor.WHITE + targetName));
 
         // Manage Player (opens standard PlayerActionGui)
-        Icon manage = GuiHelper.createIcon(Material.WRITABLE_BOOK,
+        Icon manage = ClickerGuiHelper.createIcon(Material.WRITABLE_BOOK,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Manage Player",
                 "", ChatColor.GRAY + "Friend, Block, Transfer,",
                 ChatColor.GRAY + "Pay, Gamble, Ban");
@@ -53,14 +53,14 @@ public class RealmPlayerManageGui extends BaseGui {
         addItem(11, manage);
 
         // Promote Player (role selection)
-        Icon promote = GuiHelper.createIcon(Material.GOLDEN_HELMET,
+        Icon promote = ClickerGuiHelper.createIcon(Material.GOLDEN_HELMET,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Promote Player",
                 "", ChatColor.GRAY + "Assign a realm role");
         promote.onClick(e -> new RoleSelectionGui(player, data, targetUuid, returnContext).open());
         addItem(15, promote);
 
         // Back
-        Icon back = GuiHelper.backButton("Back");
+        Icon back = ClickerGuiHelper.backButton("Back");
         back.onClick(e -> {
             boolean isFriends = returnContext.equals("friends");
             new RealmMemberListGui(player, data, isFriends, 0).open();

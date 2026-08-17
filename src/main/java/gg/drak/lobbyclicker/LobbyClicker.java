@@ -7,6 +7,8 @@ import gg.drak.lobbyclicker.commands.ClickerAdminCommand;
 import gg.drak.lobbyclicker.commands.ClickerCommand;
 import gg.drak.lobbyclicker.commands.ClickerDataCommand;
 import gg.drak.lobbyclicker.commands.ClickerTransferCommand;
+import gg.drak.lobbyclicker.commands.LcdbCommand;
+import gg.drak.lobbyclicker.commands.LcResetAllCommand;
 import gg.drak.lobbyclicker.commands.LeaderboardCommand;
 import gg.drak.lobbyclicker.config.DatabaseConfig;
 import gg.drak.lobbyclicker.config.MainConfig;
@@ -57,6 +59,9 @@ public final class LobbyClicker extends BetterPlugin {
         setDatabase(new ClickerOperator());
 
         setMainListener(new MainListener());
+        registerListener(new gg.drak.lobbyclicker.gui.ClickerHubListener());
+        gg.drak.lobbyclicker.upgrades.ClickerUpgradeCatalog.all();
+        gg.drak.lobbyclicker.achievements.AchievementCatalog.all();
 
         // Register commands
         registerCommand("clicker", new ClickerCommand());
@@ -83,13 +88,27 @@ public final class LobbyClicker extends BetterPlugin {
             dataCmd.setTabCompleter(dataCommand);
         }
 
+        LcdbCommand lcdbCommand = new LcdbCommand();
+        PluginCommand lcdbCmd = getCommand("lcdb");
+        if (lcdbCmd != null) {
+            lcdbCmd.setExecutor(lcdbCommand);
+            lcdbCmd.setTabCompleter(lcdbCommand);
+        }
+
+        LcResetAllCommand lcResetAllCommand = new LcResetAllCommand();
+        PluginCommand lcResetAllCmd = getCommand("lcresetall");
+        if (lcResetAllCmd != null) {
+            lcResetAllCmd.setExecutor(lcResetAllCommand);
+            lcResetAllCmd.setTabCompleter(lcResetAllCommand);
+        }
+
         // Start CPS task - runs every second (20 ticks)
         setCookieTask(new CookieTask());
-        getCookieTask().runTaskTimer(this, 20L, 20L);
+        getCookieTask().start(this);
 
         // Start GUI refresh task - runs every second
         setGuiRefreshTask(new GuiRefreshTask());
-        getGuiRefreshTask().runTaskTimer(this, 20L, 20L);
+        getGuiRefreshTask().start(this);
 
         // Initialize Redis if enabled
         if (getMainConfig().isRedisEnabled()) {

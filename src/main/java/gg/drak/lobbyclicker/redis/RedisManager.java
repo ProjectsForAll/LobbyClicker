@@ -8,10 +8,10 @@ import io.lettuce.core.LettuceFutures;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,7 +28,8 @@ public class RedisManager {
     @Getter
     private String serverId;
     private String serverPrettyName;
-    private BukkitTask heartbeatTask;
+    private FoliaScheduler.PluginTask heartbeatTask;
+    private volatile boolean active;
 
     @Getter
     private final ConcurrentHashMap<String, CrossServerPlayer> crossServerPlayers = new ConcurrentHashMap<>();
@@ -54,14 +55,13 @@ public class RedisManager {
             subConnection.addListener(new RedisPubSubAdapter<>() {
                 @Override
                 public void message(String channel, String message) {
+                    if (!active) return;
                     if (channel.equals(channelPrefix + "online")) {
-                        Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> handleOnlineMessage(message));
+                        runOnMainThread(() -> handleOnlineMessage(message));
                     } else if (channel.equals(channelPrefix + "social")) {
-                        Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () ->
-                                RedisSyncHandler.handleSocialMessage(message));
+                        runOnMainThread(() -> RedisSyncHandler.handleSocialMessage(message));
                     } else if (channel.equals(channelPrefix + "data")) {
-                        Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () ->
-                                RedisSyncHandler.handleDataMessage(message, serverId));
+                        runOnMainThread(() -> RedisSyncHandler.handleDataMessage(message, serverId));
                     }
                 }
             });
@@ -73,18 +73,19 @@ public class RedisManager {
 
             // Publish all currently online players
             for (Player player : Bukkit.getOnlinePlayers()) {
-                publishJoin(player);
+                FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> publishJoin(player));
             }
 
-            // Heartbeat on main thread: Bukkit.getOnlinePlayers() is not safe from async workers.
-            heartbeatTask = Bukkit.getScheduler().runTaskTimer(LobbyClicker.getInstance(), () -> {
+            // Heartbeat on global thread; entity reads are dispatched per player for Folia.
+            heartbeatTask = FoliaScheduler.runGlobalTimer(LobbyClicker.getInstance(), () -> {
                 long now = System.currentTimeMillis();
                 crossServerPlayers.entrySet().removeIf(e -> now - e.getValue().getLastSeen() > 60_000);
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    publishJoin(player);
+                    FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> publishJoin(player));
                 }
             }, 600L, 600L);
 
+            active = true;
             LobbyClicker.getInstance().logInfo("Redis connected to " + host + ":" + port);
         } catch (Throwable e) {
             LobbyClicker.getInstance().logWarning("Failed to connect to Redis", e);
@@ -92,6 +93,7 @@ public class RedisManager {
     }
 
     public void shutdown() {
+        active = false;
         try {
             if (heartbeatTask != null) {
                 heartbeatTask.cancel();
@@ -106,6 +108,18 @@ public class RedisManager {
             pubConnection = null;
             subConnection = null;
             client = null;
+
+            // Stop inbound pub/sub immediately so Netty callbacks cannot schedule after disable.
+            if (sub != null) {
+                try {
+                    sub.sync().unsubscribe();
+                } catch (Throwable ignored) {
+                }
+                try {
+                    sub.close();
+                } catch (Throwable ignored) {
+                }
+            }
 
             List<String> quitMessages = new ArrayList<>();
             if (pub != null && prefix != null && sid != null) {
@@ -125,7 +139,6 @@ public class RedisManager {
                             LettuceFutures.awaitAll(3, TimeUnit.SECONDS, quits.toArray(new RedisFuture[0]));
                         }
                     }
-                    if (sub != null) sub.close();
                     if (pub != null) pub.close();
                     if (c != null) c.shutdown();
                 } catch (Throwable e) {
@@ -137,6 +150,13 @@ public class RedisManager {
         } catch (Throwable e) {
             LobbyClicker.getInstance().logWarning("Error shutting down Redis", e);
         }
+    }
+
+    private void runOnMainThread(Runnable task) {
+        if (!active) return;
+        LobbyClicker plugin = LobbyClicker.getInstance();
+        if (plugin == null || !plugin.isEnabled()) return;
+        FoliaScheduler.runGlobal(plugin, task);
     }
 
     // --- Online channel ---
@@ -172,8 +192,8 @@ public class RedisManager {
         if (pubConnection == null) return;
         try {
             pubConnection.async().publish(channel, message).whenComplete((count, ex) -> {
-                if (ex == null) return;
-                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () ->
+                if (ex == null || !active) return;
+                runOnMainThread(() ->
                         LobbyClicker.getInstance().logWarning("Failed to publish " + kind + " to Redis", ex));
             });
         } catch (Throwable e) {

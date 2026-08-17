@@ -40,7 +40,7 @@ public class PaymentAcceptGui extends ConfirmationMonitor {
         String senderName = transaction.getSenderUuid().substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(transaction.getSenderUuid())).getName(); if (n != null) senderName = n; } catch (Exception ignored) {}
 
-        Icon info = GuiHelper.createIcon(Material.GOLD_INGOT,
+        Icon info = ClickerGuiHelper.createIcon(Material.GOLD_INGOT,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Payment: " + FormatUtils.format(transaction.getAmount()) + " cookies",
                 "",
                 ChatColor.GRAY + "From: " + ChatColor.WHITE + senderName,
@@ -70,7 +70,7 @@ public class PaymentAcceptGui extends ConfirmationMonitor {
 
         PendingTransaction.remove(tx.getSenderUuid(), receiverData.getIdentifier());
         senderData.removeCookies(tx.getAmount());
-        receiverData.addCookies(tx.getAmount());
+        receiverData.addGiftedCookies(tx.getAmount());
         senderData.save(true);
         receiverData.save(true);
 

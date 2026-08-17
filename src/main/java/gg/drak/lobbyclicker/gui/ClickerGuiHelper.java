@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Shared utility for building GUI icons across all GUIs.
- * Strings are MiniMessage source; they are converted to legacy § for Spigot ItemMeta.
+ * Shared utility for building GUI icons across all LobbyClicker GUIs.
+ * Named to avoid clashing with {@link host.plas.bou.gui.GuiHelper}.
  */
-public class GuiHelper {
+public class ClickerGuiHelper {
 
     public static Icon createIcon(Material material, String mmName, String... mmLore) {
         ItemStack item = new ItemStack(material);

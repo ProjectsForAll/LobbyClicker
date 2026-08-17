@@ -10,6 +10,7 @@ import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import lombok.Getter;
 import lombok.Setter;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -157,7 +158,13 @@ public class PlayerData implements Identifiable {
 
     public int getPrestigeLevel() {
         RealmProfile p = getActiveProfile();
-        return p != null ? p.getPrestigeLevel() : 0;
+        if (p != null) return p.getPrestigeLevel();
+        // Profile not loaded — fall back to leaderboard cache (covers offline/OBO players)
+        return LeaderboardCache.getEntries().stream()
+                .filter(e -> e.getPlayerUuid().equals(identifier))
+                .mapToInt(LeaderboardCache.LeaderboardEntry::getPrestigeLevel)
+                .max()
+                .orElse(0);
     }
 
     public void setPrestigeLevel(int level) {
@@ -183,6 +190,11 @@ public class PlayerData implements Identifiable {
     public void addCookies(BigDecimal amount) {
         RealmProfile p = getActiveProfile();
         if (p != null) p.addCookies(amount);
+    }
+
+    public void addGiftedCookies(BigDecimal amount) {
+        RealmProfile p = getActiveProfile();
+        if (p != null) p.addGiftedCookies(amount);
     }
 
     public void removeCookies(BigDecimal amount) {
@@ -246,7 +258,7 @@ public class PlayerData implements Identifiable {
 
     public java.util.Set<gg.drak.lobbyclicker.upgrades.ClickerUpgrade> getPurchasedUpgrades() {
         RealmProfile p = getActiveProfile();
-        return p != null ? p.getPurchasedUpgrades() : java.util.EnumSet.noneOf(gg.drak.lobbyclicker.upgrades.ClickerUpgrade.class);
+        return p != null ? p.getPurchasedUpgrades() : new java.util.LinkedHashSet<>();
     }
 
     public String serializePurchasedUpgrades() {
@@ -254,19 +266,18 @@ public class PlayerData implements Identifiable {
         return p != null ? p.serializePurchasedUpgrades() : "";
     }
 
-    public java.util.Set<gg.drak.lobbyclicker.quests.Quest> getCompletedQuests() {
-        RealmProfile p = getActiveProfile();
-        return p != null ? p.getCompletedQuests() : java.util.EnumSet.noneOf(gg.drak.lobbyclicker.quests.Quest.class);
+    public java.util.Set<gg.drak.lobbyclicker.achievements.Achievement> getCompletedQuests() {
+        return getCompletedAchievements();
     }
 
-    public boolean hasCompletedQuest(gg.drak.lobbyclicker.quests.Quest quest) {
+    public java.util.Set<gg.drak.lobbyclicker.achievements.Achievement> getCompletedAchievements() {
         RealmProfile p = getActiveProfile();
-        return p != null && p.hasCompletedQuest(quest);
+        return p != null ? p.getCompletedAchievements() : new java.util.LinkedHashSet<>();
     }
 
-    public void completeQuest(gg.drak.lobbyclicker.quests.Quest quest) {
+    public boolean hasCompletedAchievement(gg.drak.lobbyclicker.achievements.Achievement achievement) {
         RealmProfile p = getActiveProfile();
-        if (p != null) p.completeQuest(quest);
+        return p != null && p.hasCompletedAchievement(achievement);
     }
 
     public long getGoldenCookiesCollected() {
@@ -402,7 +413,7 @@ public class PlayerData implements Identifiable {
         LobbyClicker plugin = LobbyClicker.getInstance();
 
         future.whenComplete((opt, error) ->
-                Bukkit.getScheduler().runTask(plugin, () -> handleAugmentAfterPull(opt, error, isGet)));
+                FoliaScheduler.runGlobal(plugin, () -> handleAugmentAfterPull(opt, error, isGet)));
     }
 
     /**
@@ -433,7 +444,7 @@ public class PlayerData implements Identifiable {
             if (ex != null) {
                 LobbyClicker.getInstance().logWarning("Failed to load profiles or social data", ex);
             }
-            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> this.fullyLoaded.set(true));
+            FoliaScheduler.runGlobal(LobbyClicker.getInstance(), () -> this.fullyLoaded.set(true));
         });
     }
 
@@ -444,7 +455,7 @@ public class PlayerData implements Identifiable {
     private CompletableFuture<Void> loadProfiles() {
         return LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(this.identifier).thenCompose(profiles -> {
             CompletableFuture<Void> done = new CompletableFuture<>();
-            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+            FoliaScheduler.runGlobal(LobbyClicker.getInstance(), () -> {
                 try {
                     for (RealmProfile profile : profiles) {
                         ProfileManager.loadProfile(profile);
@@ -469,7 +480,7 @@ public class PlayerData implements Identifiable {
         CompletableFuture<Set<String>> outF = LobbyClicker.getDatabase().pullOutgoingRequestsThreaded(uuid);
         return CompletableFuture.allOf(friendsF, blocksF, inF, outF).thenCompose(v -> {
             CompletableFuture<Void> done = new CompletableFuture<>();
-            Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+            FoliaScheduler.runGlobal(LobbyClicker.getInstance(), () -> {
                 try {
                     this.friends.addAll(friendsF.join());
                     this.blocks.addAll(blocksF.join());

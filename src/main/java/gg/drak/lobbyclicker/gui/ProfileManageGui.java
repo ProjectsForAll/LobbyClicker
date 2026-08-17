@@ -38,13 +38,13 @@ public class ProfileManageGui extends SimpleGuiMonitor {
         boolean isActive = profile.getProfileId().equals(data.getActiveProfileId());
 
         // Delete
-        Icon delete = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+        Icon delete = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Delete?",
                 "", ChatColor.GRAY + "Permanently delete this profile",
                 "", ChatColor.RED + "This cannot be undone!");
         if (isActive) {
             // Can't delete the active profile
-            delete = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+            delete = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                     ChatColor.DARK_GRAY + "" + ChatColor.BOLD + "Delete?",
                     "", ChatColor.RED + "Cannot delete the active profile",
                     ChatColor.GRAY + "Switch to another profile first.");
@@ -54,7 +54,7 @@ public class ProfileManageGui extends SimpleGuiMonitor {
         setContent(0, delete);
 
         // Rename
-        Icon rename = GuiHelper.createIcon(Material.NAME_TAG,
+        Icon rename = ClickerGuiHelper.createIcon(Material.NAME_TAG,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Rename",
                 "", ChatColor.GRAY + "Current: " + ChatColor.WHITE + profile.getProfileName(),
                 "", ChatColor.YELLOW + "Click to rename");
@@ -83,13 +83,13 @@ public class ProfileManageGui extends SimpleGuiMonitor {
 
         // Manage Members (only if this is the active profile)
         if (isActive) {
-            Icon members = GuiHelper.createIcon(Material.PLAYER_HEAD,
+            Icon members = ClickerGuiHelper.createIcon(Material.PLAYER_HEAD,
                     ChatColor.GREEN + "" + ChatColor.BOLD + "Manage Members",
                     "", ChatColor.GRAY + "Manage friends and contributors");
             members.onClick(e -> new RealmMembersGui(player, data).open());
             setContent(3, members);
         } else {
-            setContent(3, GuiHelper.createIcon(Material.GRAY_DYE,
+            setContent(3, ClickerGuiHelper.createIcon(Material.GRAY_DYE,
                     ChatColor.DARK_GRAY + "" + ChatColor.BOLD + "Manage Members",
                     "", ChatColor.RED + "Switch to this profile first"));
         }
@@ -105,14 +105,14 @@ public class ProfileManageGui extends SimpleGuiMonitor {
         setContent(4, publicToggle);
 
         // Reset Realm
-        Icon reset = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+        Icon reset = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Reset Realm?",
                 "", ChatColor.GRAY + "Reset all realm data",
                 ChatColor.GRAY + "Keeps: settings, friends");
         if (isActive) {
             reset.onClick(e -> new RealmResetConfirmGui(player, data).open());
         } else {
-            reset = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+            reset = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                     ChatColor.DARK_GRAY + "" + ChatColor.BOLD + "Reset Realm?",
                     "", ChatColor.RED + "Switch to this profile first");
         }

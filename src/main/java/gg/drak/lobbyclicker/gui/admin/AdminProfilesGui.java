@@ -2,9 +2,9 @@ package gg.drak.lobbyclicker.gui.admin;
 
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
-import org.bukkit.Bukkit;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import gg.drak.lobbyclicker.data.PlayerManager;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import gg.drak.lobbyclicker.realm.ProfileManager;
@@ -43,16 +43,16 @@ public class AdminProfilesGui extends PaginationMonitor {
 
         // Custom action bar
         int b = (getSize() / 9 - 1) * 9;
-        Icon back = GuiHelper.createIcon(Material.DARK_OAK_DOOR,
+        Icon back = ClickerGuiHelper.createIcon(Material.DARK_OAK_DOOR,
                 ChatColor.RED + "" + ChatColor.BOLD + "Back", "", ChatColor.GRAY + "Back to player list");
         back.onClick(e -> new AdminPlayerListGui(player).open());
         addItem(b + 7, back);
-        Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
+        Icon close = ClickerGuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
         close.onClick(e -> player.closeInventory());
         addItem(b + 8, close);
 
         // Title
-        addItem(4, GuiHelper.createIcon(Material.PLAYER_HEAD,
+        addItem(4, ClickerGuiHelper.createIcon(Material.PLAYER_HEAD,
                 ChatColor.GOLD + "" + ChatColor.BOLD + targetName + "'s Profiles",
                 "",
                 ChatColor.GRAY + "UUID: " + ChatColor.DARK_GRAY + targetUuid,
@@ -67,7 +67,7 @@ public class AdminProfilesGui extends PaginationMonitor {
             // Try loading from DB
             player.sendMessage(ChatColor.YELLOW + "Loading profiles from database...");
             LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(targetUuid).thenAccept(dbProfiles ->
-                    Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                    FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> {
                         if (dbProfiles.isEmpty()) {
                             player.sendMessage(ChatColor.RED + "No profiles found for " + targetName);
                         } else {
@@ -87,7 +87,7 @@ public class AdminProfilesGui extends PaginationMonitor {
             Material mat = isActive ? Material.ENCHANTED_GOLDEN_APPLE : Material.CHEST_MINECART;
             String activeTag = isActive ? ChatColor.GREEN + " (Active)" : "";
 
-            Icon icon = GuiHelper.createIcon(mat,
+            Icon icon = ClickerGuiHelper.createIcon(mat,
                     ChatColor.GOLD + "" + ChatColor.BOLD + profile.getProfileName() + activeTag,
                     "",
                     ChatColor.GRAY + "Profile ID: " + ChatColor.DARK_GRAY + profile.getProfileId().substring(0, 8) + "...",

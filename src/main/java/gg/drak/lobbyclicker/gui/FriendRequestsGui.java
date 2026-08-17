@@ -54,7 +54,7 @@ public class FriendRequestsGui extends PaginationMonitor {
         List<String> requests = new ArrayList<>(data.getIncomingFriendRequests());
 
         if (requests.isEmpty()) {
-            addItem(22, GuiHelper.createIcon(Material.PAPER,
+            addItem(22, ClickerGuiHelper.createIcon(Material.PAPER,
                     ChatColor.GRAY + "No incoming requests",
                     "", ChatColor.GRAY + "You have no pending friend requests."));
         }
@@ -89,7 +89,7 @@ public class FriendRequestsGui extends PaginationMonitor {
                     new FriendRequestsGui(player, data, page, backAction).open();
                 } else if (e.isLeftClick()) {
                     // Open confirmation GUI
-                    Icon info = GuiHelper.createIcon(Material.PLAYER_HEAD,
+                    Icon info = ClickerGuiHelper.createIcon(Material.PLAYER_HEAD,
                             ChatColor.GREEN + "" + ChatColor.BOLD + "Friend Request from " + finalSenderName,
                             "", ChatColor.GRAY + "Accept this friend request?");
                     Consumer<Player> returnHere = p -> new FriendRequestsGui(p, data, page, backAction).open();

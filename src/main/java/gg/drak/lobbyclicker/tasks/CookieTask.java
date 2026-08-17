@@ -7,18 +7,29 @@ import gg.drak.lobbyclicker.math.CookieMath;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.PendingTransaction;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.math.BigDecimal;
 
-public class CookieTask extends BukkitRunnable {
+public class CookieTask {
     private int tickCounter = 0;
     private static final int AUTO_SAVE_INTERVAL = 300; // 5 minutes in seconds
+    private FoliaScheduler.PluginTask task;
 
-    @Override
-    public void run() {
+    public void start(LobbyClicker plugin) {
+        task = FoliaScheduler.runGlobalTimer(plugin, this::run, 20L, 20L);
+    }
+
+    public void cancel() {
+        if (task != null) {
+            task.cancel();
+            task = null;
+        }
+    }
+
+    private void run() {
         tickCounter++;
 
         for (PlayerData data : PlayerManager.getLoadedPlayers()) {
@@ -27,13 +38,28 @@ public class CookieTask extends BukkitRunnable {
 
             BigDecimal cps = data.getCps();
             if (cps.signum() > 0) {
-                BigDecimal boosterMult = gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
-                        data.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.CPS_MULTIPLIER);
-                data.addCookies(cps.multiply(boosterMult));
+                data.addCookies(cps);
+                gg.drak.lobbyclicker.realm.RealmProfile profile = data.getActiveProfile();
+                if (profile != null) {
+                    BigDecimal raw = profile.getRawCps();
+                    if (raw.signum() > 0) {
+                        for (gg.drak.lobbyclicker.upgrades.UpgradeType type : gg.drak.lobbyclicker.upgrades.UpgradeType.values()) {
+                            BigDecimal buildingRaw = profile.getBuildingRawCps(type);
+                            if (buildingRaw.signum() <= 0) continue;
+                            BigDecimal share = cps.multiply(buildingRaw)
+                                    .divide(raw, java.math.RoundingMode.HALF_UP);
+                            profile.addCookiesFromBuilding(type, share);
+                        }
+                    }
+                    gg.drak.lobbyclicker.achievements.AchievementManager.check(data);
+                }
             }
 
-            // Milestone checks run every tick (every 1 second) for instant detection
-            checkMilestones(data);
+            // Milestone checks touch player APIs — must run on the entity's region thread on Folia
+            Player player = data.asPlayer().orElse(null);
+            if (player != null) {
+                FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> checkMilestones(data));
+            }
 
             // Push data snapshot to Redis for cross-server sync
             if (LobbyClicker.getRedisManager() != null) {

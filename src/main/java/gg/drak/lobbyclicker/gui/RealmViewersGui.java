@@ -37,7 +37,7 @@ public class RealmViewersGui extends PaginationMonitor {
         List<String> viewers = new ArrayList<>(RealmManager.getViewers(data.getIdentifier()));
 
         if (viewers.isEmpty()) {
-            addItem(22, GuiHelper.createIcon(Material.PAPER, ChatColor.GRAY + "No viewers",
+            addItem(22, ClickerGuiHelper.createIcon(Material.PAPER, ChatColor.GRAY + "No viewers",
                     "", ChatColor.GRAY + "Nobody is viewing your realm right now."));
             return;
         }

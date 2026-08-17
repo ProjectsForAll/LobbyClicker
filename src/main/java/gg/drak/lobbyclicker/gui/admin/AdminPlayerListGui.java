@@ -3,9 +3,10 @@ package gg.drak.lobbyclicker.gui.admin;
 import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.MenuText;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -43,20 +44,20 @@ public class AdminPlayerListGui extends PaginationMonitor {
         fillMonitorBorder();
 
         int b = (getSize() / 9 - 1) * 9;
-        Icon back = GuiHelper.createIcon(Material.DARK_OAK_DOOR,
+        Icon back = ClickerGuiHelper.createIcon(Material.DARK_OAK_DOOR,
                 ChatColor.RED + "" + ChatColor.BOLD + "Back", "", ChatColor.GRAY + "Back to admin panel");
         back.onClick(e -> new AdminMainGui(player).open());
         addItem(b + 7, back);
-        Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
+        Icon close = ClickerGuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
         close.onClick(e -> player.closeInventory());
         addItem(b + 8, close);
 
         // Refresh icon
-        addItem(4, GuiHelper.createIcon(Material.COMPASS,
+        addItem(4, ClickerGuiHelper.createIcon(Material.COMPASS,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Refresh",
                 "", ChatColor.GRAY + "Click to reload player list from database"));
         // Use addItem with click to avoid icon.onClick in a createIcon call
-        Icon refreshIcon = GuiHelper.createIcon(Material.COMPASS,
+        Icon refreshIcon = ClickerGuiHelper.createIcon(Material.COMPASS,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Refresh",
                 "", ChatColor.GRAY + "Players: " + ChatColor.WHITE + cachedPlayers.size(),
                 "", ChatColor.YELLOW + "Click to reload from database");
@@ -77,7 +78,7 @@ public class AdminPlayerListGui extends PaginationMonitor {
 
     private void loadAndShow() {
         LobbyClicker.getDatabase().pullAllPlayersThreaded().thenAccept(players ->
-                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> {
                     cachedPlayers.clear();
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         cachedPlayers.add(new PlayerEntry(p.getUniqueId().toString(), p.getName(), true));

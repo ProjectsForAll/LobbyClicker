@@ -1,9 +1,11 @@
 package gg.drak.lobbyclicker.gui;
 
+import gg.drak.lobbyclicker.achievements.AchievementManager;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import gg.drak.lobbyclicker.upgrades.ClickerUpgrade;
+import gg.drak.lobbyclicker.upgrades.ClickerUpgradeCatalog;
 import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
@@ -13,12 +15,20 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
-import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ClickerUpgradeGui extends PaginationMonitor {
     private final PlayerData viewerData;
     private final PlayerData ownerData;
+    private static final ConcurrentHashMap<UUID, ClickerUpgradeGui> OPEN_GUIS = new ConcurrentHashMap<>();
+
+    public static ConcurrentHashMap<UUID, ClickerUpgradeGui> getOpenGuis() { return OPEN_GUIS; }
+    public static void registerGui(UUID uuid, ClickerUpgradeGui gui) { OPEN_GUIS.put(uuid, gui); }
+    public static void unregisterGui(UUID uuid) { OPEN_GUIS.remove(uuid); }
 
     public ClickerUpgradeGui(Player player, PlayerData viewerData, PlayerData ownerData) {
         super(player, "clicker-upgrades-store", MonitorStyle.title("aqua", "Upgrades"), 0);
@@ -30,17 +40,25 @@ public class ClickerUpgradeGui extends PaginationMonitor {
     public void onOpen(InventoryOpenEvent event) {
         super.onOpen(event);
         buildDisplay();
+        registerGui(player.getUniqueId(), this);
+    }
+
+    public void refreshDisplay() {
+        if (player == null || !player.isOnline()) return;
+        buildDisplay();
     }
 
     private void buildDisplay() {
         setPlayerContext(viewerData, ownerData);
         fillMonitorBorder();
-        buildStandardActionBar(p -> new ShopGui(p, viewerData, ownerData).open());
+        buildStandardActionBar(p -> {
+            unregisterGui(p.getUniqueId());
+            new ShopGui(p, viewerData, ownerData).open();
+        });
 
-        // Cookie info at top
         int purchased = ownerData.getPurchasedUpgrades().size();
-        int total = ClickerUpgrade.values().length;
-        addItem(4, GuiHelper.createIcon(Material.COOKIE,
+        int total = ClickerUpgradeCatalog.all().size();
+        addItem(4, ClickerGuiHelper.createIcon(Material.COOKIE,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Upgrades",
                 "",
                 ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies()),
@@ -49,32 +67,26 @@ public class ClickerUpgradeGui extends PaginationMonitor {
                 ChatColor.GRAY + "CPC Bonus: " + ChatColor.WHITE + "×" + FormatUtils.format(ownerData.getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER)),
                 ChatColor.GRAY + "CPS Bonus: " + ChatColor.WHITE + "×" + FormatUtils.format(ownerData.getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER))));
 
-        // Sort: available first (by cost), then locked, then purchased
-        List<ClickerUpgrade> sorted = new ArrayList<>(Arrays.asList(ClickerUpgrade.values()));
+        List<ClickerUpgrade> sorted = new ArrayList<>(ClickerUpgradeCatalog.all());
         Set<ClickerUpgrade> owned = ownerData.getPurchasedUpgrades();
-        sorted.sort((a, b) -> {
-            int aGroup = getDisplayGroup(a, owned);
-            int bGroup = getDisplayGroup(b, owned);
-            if (aGroup != bGroup) return Integer.compare(aGroup, bGroup);
-            return a.getCost().compareTo(b.getCost());
-        });
-
-        // Filter out hidden upgrades
         sorted.removeIf(u -> !owned.contains(u) && u.isHidden(ownerData.getActiveProfile()));
-
-        populatePagedContent(sorted, (upgrade, slot) -> {
-            if (upgrade != null) {
-                addItem(slot, createUpgradeIcon(upgrade));
-            }
+        sorted.sort((a, b) -> {
+            int g = Integer.compare(getDisplayGroup(a, owned), getDisplayGroup(b, owned));
+            return g != 0 ? g : a.getCost().compareTo(b.getCost());
         });
-        addPaginationArrows(sorted, newPage -> {});
+
+        populatePagedContent(sorted, (upgrade, slot) -> addItem(slot, createUpgradeIcon(upgrade)));
+        addPaginationArrows(sorted, newPage -> {
+            this.page = newPage;
+            buildDisplay();
+        });
     }
 
     private int getDisplayGroup(ClickerUpgrade u, Set<ClickerUpgrade> owned) {
-        if (owned.contains(u)) return 3; // purchased last
-        if (!u.isUnlocked(ownerData.getActiveProfile())) return 2; // locked
-        if (ownerData.canAfford(u.getCost())) return 0; // affordable
-        return 1; // unlocked but can't afford
+        if (owned.contains(u)) return 3;
+        if (!u.isUnlocked(ownerData.getActiveProfile())) return 2;
+        if (ownerData.canAfford(u.getCost())) return 0;
+        return 1;
     }
 
     private Icon createUpgradeIcon(ClickerUpgrade upgrade) {
@@ -86,56 +98,31 @@ public class ClickerUpgradeGui extends PaginationMonitor {
         lore.add("");
         lore.add(ChatColor.GRAY + upgrade.getDescription());
         lore.add("");
-
-        // Effect description
         lore.add(ChatColor.YELLOW + "Effect: " + ChatColor.WHITE + describeEffect(upgrade));
-
-        // Unlock requirement
         if (!unlocked && !purchased) {
             lore.add("");
             lore.add(ChatColor.RED + "Requires: " + ChatColor.WHITE + describeRequirement(upgrade));
         }
-
         lore.add("");
         if (purchased) {
             lore.add(ChatColor.GOLD + "" + ChatColor.BOLD + "PURCHASED");
         } else {
-            lore.add(ChatColor.GRAY + "Cost: " + (canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(upgrade.getCost()) + " cookies");
-            lore.add("");
-            if (canAfford) {
-                lore.add(ChatColor.YELLOW + "Click to buy!");
-            } else if (!unlocked) {
-                lore.add(ChatColor.RED + "Requirements not met!");
-            } else {
-                lore.add(ChatColor.RED + "Not enough cookies!");
-            }
+            lore.add(ChatColor.GRAY + "Cost: " + (canAfford ? ChatColor.GREEN : ChatColor.RED)
+                    + FormatUtils.format(upgrade.getCost()) + " cookies");
         }
 
-        // Choose display color
-        String nameColor;
-        Material mat;
-        if (purchased) {
-            nameColor = ChatColor.GOLD.toString();
-            mat = upgrade.getMaterial();
-        } else if (canAfford) {
-            nameColor = ChatColor.GREEN.toString();
-            mat = upgrade.getMaterial();
-        } else if (unlocked) {
-            nameColor = ChatColor.RED.toString();
-            mat = upgrade.getMaterial();
-        } else {
-            nameColor = ChatColor.DARK_GRAY.toString();
-            mat = Material.GRAY_DYE;
-        }
-
-        Icon icon = GuiHelper.createIcon(mat,
-                nameColor + ChatColor.BOLD + upgrade.getDisplayName(),
+        String nameColor = purchased ? ChatColor.GOLD.toString()
+                : canAfford ? ChatColor.GREEN.toString()
+                : unlocked ? ChatColor.RED.toString() : ChatColor.DARK_GRAY.toString();
+        Material mat = unlocked || purchased ? upgrade.getMaterial() : Material.GRAY_DYE;
+        Icon icon = ClickerGuiHelper.createIcon(mat, nameColor + ChatColor.BOLD + upgrade.getDisplayName(),
                 lore.toArray(new String[0]));
 
         if (!purchased && unlocked) {
             icon.onClick(e -> {
                 if (!e.isLeftClick()) return;
                 if (ownerData.buyClickerUpgrade(upgrade)) {
+                    AchievementManager.check(ownerData);
                     if (viewerData.getSettings().isSoundEnabled(gg.drak.lobbyclicker.settings.SettingType.SOUND_BUY)) {
                         float vol = viewerData.getSettings().getVolume(gg.drak.lobbyclicker.settings.SettingType.VOLUME_BUY);
                         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, vol, 1.5f);
@@ -146,55 +133,32 @@ public class ClickerUpgradeGui extends PaginationMonitor {
                 buildDisplay();
             });
         }
-
         return icon;
     }
 
     private String describeEffect(ClickerUpgrade upgrade) {
-        String mult = formatMultiplier(upgrade.getEffectValue());
-        switch (upgrade.getEffect()) {
-            case CPC_MULTIPLIER:
-                return mult + " cookies per click";
-            case CPS_MULTIPLIER:
-                return mult + " cookies per second";
-            case BUILDING_MULTIPLIER:
-                String buildingName = upgrade.getTargetBuilding() != null ? upgrade.getTargetBuilding().getDisplayName() : "?";
-                return buildingName + " output " + mult;
-            case GOLDEN_FREQ_MULTIPLIER:
-                return "Golden cookies appear " + mult + " as often";
-            case GOLDEN_REWARD_MULTIPLIER:
-                return "Golden cookie rewards " + mult;
-            case GOLDEN_DURATION_MULTIPLIER:
-                return "Golden cookies last " + mult + " as long";
-            default:
-                return "Unknown";
-        }
-    }
-
-    /** Format a multiplier like 2 → "Double", 1.5 → "×1.5", 1.1 → "+10%", 1.25 → "+25%" */
-    private static String formatMultiplier(java.math.BigDecimal value) {
-        if (value.compareTo(java.math.BigDecimal.valueOf(2)) == 0) return "Double";
-        if (value.compareTo(java.math.BigDecimal.valueOf(3)) == 0) return "Triple";
-        // For values like 1.1, 1.25, 1.5 — show as percentage bonus
-        if (value.compareTo(java.math.BigDecimal.ONE) > 0 && value.compareTo(java.math.BigDecimal.valueOf(2)) < 0) {
-            java.math.BigDecimal pct = value.subtract(java.math.BigDecimal.ONE).multiply(java.math.BigDecimal.valueOf(100));
-            String pctStr = pct.stripTrailingZeros().toPlainString();
-            return "+" + pctStr + "%";
-        }
-        return "×" + value.stripTrailingZeros().toPlainString();
+        return switch (upgrade.getEffect()) {
+            case CPC_MULTIPLIER -> "×" + upgrade.getEffectValue() + " cookies per click";
+            case CPS_MULTIPLIER -> "×" + upgrade.getEffectValue() + " cookies per second";
+            case BUILDING_MULTIPLIER -> (upgrade.getTargetBuilding() != null
+                    ? upgrade.getTargetBuilding().getDisplayName() : "?") + " output ×" + upgrade.getEffectValue();
+            case GOLDEN_FREQ_MULTIPLIER -> "Golden cookies appear ×" + upgrade.getEffectValue() + " as often";
+            case GOLDEN_REWARD_MULTIPLIER -> "Golden cookie rewards ×" + upgrade.getEffectValue();
+            case GOLDEN_DURATION_MULTIPLIER -> "Golden cookies last ×" + upgrade.getEffectValue() + " as long";
+            case FINGER_ADDITIVE -> "+" + upgrade.getEffectValue() + " per non-autoclicker building";
+            case FINGER_MULTIPLIER -> "Thousand Fingers gain ×" + upgrade.getEffectValue();
+            case SYNERGY -> "+" + upgrade.getEffectValue().multiply(java.math.BigDecimal.valueOf(100)).stripTrailingZeros().toPlainString()
+                    + "% per " + (upgrade.getSynergyPartner() != null ? upgrade.getSynergyPartner().getDisplayName() : "?");
+        };
     }
 
     private String describeRequirement(ClickerUpgrade upgrade) {
-        List<String> parts = new ArrayList<>();
-        if (upgrade.getRequiredPrestigeLevel() > 0) {
-            parts.add("Prestige " + upgrade.getRequiredPrestigeLevel());
+        if (upgrade.getTargetBuilding() != null) {
+            return "Own " + upgrade.getRequiredCount() + " " + upgrade.getTargetBuilding().getDisplayName();
         }
-        if (upgrade.getEffect() == ClickerUpgradeEffect.CPC_MULTIPLIER && upgrade.getRequiredCount() > 0) {
-            parts.add(upgrade.getRequiredCount() + " total realm clicks");
-        } else if (upgrade.getTargetBuilding() != null) {
-            parts.add("Own " + upgrade.getRequiredCount() + " " + upgrade.getTargetBuilding().getDisplayName());
+        if (upgrade.getRequiredCount() > 0) {
+            return upgrade.getRequiredCount() + " cookies from clicking";
         }
-        if (parts.isEmpty()) return "Unknown";
-        return String.join(" and ", parts);
+        return "None";
     }
 }

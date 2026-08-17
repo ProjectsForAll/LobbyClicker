@@ -40,7 +40,7 @@ public class TransferAcceptGui extends ConfirmationMonitor {
         String prestigeStr = senderData != null ? String.valueOf(senderData.getPrestigeLevel()) : "?";
         String auraStr = senderData != null ? FormatUtils.format(senderData.getAura()) : "?";
 
-        Icon info = GuiHelper.createIcon(Material.ENDER_CHEST,
+        Icon info = ClickerGuiHelper.createIcon(Material.ENDER_CHEST,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Transfer from " + senderName,
                 "",
                 ChatColor.GRAY + "They want to transfer:",

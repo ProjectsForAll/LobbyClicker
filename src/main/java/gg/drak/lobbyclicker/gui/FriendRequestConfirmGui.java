@@ -29,7 +29,7 @@ public class FriendRequestConfirmGui extends ConfirmationMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
 
-        Icon info = GuiHelper.playerHead(senderUuid,
+        Icon info = ClickerGuiHelper.playerHead(senderUuid,
                 ChatColor.GREEN + "" + ChatColor.BOLD + senderName,
                 "", ChatColor.GRAY + "wants to be your friend!",
                 "", ChatColor.YELLOW + "Accept to add them to your friends list.");

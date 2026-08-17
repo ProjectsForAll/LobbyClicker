@@ -2,9 +2,11 @@ package gg.drak.lobbyclicker.gui.monitor;
 
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.BaseGui;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.MenuText;
 import gg.drak.lobbyclicker.utils.FormatUtils;
+import host.plas.bou.gui.CornerColor;
+import host.plas.bou.gui.GuiLayout;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -42,26 +44,17 @@ public abstract class SimpleGuiMonitor extends BaseGui {
     }
 
     protected void fillMonitorBorder() {
-        int rows = getSize() / 9;
-        Icon blackPane = pane(Material.BLACK_STAINED_GLASS_PANE);
-        Icon yellowPane = pane(Material.YELLOW_STAINED_GLASS_PANE);
-
+        int size = getSize();
+        ItemStack[] shell = GuiLayout.createShell(size, CornerColor.YELLOW);
         fillGui(pane(Material.AIR));
-
-        for (int col = 0; col < 9; col++) {
-            addItem(col, blackPane);
-        }
-        int bottomStart = (rows - 1) * 9;
-        for (int col = 0; col < 9; col++) {
-            addItem(bottomStart + col, blackPane);
-        }
-        for (int row = 1; row < rows - 1; row++) {
-            addItem(row * 9, yellowPane);
-            addItem(row * 9 + 8, yellowPane);
+        for (int slot = 0; slot < shell.length; slot++) {
+            if (shell[slot] != null) {
+                addItem(slot, new Icon(shell[slot]));
+            }
         }
 
         if (viewedData != null && !gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode()) {
-            Icon realmHead = GuiHelper.playerHead(viewedData.getIdentifier(),
+            Icon realmHead = ClickerGuiHelper.playerHead(viewedData.getIdentifier(),
                     "<gold><bold>" + MenuText.esc(viewedData.getName() + "'s Realm") + "</bold></gold>",
                     "",
                     "<gray>" + MenuText.esc("Click to return to their realm") + "</gray>");
@@ -74,7 +67,7 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         int bottomStart = (getSize() / 9 - 1) * 9;
 
         if (viewerData != null) {
-            Icon myInfo = GuiHelper.createIcon(Material.NETHER_STAR,
+            Icon myInfo = ClickerGuiHelper.createIcon(Material.NETHER_STAR,
                     MenuText.title("My Info"),
                     "",
                     MenuText.grayWhite("Cookies: ", FormatUtils.format(viewerData.getCookies())),
@@ -85,7 +78,7 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         }
 
         if (viewedData != null && !gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode()) {
-            Icon viewedInfo = GuiHelper.playerHead(viewedData.getIdentifier(),
+            Icon viewedInfo = ClickerGuiHelper.playerHead(viewedData.getIdentifier(),
                     "<aqua><bold>" + MenuText.esc(viewedData.getName() + "'s Info") + "</bold></aqua>",
                     "",
                     MenuText.grayWhite("Cookies: ", FormatUtils.format(viewedData.getCookies())),
@@ -95,7 +88,7 @@ public abstract class SimpleGuiMonitor extends BaseGui {
             addItem(bottomStart + 1, viewedInfo);
         }
 
-        Icon back = GuiHelper.createIcon(Material.DARK_OAK_DOOR,
+        Icon back = ClickerGuiHelper.createIcon(Material.DARK_OAK_DOOR,
                 "<red><bold>" + MenuText.esc("Back") + "</bold></red>",
                 "",
                 "<gray>" + MenuText.esc("Go back") + "</gray>");
@@ -103,7 +96,7 @@ public abstract class SimpleGuiMonitor extends BaseGui {
         addItem(bottomStart + 7, back);
 
         boolean simple = gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isSimpleMode();
-        Icon myRealm = GuiHelper.createIcon(Material.COOKIE,
+        Icon myRealm = ClickerGuiHelper.createIcon(Material.COOKIE,
                 "<gold><bold>" + MenuText.esc(simple ? "My Cookie" : "My Realm") + "</bold></gold>",
                 "",
                 "<gray>" + MenuText.esc(simple ? "Return to your clicker" : "Return to your realm") + "</gray>");
@@ -116,18 +109,7 @@ public abstract class SimpleGuiMonitor extends BaseGui {
     }
 
     public int[] getContentSlots() {
-        int rows = getSize() / 9;
-        int contentRows = rows - 2;
-        if (contentRows <= 0) return new int[0];
-
-        int[] slots = new int[contentRows * 7];
-        int idx = 0;
-        for (int row = 1; row <= contentRows; row++) {
-            for (int col = 1; col <= 7; col++) {
-                slots[idx++] = row * 9 + col;
-            }
-        }
-        return slots;
+        return GuiLayout.listContentSlots(getSize());
     }
 
     public int getContentSlotCount() {
@@ -158,6 +140,6 @@ public abstract class SimpleGuiMonitor extends BaseGui {
     }
 
     public static Icon icon(Material material, String mmName, String... mmLore) {
-        return GuiHelper.createIcon(material, mmName, mmLore);
+        return ClickerGuiHelper.createIcon(material, mmName, mmLore);
     }
 }

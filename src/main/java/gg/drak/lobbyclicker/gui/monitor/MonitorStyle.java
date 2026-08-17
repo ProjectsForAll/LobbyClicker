@@ -1,6 +1,6 @@
 package gg.drak.lobbyclicker.gui.monitor;
 
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.MenuText;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Material;
@@ -39,23 +39,23 @@ public class MonitorStyle {
     // --- Common button builders ---
 
     public static Icon confirmButton(String label) {
-        return GuiHelper.createIcon(Material.LIME_DYE,
+        return ClickerGuiHelper.createIcon(Material.LIME_DYE,
                 "<green><bold>" + MenuText.esc(label) + "</bold></green>");
     }
 
     public static Icon cancelButton(String label) {
-        return GuiHelper.createIcon(Material.RED_DYE,
+        return ClickerGuiHelper.createIcon(Material.RED_DYE,
                 "<red><bold>" + MenuText.esc(label) + "</bold></red>");
     }
 
     public static Icon infoItem(Material material, String mmTitle, String... mmLore) {
-        return GuiHelper.createIcon(material, mmTitle, mmLore);
+        return ClickerGuiHelper.createIcon(material, mmTitle, mmLore);
     }
 
     public static Icon toggleButton(String label, boolean on, String description) {
         Material mat = on ? Material.LIME_DYE : Material.GRAY_DYE;
         String status = on ? "<green>" + MenuText.esc("ON") + "</green>" : "<red>" + MenuText.esc("OFF") + "</red>";
-        return GuiHelper.createIcon(mat,
+        return ClickerGuiHelper.createIcon(mat,
                 "<yellow>" + MenuText.esc(label) + " " + status + "</yellow>",
                 "",
                 "<gray>" + MenuText.esc(description) + "</gray>",
@@ -75,13 +75,13 @@ public class MonitorStyle {
             lore[i + 1] = "<gray>" + MenuText.esc(description[i]) + "</gray>";
         }
         lore[lore.length - 1] = "<yellow>" + MenuText.esc("Click to open") + "</yellow>";
-        return GuiHelper.createIcon(material,
+        return ClickerGuiHelper.createIcon(material,
                 "<" + labelColor + "><bold>" + MenuText.esc(label) + "</bold></" + labelColor + ">",
                 lore);
     }
 
     public static Icon filler() {
-        return GuiHelper.filler();
+        return ClickerGuiHelper.filler();
     }
 
     public static Icon filler(Material material) {

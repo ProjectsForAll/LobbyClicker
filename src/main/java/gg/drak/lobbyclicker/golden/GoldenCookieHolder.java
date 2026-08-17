@@ -4,18 +4,18 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.RealmManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.math.BigDecimal;
 import java.util.Random;
@@ -37,6 +37,7 @@ public class GoldenCookieHolder {
     private int slot = -1;
     private CookieType cookieType = CookieType.NULL;
     private int ticksLeft = 0;
+    private long spawnedAtMillis = 0;
     private BigDecimal reward = BigDecimal.ZERO;
     private String tierName = "";
 
@@ -47,7 +48,7 @@ public class GoldenCookieHolder {
     private int frenzySpawnInterval;
 
     // Task
-    private BukkitTask tickTask;
+    private FoliaScheduler.PluginTask tickTask;
 
     private GoldenCookieHolder(String ownerUuid) {
         this.ownerUuid = ownerUuid;
@@ -83,7 +84,12 @@ public class GoldenCookieHolder {
 
     public void ensureTaskRunning() {
         if (tickTask != null && !tickTask.isCancelled()) return;
-        tickTask = Bukkit.getScheduler().runTaskTimer(LobbyClicker.getInstance(), this::tick, 20L, 20L);
+        Player owner = Bukkit.getPlayer(UUID.fromString(ownerUuid));
+        if (owner != null) {
+            tickTask = FoliaScheduler.runForEntityTimer(owner, LobbyClicker.getInstance(), this::tick, 20L, 20L);
+        } else {
+            tickTask = FoliaScheduler.runGlobalTimer(LobbyClicker.getInstance(), this::tick, 20L, 20L);
+        }
     }
 
     public void stopTask() {
@@ -147,7 +153,10 @@ public class GoldenCookieHolder {
                 frenzyCountdown = 1800 + RANDOM.nextInt(901);
                 if (!LobbyClicker.getMainConfig().isNotificationsDisabled()) {
                     Player owner = Bukkit.getPlayer(UUID.fromString(ownerUuid));
-                    if (owner != null) owner.sendMessage(ChatColor.GOLD + "Cookie Frenzy has ended!");
+                    if (owner != null) {
+                        FoliaScheduler.runForEntity(owner, LobbyClicker.getInstance(),
+                                () -> owner.sendMessage(ChatColor.GOLD + "Cookie Frenzy has ended!"));
+                    }
                 }
             }
         } else {
@@ -164,11 +173,13 @@ public class GoldenCookieHolder {
                 if (!LobbyClicker.getMainConfig().isNotificationsDisabled()) {
                     Player owner = Bukkit.getPlayer(UUID.fromString(ownerUuid));
                     if (owner != null) {
-                        owner.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "COOKIE FRENZY! " +
-                                ChatColor.YELLOW + "Golden cookies will appear rapidly for 5 minutes!");
-                        if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
-                            owner.playSound(owner.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-                        }
+                        FoliaScheduler.runForEntity(owner, LobbyClicker.getInstance(), () -> {
+                            owner.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "COOKIE FRENZY! " +
+                                    ChatColor.YELLOW + "Golden cookies will appear rapidly for 5 minutes!");
+                            if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
+                                owner.playSound(owner.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                            }
+                        });
                     }
                 }
             }
@@ -184,11 +195,7 @@ public class GoldenCookieHolder {
         BigDecimal bonus = ownerData.getClickerEntropy().multiply(multiplier);
         BigDecimal rewardMult = ownerData.getEffectMultiplier(
                 gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER);
-        BigDecimal boosterRewardMult = gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isBoostersEnabled()
-                ? gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
-                        ownerData.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.GOLDEN_REWARD)
-                : java.math.BigDecimal.ONE;
-        bonus = bonus.multiply(rewardMult).multiply(boosterRewardMult);
+        bonus = bonus.multiply(rewardMult);
 
         double normalized = multiplier.doubleValue() / 2.0;
         CookieType type;
@@ -215,6 +222,7 @@ public class GoldenCookieHolder {
         this.reward = bonus;
         this.tierName = name;
         this.ticksLeft = Math.max(2, (int) (10 * durMult));
+        this.spawnedAtMillis = System.currentTimeMillis();
 
         // Play spawn sound for anyone viewing
         if (!LobbyClicker.getMainConfig().isNotificationsDisabled()) {
@@ -245,6 +253,10 @@ public class GoldenCookieHolder {
         RealmProfile profile = ownerData.getActiveProfile();
         if (profile != null) {
             profile.setGoldenCookiesCollected(profile.getGoldenCookiesCollected() + 1);
+            boolean early = spawnedAtMillis > 0 && System.currentTimeMillis() - spawnedAtMillis < 1000L;
+            boolean late = ticksLeft <= 1;
+            gg.drak.lobbyclicker.achievements.AchievementManager.markGoldenTiming(profile, early, late);
+            gg.drak.lobbyclicker.achievements.AchievementManager.check(ownerData);
         }
 
         // Clear the cookie
@@ -282,6 +294,7 @@ public class GoldenCookieHolder {
         this.reward = BigDecimal.ZERO;
         this.tierName = "";
         this.ticksLeft = 0;
+        this.spawnedAtMillis = 0;
     }
 
     private int getWeightedSpawnDelay() {
@@ -292,26 +305,19 @@ public class GoldenCookieHolder {
         int baseDelay = 30 + (int) (raw * 270);
         double freqMult = ownerData.getEffectMultiplier(
                 gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_FREQ_MULTIPLIER).doubleValue();
-        double boosterFreqMult = gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isBoostersEnabled()
-                ? gg.drak.lobbyclicker.boosters.BoosterManager.getMultiplier(
-                        ownerData.getIdentifier(), gg.drak.lobbyclicker.boosters.BoosterEffect.GOLDEN_FREQ).doubleValue()
-                : 1.0;
-        double questFreqMult = 1.0;
-        if (gg.drak.lobbyclicker.LobbyClicker.getMainConfig().isQuestsEnabled()) {
-            RealmProfile profile = ownerData.getActiveProfile();
-            if (profile != null) {
-                questFreqMult = profile.getQuestBonusMultiplier(gg.drak.lobbyclicker.quests.QuestEffect.GOLDEN_FREQ_PERCENT).doubleValue();
-            }
-        }
-        return Math.max(5, (int) (baseDelay / freqMult / boosterFreqMult / questFreqMult));
+        return Math.max(5, (int) (baseDelay / freqMult));
     }
 
     private static void notifyViewers(String ownerUuid, java.util.function.Consumer<Player> action) {
         Player owner = Bukkit.getPlayer(UUID.fromString(ownerUuid));
-        if (owner != null) action.accept(owner);
+        if (owner != null) {
+            FoliaScheduler.runForEntity(owner, LobbyClicker.getInstance(), () -> action.accept(owner));
+        }
         for (String vuuid : RealmManager.getViewers(ownerUuid)) {
             Player vp = Bukkit.getPlayer(UUID.fromString(vuuid));
-            if (vp != null) action.accept(vp);
+            if (vp != null) {
+                FoliaScheduler.runForEntity(vp, LobbyClicker.getInstance(), () -> action.accept(vp));
+            }
         }
     }
 
@@ -320,7 +326,7 @@ public class GoldenCookieHolder {
      */
     public Icon buildIcon(PlayerData clickerData, PlayerData ownerData) {
         if (!hasActiveCookie()) return null;
-        Icon icon = GuiHelper.createIcon(cookieType.getMaterial(),
+        Icon icon = ClickerGuiHelper.createIcon(cookieType.getMaterial(),
                 ChatColor.GOLD + "" + ChatColor.BOLD + tierName + "!",
                 "", ChatColor.YELLOW + "Click for +" + FormatUtils.format(reward) + " cookies!",
                 ChatColor.GRAY + "Hurry, it won't last long!");

@@ -44,7 +44,7 @@ public class GambleAcceptGui extends ConfirmationMonitor {
 
         boolean canAfford = receiverData.canAfford(transaction.getAmount());
 
-        Icon info = GuiHelper.createIcon(Material.EMERALD,
+        Icon info = ClickerGuiHelper.createIcon(Material.EMERALD,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Bet: " + FormatUtils.format(transaction.getAmount()) + " cookies",
                 "",
                 ChatColor.GRAY + "From: " + ChatColor.WHITE + senderName,

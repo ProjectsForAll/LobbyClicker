@@ -31,10 +31,10 @@ public class GambleGui extends BaseGui {
     @Override
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
-        fillGui(GuiHelper.filler());
+        fillGui(ClickerGuiHelper.filler());
 
         // Home button
-        Icon home = GuiHelper.homeButton();
+        Icon home = ClickerGuiHelper.homeButton();
         home.onClick(e -> new ClickerGui(player, senderData).open());
         addItem(0, home);
 
@@ -53,7 +53,7 @@ public class GambleGui extends BaseGui {
             addItem(3 + i, BannerChar.of(display[i], BannerChar.BannerColor.RED, BannerChar.BannerColor.WHITE).toIcon(amountLore));
         }
 
-        addItem(13, GuiHelper.createIcon(Material.EMERALD,
+        addItem(13, ClickerGuiHelper.createIcon(Material.EMERALD,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Bet: " + FormatUtils.format(amount) + " cookies",
                 "",
                 ChatColor.GRAY + "Against: " + ChatColor.WHITE + targetName,
@@ -77,19 +77,19 @@ public class GambleGui extends BaseGui {
         addAdjustButton(player, 8, 10000, Material.LIME_STAINED_GLASS_PANE);
 
         // None button
-        Icon none = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "None",
+        Icon none = ClickerGuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "None",
                 "", ChatColor.GRAY + "Reset to 0");
         none.onClick(e -> new GambleGui(player, senderData, targetUuid, BigDecimal.ZERO).open());
         addItem(12, none);
 
         // All button
-        Icon all = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "All",
+        Icon all = ClickerGuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "All",
                 "", ChatColor.GRAY + "Set to max: " + ChatColor.GOLD + FormatUtils.format(senderData.getCookies()));
         all.onClick(e -> new GambleGui(player, senderData, targetUuid, senderData.getCookies()).open());
         addItem(14, all);
 
         // Custom amount button
-        Icon custom = GuiHelper.createIcon(Material.OAK_SIGN, ChatColor.YELLOW + "" + ChatColor.BOLD + "Custom Amount",
+        Icon custom = ClickerGuiHelper.createIcon(Material.OAK_SIGN, ChatColor.YELLOW + "" + ChatColor.BOLD + "Custom Amount",
                 "", ChatColor.GRAY + "Type an amount in chat",
                 ChatColor.GRAY + "e.g. " + ChatColor.WHITE + "2.5m" + ChatColor.GRAY + ", " + ChatColor.WHITE + "20000" + ChatColor.GRAY + ", " + ChatColor.WHITE + "5k");
         custom.onClick(e -> {
@@ -115,7 +115,7 @@ public class GambleGui extends BaseGui {
 
         if (canAfford) {
             String finalTargetName = targetName;
-            Icon send = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Send Bet Request",
+            Icon send = ClickerGuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Send Bet Request",
                     "", ChatColor.GRAY + "Bet " + ChatColor.GOLD + FormatUtils.format(amount) + ChatColor.GRAY + " against " + finalTargetName);
             send.onClick(e -> {
                 if (!senderData.canAfford(amount) || amount.signum() <= 0) {
@@ -138,14 +138,14 @@ public class GambleGui extends BaseGui {
             addItem(22, send);
         }
 
-        Icon cancel = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Cancel");
+        Icon cancel = ClickerGuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Cancel");
         cancel.onClick(e -> new MoneyActionsGui(player, senderData, targetUuid, "social").open());
         addItem(18, cancel);
     }
 
     private void addAdjustButton(Player player, int slot, long change, Material mat) {
         String prefix = change > 0 ? ChatColor.GREEN + "+" : ChatColor.RED + "";
-        Icon icon = GuiHelper.createIcon(mat, prefix + FormatUtils.format(Math.abs(change)));
+        Icon icon = ClickerGuiHelper.createIcon(mat, prefix + FormatUtils.format(Math.abs(change)));
         icon.onClick(e -> new GambleGui(player, senderData, targetUuid, amount.add(BigDecimal.valueOf(change))).open());
         addItem(slot, icon);
     }

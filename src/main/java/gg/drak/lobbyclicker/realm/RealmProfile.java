@@ -1,10 +1,9 @@
 package gg.drak.lobbyclicker.realm;
 
+import gg.drak.lobbyclicker.achievements.Achievement;
+import gg.drak.lobbyclicker.achievements.AchievementManager;
 import gg.drak.lobbyclicker.math.CookieMath;
 import gg.drak.lobbyclicker.prestige.PrestigeManager;
-import gg.drak.lobbyclicker.quests.Quest;
-import gg.drak.lobbyclicker.quests.QuestEffect;
-import gg.drak.lobbyclicker.settings.PlayerSettings;
 import gg.drak.lobbyclicker.upgrades.ClickerUpgrade;
 import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
@@ -14,7 +13,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.EnumMap;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +33,7 @@ public class RealmProfile {
     private BigDecimal cookies;
     private BigDecimal totalCookiesEarned;    // resets on prestige ("earned this prestige")
     private BigDecimal lifetimeCookiesEarned; // never resets (all-time total)
+    private BigDecimal giftedCookies;
     private long timesClicked;       // combined (owner + others)
     private long ownerClicks;        // clicks by the realm owner
     private long otherClicks;        // clicks by visitors
@@ -43,9 +43,14 @@ public class RealmProfile {
     private BigDecimal aura;
     private boolean realmPublic;
 
-    // Quests
-    private Set<Quest> completedQuests;
+    // Achievements
+    private Set<Achievement> completedAchievements;
     private long goldenCookiesCollected;
+    private BigDecimal cookiesFromClicks;
+    private EnumMap<UpgradeType, BigDecimal> cookiesFromBuilding;
+    private long createdAtMillis;
+    private boolean goldenEarly;
+    private boolean goldenLate;
 
     // Per-profile relationships
     private Set<String> bans;                        // UUIDs banned from THIS profile
@@ -64,6 +69,7 @@ public class RealmProfile {
         this.cookies = BigDecimal.ZERO;
         this.totalCookiesEarned = BigDecimal.ZERO;
         this.lifetimeCookiesEarned = BigDecimal.ZERO;
+        this.giftedCookies = BigDecimal.ZERO;
         this.timesClicked = 0;
         this.ownerClicks = 0;
         this.otherClicks = 0;
@@ -71,9 +77,17 @@ public class RealmProfile {
         for (UpgradeType type : UpgradeType.values()) {
             upgrades.put(type, 0);
         }
-        this.purchasedUpgrades = EnumSet.noneOf(ClickerUpgrade.class);
-        this.completedQuests = EnumSet.noneOf(Quest.class);
+        this.purchasedUpgrades = new LinkedHashSet<>();
+        this.completedAchievements = new LinkedHashSet<>();
         this.goldenCookiesCollected = 0;
+        this.cookiesFromClicks = BigDecimal.ZERO;
+        this.cookiesFromBuilding = new EnumMap<>(UpgradeType.class);
+        for (UpgradeType type : UpgradeType.values()) {
+            cookiesFromBuilding.put(type, BigDecimal.ZERO);
+        }
+        this.createdAtMillis = System.currentTimeMillis();
+        this.goldenEarly = false;
+        this.goldenLate = false;
         this.prestigeLevel = 0;
         this.aura = BigDecimal.ZERO;
         this.realmPublic = false;
@@ -97,50 +111,78 @@ public class RealmProfile {
         this.cookies = this.cookies.subtract(amount);
     }
 
+    public void addGiftedCookies(BigDecimal amount) {
+        this.cookies = this.cookies.add(amount);
+        this.giftedCookies = this.giftedCookies.add(amount);
+    }
+
     public boolean canAfford(BigDecimal amount) {
         return this.cookies.compareTo(amount) >= 0;
     }
 
     // --- Stats ---
 
-    public BigDecimal getCps() {
+    public BigDecimal getBuildingRawCps(UpgradeType type) {
+        int count = getUpgradeCount(type);
+        if (count <= 0) return BigDecimal.ZERO;
+        BigDecimal each = type.getCpsPerLevel().multiply(getBuildingMultiplier(type));
+        if (type == UpgradeType.CURSOR) {
+            each = each.add(getFingerBonus());
+        }
+        each = each.multiply(getSynergyMultiplier(type));
+        return each.multiply(BigDecimal.valueOf(count));
+    }
+
+    public BigDecimal getRawCps() {
         BigDecimal baseCps = BigDecimal.ZERO;
         for (UpgradeType type : UpgradeType.values()) {
-            BigDecimal buildingCps = type.getCpsPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type)));
-            buildingCps = buildingCps.multiply(getBuildingMultiplier(type));
-            baseCps = baseCps.add(buildingCps);
+            baseCps = baseCps.add(getBuildingRawCps(type));
         }
-        return baseCps.multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel))
+        return baseCps;
+    }
+
+    public BigDecimal getCps() {
+        return getRawCps()
+                .multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel))
+                .multiply(PrestigeManager.getAuraCpsMultiplier(aura))
                 .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER))
-                .multiply(getQuestBonusMultiplier(QuestEffect.CPS_PERCENT));
+                .multiply(AchievementManager.milkMultiplier(this));
     }
 
     public BigDecimal getCpc() {
-        BigDecimal baseCpc = BigDecimal.ONE;
-        for (UpgradeType type : UpgradeType.values()) {
-            BigDecimal buildingCpc = type.getCpcPerLevel().multiply(BigDecimal.valueOf(getUpgradeCount(type)));
-            buildingCpc = buildingCpc.multiply(getBuildingMultiplier(type));
-            baseCpc = baseCpc.add(buildingCpc);
-        }
-        return baseCpc.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura))
-                .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER))
-                .multiply(getQuestBonusMultiplier(QuestEffect.CPC_PERCENT))
-                .add(PrestigeManager.getBaseClickAdditive(prestigeLevel));
+        BigDecimal click = BigDecimal.ONE.multiply(getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER));
+        click = click.add(getFingerBonus());
+        return click.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura));
     }
 
-    /**
-     * Get the combined multiplier from all completed quests of a given effect type.
-     * Each quest grants +X%, so the multiplier is 1 + (sum of all percents / 100).
-     */
-    public BigDecimal getQuestBonusMultiplier(QuestEffect effectType) {
-        int totalPercent = 0;
-        for (Quest quest : completedQuests) {
-            if (quest.getEffect() == effectType) {
-                totalPercent += quest.getEffectPercent();
+    public BigDecimal getFingerBonus() {
+        BigDecimal additive = BigDecimal.ZERO;
+        BigDecimal mult = BigDecimal.ONE;
+        for (ClickerUpgrade upgrade : purchasedUpgrades) {
+            if (upgrade.getEffect() == ClickerUpgradeEffect.FINGER_ADDITIVE) {
+                additive = additive.add(upgrade.getEffectValue());
+            } else if (upgrade.getEffect() == ClickerUpgradeEffect.FINGER_MULTIPLIER) {
+                mult = mult.multiply(upgrade.getEffectValue());
             }
         }
-        if (totalPercent == 0) return BigDecimal.ONE;
-        return BigDecimal.ONE.add(BigDecimal.valueOf(totalPercent).divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+        if (additive.signum() == 0) return BigDecimal.ZERO;
+        return additive.multiply(mult).multiply(BigDecimal.valueOf(getNonCursorBuildingCount()));
+    }
+
+    public int getNonCursorBuildingCount() {
+        int total = 0;
+        for (UpgradeType type : UpgradeType.values()) {
+            if (type != UpgradeType.CURSOR) total += getUpgradeCount(type);
+        }
+        return total;
+    }
+
+    public int getTotalBuildingCount() {
+        int total = 0;
+        for (UpgradeType type : UpgradeType.values()) {
+            total += getUpgradeCount(type);
+        }
+        return total;
     }
 
     private BigDecimal getBuildingMultiplier(UpgradeType building) {
@@ -152,6 +194,19 @@ public class RealmProfile {
             }
         }
         return mult;
+    }
+
+    private BigDecimal getSynergyMultiplier(UpgradeType building) {
+        BigDecimal bonus = BigDecimal.ZERO;
+        for (ClickerUpgrade upgrade : purchasedUpgrades) {
+            if (upgrade.getEffect() == ClickerUpgradeEffect.SYNERGY
+                    && upgrade.getTargetBuilding() == building
+                    && upgrade.getSynergyPartner() != null) {
+                bonus = bonus.add(upgrade.getEffectValue()
+                        .multiply(BigDecimal.valueOf(getUpgradeCount(upgrade.getSynergyPartner()))));
+            }
+        }
+        return BigDecimal.ONE.add(bonus);
     }
 
     /**
@@ -202,7 +257,6 @@ public class RealmProfile {
     }
 
     public boolean buyUpgrade(UpgradeType type) {
-        if (prestigeLevel < type.getRequiredPrestigeLevel()) return false;
         BigDecimal cost = type.getCost(getUpgradeCount(type));
         if (!canAfford(cost)) return false;
         removeCookies(cost);
@@ -238,22 +292,94 @@ public class RealmProfile {
         return ClickerUpgrade.serialize(purchasedUpgrades);
     }
 
-    // --- Completed quests ---
+    // --- Achievements ---
 
-    public boolean hasCompletedQuest(Quest quest) {
-        return completedQuests.contains(quest);
+    public boolean hasCompletedAchievement(Achievement achievement) {
+        return completedAchievements.contains(achievement);
     }
 
-    public void completeQuest(Quest quest) {
-        completedQuests.add(quest);
+    public void completeAchievement(Achievement achievement) {
+        completedAchievements.add(achievement);
     }
 
+    public Set<Achievement> getCompletedQuests() {
+        return completedAchievements;
+    }
+
+    public void setCompletedQuests(Set<Achievement> achievements) {
+        this.completedAchievements = achievements != null ? achievements : new LinkedHashSet<>();
+    }
+
+    public String serializeCompletedAchievements() {
+        return Achievement.serialize(completedAchievements);
+    }
+
+    @Deprecated
     public String serializeCompletedQuests() {
-        return Quest.serialize(completedQuests);
+        return serializeCompletedAchievements();
     }
 
-    public static Set<Quest> deserializeCompletedQuests(String data) {
-        return Quest.deserialize(data);
+    public static Set<Achievement> deserializeCompletedAchievements(String data) {
+        return Achievement.deserialize(data);
+    }
+
+    public static Set<Achievement> deserializeCompletedQuests(String data) {
+        return deserializeCompletedAchievements(data);
+    }
+
+    public void addCookiesFromClicks(BigDecimal amount) {
+        this.cookiesFromClicks = this.cookiesFromClicks.add(amount);
+    }
+
+    public void addCookiesFromBuilding(UpgradeType type, BigDecimal amount) {
+        cookiesFromBuilding.put(type, getCookiesFromBuilding(type).add(amount));
+    }
+
+    public BigDecimal getCookiesFromBuilding(UpgradeType type) {
+        return cookiesFromBuilding.getOrDefault(type, BigDecimal.ZERO);
+    }
+
+    public void resetBuildingCookies() {
+        for (UpgradeType type : UpgradeType.values()) {
+            cookiesFromBuilding.put(type, BigDecimal.ZERO);
+        }
+    }
+
+    public String serializeExtraStats() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("clicks:").append(cookiesFromClicks.toPlainString());
+        sb.append(";created:").append(createdAtMillis);
+        sb.append(";early:").append(goldenEarly ? "1" : "0");
+        sb.append(";late:").append(goldenLate ? "1" : "0");
+        for (UpgradeType type : UpgradeType.values()) {
+            BigDecimal v = getCookiesFromBuilding(type);
+            if (v.signum() > 0) {
+                sb.append(";b_").append(type.name()).append(":").append(v.toPlainString());
+            }
+        }
+        return sb.toString();
+    }
+
+    public void applyExtraStats(String data) {
+        if (data == null || data.isEmpty()) return;
+        for (String part : data.split(";")) {
+            String[] kv = part.split(":", 2);
+            if (kv.length != 2) continue;
+            try {
+                switch (kv[0]) {
+                    case "clicks" -> cookiesFromClicks = new BigDecimal(kv[1]);
+                    case "created" -> createdAtMillis = Long.parseLong(kv[1]);
+                    case "early" -> goldenEarly = "1".equals(kv[1]);
+                    case "late" -> goldenLate = "1".equals(kv[1]);
+                    default -> {
+                        if (kv[0].startsWith("b_")) {
+                            UpgradeType type = UpgradeType.valueOf(kv[0].substring(2));
+                            cookiesFromBuilding.put(type, new BigDecimal(kv[1]));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     public static EnumMap<UpgradeType, Integer> deserializeUpgrades(String data) {
@@ -341,9 +467,14 @@ public class RealmProfile {
             upgrades.put(type, 0);
         }
         this.purchasedUpgrades.clear();
-        // completedQuests and goldenCookiesCollected survive prestige (permanent progress)
+        this.cookiesFromClicks = BigDecimal.ZERO;
+        resetBuildingCookies();
+        this.goldenEarly = false;
+        this.goldenLate = false;
+        // achievements and goldenCookiesCollected survive prestige (permanent progress)
         this.prestigeLevel = 0;
         this.aura = BigDecimal.ZERO;
+        this.giftedCookies = BigDecimal.ZERO;
         this.lastCurrentDigitCount = 0;
         this.lastTotalDigitCount = 0;
         this.lastEntropyDigitCount = 0;
@@ -357,6 +488,7 @@ public class RealmProfile {
         this.cookies = this.cookies.add(other.cookies);
         this.totalCookiesEarned = this.totalCookiesEarned.add(other.totalCookiesEarned);
         this.lifetimeCookiesEarned = this.lifetimeCookiesEarned.add(other.lifetimeCookiesEarned);
+        this.giftedCookies = this.giftedCookies.add(other.giftedCookies);
         this.timesClicked += other.timesClicked;
         this.ownerClicks += other.ownerClicks;
         this.otherClicks += other.otherClicks;
@@ -364,7 +496,11 @@ public class RealmProfile {
             this.upgrades.put(type, Math.max(this.getUpgradeCount(type), other.getUpgradeCount(type)));
         }
         this.purchasedUpgrades.addAll(other.purchasedUpgrades);
-        this.completedQuests.addAll(other.completedQuests);
+        this.completedAchievements.addAll(other.completedAchievements);
+        this.cookiesFromClicks = this.cookiesFromClicks.add(other.cookiesFromClicks);
+        for (UpgradeType type : UpgradeType.values()) {
+            this.cookiesFromBuilding.put(type, getCookiesFromBuilding(type).add(other.getCookiesFromBuilding(type)));
+        }
         this.goldenCookiesCollected += other.goldenCookiesCollected;
         this.prestigeLevel = Math.max(this.prestigeLevel, other.prestigeLevel);
         this.aura = this.aura.max(other.aura);

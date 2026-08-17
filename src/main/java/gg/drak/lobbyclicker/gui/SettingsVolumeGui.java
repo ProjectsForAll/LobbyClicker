@@ -55,7 +55,7 @@ public class SettingsVolumeGui extends PaginationMonitor {
             else if (volume >= 2.0) mat = Material.LIME_STAINED_GLASS_PANE;
             else mat = Material.YELLOW_STAINED_GLASS_PANE;
 
-            Icon icon = GuiHelper.createIcon(mat,
+            Icon icon = ClickerGuiHelper.createIcon(mat,
                     ChatColor.YELLOW + type.displayName(),
                     "",
                     ChatColor.GRAY + "Volume: " + ChatColor.WHITE + volStr,

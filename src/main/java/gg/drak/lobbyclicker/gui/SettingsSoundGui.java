@@ -52,7 +52,7 @@ public class SettingsSoundGui extends SimpleGuiMonitor {
             String status = on ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF";
             String masterNote = type == SettingType.SOUND_MASTER ? ChatColor.DARK_GRAY + "(Master Switch)" : "";
 
-            Icon icon = GuiHelper.createIcon(mat,
+            Icon icon = ClickerGuiHelper.createIcon(mat,
                     ChatColor.YELLOW + type.displayName() + " " + status,
                     masterNote, "", ChatColor.GRAY + "Click to toggle");
             icon.onClick(e -> {

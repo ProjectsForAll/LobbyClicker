@@ -64,7 +64,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
             // Replace back button with close/barrier
             buildStandardActionBar(p -> p.closeInventory());
             int b = (getSize() / 9 - 1) * 9;
-            Icon close = GuiHelper.createIcon(Material.BARRIER,
+            Icon close = ClickerGuiHelper.createIcon(Material.BARRIER,
                     ChatColor.RED + "" + ChatColor.BOLD + "Close");
             close.onClick(e -> player.closeInventory());
             addItem(b + 7, close); // overwrite back button slot
@@ -74,7 +74,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
         List<RealmProfile> profiles = ProfileManager.getProfilesForOwner(data.getIdentifier());
 
         // Title info at top
-        addItem(4, GuiHelper.createIcon(Material.BOOK,
+        addItem(4, ClickerGuiHelper.createIcon(Material.BOOK,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Your Profiles",
                 "",
                 ChatColor.GRAY + "Profiles: " + ChatColor.WHITE + profiles.size() + "/" + maxProfiles,
@@ -115,7 +115,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
                     ChatColor nameColor = isActive ? ChatColor.GREEN : ChatColor.GOLD;
                     String activeTag = isActive ? ChatColor.GREEN + " (Active)" : "";
 
-                    icon = GuiHelper.createIcon(Material.CHEST_MINECART,
+                    icon = ClickerGuiHelper.createIcon(Material.CHEST_MINECART,
                             nameColor + "" + ChatColor.BOLD + profile.getProfileName() + activeTag,
                             "",
                             ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(profile.getCookies()),
@@ -138,7 +138,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
                     break;
                 }
                 case AVAILABLE: {
-                    icon = GuiHelper.createIcon(Material.MINECART,
+                    icon = ClickerGuiHelper.createIcon(Material.MINECART,
                             ChatColor.YELLOW + "" + ChatColor.BOLD + "Empty Slot",
                             "",
                             ChatColor.GRAY + "Click to create a new profile");
@@ -161,7 +161,7 @@ public class ProfileSelectorGui extends PaginationMonitor {
                 }
                 case LOCKED:
                 default: {
-                    icon = GuiHelper.createIcon(Material.TNT_MINECART,
+                    icon = ClickerGuiHelper.createIcon(Material.TNT_MINECART,
                             ChatColor.RED + "" + ChatColor.BOLD + "Locked Slot",
                             "",
                             ChatColor.GRAY + "You need a higher permission",

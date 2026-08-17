@@ -1,7 +1,5 @@
 package gg.drak.lobbyclicker.idle;
 
-import gg.drak.lobbyclicker.boosters.BoosterEffect;
-import gg.drak.lobbyclicker.boosters.BoosterManager;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import org.bukkit.ChatColor;
@@ -40,14 +38,26 @@ public final class OfflineCookieEarnings {
             return;
         }
 
-        BigDecimal boosterMult = BoosterManager.getMultiplier(data.getIdentifier(), BoosterEffect.CPS_MULTIPLIER);
-        BigDecimal gain = cps.multiply(boosterMult).multiply(BigDecimal.valueOf(secondsOffline));
+        BigDecimal gain = cps.multiply(BigDecimal.valueOf(secondsOffline));
         if (gain.signum() <= 0) {
             data.save(true);
             return;
         }
 
         data.addCookies(gain);
+        gg.drak.lobbyclicker.realm.RealmProfile profile = data.getActiveProfile();
+        if (profile != null) {
+            BigDecimal raw = profile.getRawCps();
+            if (raw.signum() > 0) {
+                for (gg.drak.lobbyclicker.upgrades.UpgradeType type : gg.drak.lobbyclicker.upgrades.UpgradeType.values()) {
+                    BigDecimal buildingRaw = profile.getBuildingRawCps(type);
+                    if (buildingRaw.signum() <= 0) continue;
+                    profile.addCookiesFromBuilding(type, gain.multiply(buildingRaw)
+                            .divide(raw, java.math.RoundingMode.HALF_UP));
+                }
+            }
+            gg.drak.lobbyclicker.achievements.AchievementManager.check(data);
+        }
         data.save(true);
 
         player.sendMessage(ChatColor.GOLD + "While you were offline, you gained "

@@ -29,7 +29,7 @@ public class ProfileDeleteConfirmGui extends ConfirmationMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
 
-        Icon info = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+        Icon info = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Delete: " + profile.getProfileName(),
                 "",
                 ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(profile.getCookies()),

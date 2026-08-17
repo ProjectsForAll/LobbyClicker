@@ -39,7 +39,7 @@ public class MailGui extends SimpleGuiMonitor {
         long gambleCount = pending.stream().filter(tx -> tx.getType() == TransactionType.GAMBLE).count();
 
         // Friend Requests
-        Icon friendReqs = GuiHelper.createIcon(
+        Icon friendReqs = ClickerGuiHelper.createIcon(
                 friendReqCount > 0 ? Material.WRITABLE_BOOK : Material.BOOK,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Friend Requests",
                 "",
@@ -53,7 +53,7 @@ public class MailGui extends SimpleGuiMonitor {
         setContent(1, friendReqs);
 
         // Payments
-        Icon payments = GuiHelper.createIcon(
+        Icon payments = ClickerGuiHelper.createIcon(
                 paymentCount > 0 ? Material.GOLD_INGOT : Material.IRON_INGOT,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Payment Requests",
                 "",
@@ -66,7 +66,7 @@ public class MailGui extends SimpleGuiMonitor {
         setContent(3, payments);
 
         // Gambles
-        Icon gambles = GuiHelper.createIcon(
+        Icon gambles = ClickerGuiHelper.createIcon(
                 gambleCount > 0 ? Material.EMERALD : Material.IRON_NUGGET,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Gambling Requests",
                 "",

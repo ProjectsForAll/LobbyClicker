@@ -33,7 +33,7 @@ public class TransferConfirmGui extends ConfirmationMonitor {
         String targetName = targetUuid.substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
-        Icon info = GuiHelper.createIcon(Material.ENDER_CHEST,
+        Icon info = ClickerGuiHelper.createIcon(Material.ENDER_CHEST,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Transfer to " + targetName,
                 "",
                 ChatColor.GRAY + "This will transfer:",

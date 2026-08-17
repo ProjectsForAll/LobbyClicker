@@ -32,10 +32,10 @@ public class PaymentGui extends BaseGui {
     @Override
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
-        fillGui(GuiHelper.filler());
+        fillGui(ClickerGuiHelper.filler());
 
         // Home button
-        Icon home = GuiHelper.homeButton();
+        Icon home = ClickerGuiHelper.homeButton();
         home.onClick(e -> new ClickerGui(player, senderData).open());
         addItem(0, home);
 
@@ -54,7 +54,7 @@ public class PaymentGui extends BaseGui {
 
         // Amount info display
         boolean canAfford = senderData.canAfford(amount) && amount.signum() > 0;
-        addItem(13, GuiHelper.createIcon(Material.SUNFLOWER,
+        addItem(13, ClickerGuiHelper.createIcon(Material.SUNFLOWER,
                 ChatColor.GOLD + "" + ChatColor.BOLD + FormatUtils.format(amount) + " cookies",
                 "",
                 ChatColor.GRAY + "To: " + ChatColor.WHITE + targetName,
@@ -77,19 +77,19 @@ public class PaymentGui extends BaseGui {
         addAdjustButton(player, 8, 10000, Material.LIME_STAINED_GLASS_PANE);
 
         // None button
-        Icon none = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "None",
+        Icon none = ClickerGuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "" + ChatColor.BOLD + "None",
                 "", ChatColor.GRAY + "Reset to 0");
         none.onClick(e -> new PaymentGui(player, senderData, targetUuid, BigDecimal.ZERO).open());
         addItem(12, none);
 
         // All button
-        Icon all = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "All",
+        Icon all = ClickerGuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "All",
                 "", ChatColor.GRAY + "Set to max: " + ChatColor.GOLD + FormatUtils.format(senderData.getCookies()));
         all.onClick(e -> new PaymentGui(player, senderData, targetUuid, senderData.getCookies()).open());
         addItem(14, all);
 
         // Custom amount button
-        Icon custom = GuiHelper.createIcon(Material.OAK_SIGN, ChatColor.YELLOW + "" + ChatColor.BOLD + "Custom Amount",
+        Icon custom = ClickerGuiHelper.createIcon(Material.OAK_SIGN, ChatColor.YELLOW + "" + ChatColor.BOLD + "Custom Amount",
                 "", ChatColor.GRAY + "Type an amount in chat",
                 ChatColor.GRAY + "e.g. " + ChatColor.WHITE + "2.5m" + ChatColor.GRAY + ", " + ChatColor.WHITE + "20000" + ChatColor.GRAY + ", " + ChatColor.WHITE + "5k");
         custom.onClick(e -> {
@@ -116,7 +116,7 @@ public class PaymentGui extends BaseGui {
         // Confirm
         if (canAfford) {
             String finalTargetName = targetName;
-            Icon confirm = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Confirm Payment",
+            Icon confirm = ClickerGuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "" + ChatColor.BOLD + "Confirm Payment",
                     "", ChatColor.GRAY + "Send " + ChatColor.GOLD + FormatUtils.format(amount) + ChatColor.GRAY + " to " + finalTargetName);
             confirm.onClick(e -> {
                 if (!senderData.canAfford(amount) || amount.signum() <= 0) {
@@ -140,14 +140,14 @@ public class PaymentGui extends BaseGui {
         }
 
         // Cancel
-        Icon cancel = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Cancel");
+        Icon cancel = ClickerGuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Cancel");
         cancel.onClick(e -> new MoneyActionsGui(player, senderData, targetUuid, "social").open());
         addItem(18, cancel);
     }
 
     private void addAdjustButton(Player player, int slot, long change, Material mat) {
         String prefix = change > 0 ? ChatColor.GREEN + "+" : ChatColor.RED + "";
-        Icon icon = GuiHelper.createIcon(mat, prefix + FormatUtils.format(Math.abs(change)));
+        Icon icon = ClickerGuiHelper.createIcon(mat, prefix + FormatUtils.format(Math.abs(change)));
         icon.onClick(e -> new PaymentGui(player, senderData, targetUuid, amount.add(BigDecimal.valueOf(change))).open());
         addItem(slot, icon);
     }

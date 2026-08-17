@@ -4,7 +4,7 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.config.MainConfig;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.MenuText;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.SimpleGuiMonitor;
@@ -31,14 +31,14 @@ public class AdminMainGui extends SimpleGuiMonitor {
         super.onOpen(event);
         fillMonitorBorder();
 
-        addItem(4, GuiHelper.createIcon(Material.COMMAND_BLOCK,
+        addItem(4, ClickerGuiHelper.createIcon(Material.COMMAND_BLOCK,
                 MonitorStyle.title("dark_red", "LobbyClicker Admin"),
                 "",
                 "<gray>" + MenuText.esc("Manage the clicker plugin") + "</gray>",
                 MenuText.grayWhite("Loaded players: ", String.valueOf(PlayerManager.getLoadedPlayers().size()))));
 
         // Row 1: Player management
-        Icon managePlayers = GuiHelper.createIcon(Material.PLAYER_HEAD,
+        Icon managePlayers = ClickerGuiHelper.createIcon(Material.PLAYER_HEAD,
                 MenuText.title("gold", "Manage Players"),
                 "", "<gray>" + MenuText.esc("Browse all players") + "</gray>",
                 "", "<yellow>" + MenuText.esc("Click to open") + "</yellow>");
@@ -77,7 +77,7 @@ public class AdminMainGui extends SimpleGuiMonitor {
                 }));
 
         // Row 3: Info
-        setContent(14, GuiHelper.createIcon(Material.PAPER,
+        setContent(14, ClickerGuiHelper.createIcon(Material.PAPER,
                 "<white><bold>" + MenuText.esc("Quick Help") + "</bold></white>",
                 "",
                 "<yellow>/clickeradmin</yellow><gray>" + MenuText.esc(" - Open this GUI") + "</gray>",
@@ -94,13 +94,13 @@ public class AdminMainGui extends SimpleGuiMonitor {
 
         // Close button
         int b = (getSize() / 9 - 1) * 9;
-        Icon close = GuiHelper.createIcon(Material.BARRIER, "<red>" + MenuText.esc("Close") + "</red>");
+        Icon close = ClickerGuiHelper.createIcon(Material.BARRIER, "<red>" + MenuText.esc("Close") + "</red>");
         close.onClick(e -> player.closeInventory());
         addItem(b + 8, close);
     }
 
     private Icon makeAction(Material mat, String namedColor, String label, String desc, java.util.function.Consumer<Player> onClick) {
-        Icon icon = GuiHelper.createIcon(mat,
+        Icon icon = ClickerGuiHelper.createIcon(mat,
                 "<" + namedColor + "><bold>" + MenuText.esc(label) + "</bold></" + namedColor + ">",
                 "",
                 "<gray>" + MenuText.esc(desc) + "</gray>",

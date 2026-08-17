@@ -15,6 +15,34 @@ public class CookieMath {
         return val.setScale(0, RoundingMode.FLOOR);
     }
 
+    public static BigDecimal ceil(BigDecimal val) {
+        return val.setScale(0, RoundingMode.CEILING);
+    }
+
+    public static BigDecimal cbrtFloor(BigDecimal val) {
+        if (val == null || val.signum() <= 0) return ZERO;
+        // Newton cube-root on DECIMAL128, then floor.
+        BigDecimal x = val;
+        if (val.compareTo(ONE) > 0) {
+            int digits = Math.max(1, val.toPlainString().replace(".", "").length());
+            x = CookieMath.pow(new BigDecimal("10"), Math.max(0, digits / 3));
+            if (x.signum() == 0) x = ONE;
+        }
+        for (int i = 0; i < 40; i++) {
+            BigDecimal x2 = x.multiply(x, MC);
+            BigDecimal num = x2.multiply(x, MC).multiply(new BigDecimal("2")).add(val);
+            BigDecimal den = x2.multiply(new BigDecimal("3"), MC);
+            if (den.signum() == 0) break;
+            BigDecimal next = num.divide(den, MC);
+            if (next.subtract(x).abs().compareTo(new BigDecimal("0.0000001")) < 0) {
+                x = next;
+                break;
+            }
+            x = next;
+        }
+        return floor(x);
+    }
+
     public static BigDecimal pow(BigDecimal base, int exponent) {
         if (exponent == 0) return ONE;
         if (exponent == 1) return base;

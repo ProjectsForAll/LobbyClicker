@@ -22,6 +22,8 @@ public class MainConfig extends SimpleConfiguration {
         isSimpleMode();
         isSocialFeaturesEnabled();
         isRealmSettingsMenuEnabled();
+        isFriendsProviderEnabled();
+        isNotificationsDisabled();
     }
 
     public String getServerId() {
@@ -85,5 +87,19 @@ public class MainConfig extends SimpleConfiguration {
     public boolean isRealmSettingsMenuEnabled() {
         reloadResource();
         return getOrSetDefault("clicker.gui.realm-settings-enabled", true);
+    }
+
+    /**
+     * When true, friend/request operations delegate to the FriendsProvider plugin instead of the built-in DB layer.
+     * Requires the FriendsProvider plugin to be loaded; if missing, a warning is logged and the hook is disabled.
+     */
+    public boolean isFriendsProviderEnabled() {
+        reloadResource();
+        return getOrSetDefault("friends-provider.enabled", false);
+    }
+
+    public boolean isNotificationsDisabled() {
+        reloadResource();
+        return getOrSetDefault("clicker.notifications-disabled", false);
     }
 }

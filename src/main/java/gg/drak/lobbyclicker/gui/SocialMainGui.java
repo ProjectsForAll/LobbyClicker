@@ -43,7 +43,7 @@ public class SocialMainGui extends MenuMonitor {
         viewers.onClick(e -> new RealmViewersGui(player, data).open());
         addOption(viewers);
 
-        Icon allPlayers = GuiHelper.playerHead(player,
+        Icon allPlayers = ClickerGuiHelper.playerHead(player,
                 ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "All Players",
                 "", ChatColor.GRAY + "Browse online players", ChatColor.YELLOW + "Click to open");
         allPlayers.onClick(e -> new AllPlayersGui(player, data, 0).open());

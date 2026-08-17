@@ -45,7 +45,7 @@ public class GambleRequestsGui extends PaginationMonitor {
                 .stream().filter(tx -> tx.getType() == TransactionType.GAMBLE).toList();
 
         if (gambles.isEmpty()) {
-            addItem(22, GuiHelper.createIcon(Material.PAPER,
+            addItem(22, ClickerGuiHelper.createIcon(Material.PAPER,
                     ChatColor.GRAY + "No pending bets",
                     "", ChatColor.GRAY + "You have no incoming gambling requests."));
         }

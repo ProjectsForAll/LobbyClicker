@@ -35,14 +35,14 @@ public class MoneyActionsGui extends SimpleGuiMonitor {
         try { String n = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
         // Pay button
-        Icon pay = GuiHelper.createIcon(Material.GOLD_INGOT,
+        Icon pay = ClickerGuiHelper.createIcon(Material.GOLD_INGOT,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Pay Cookies",
                 "", ChatColor.GRAY + "Send cookies to " + ChatColor.WHITE + targetName);
         pay.onClick(e -> new PaymentGui(player, viewerData, targetUuid, BigDecimal.ZERO).open());
         setContent(2, pay);
 
         // Gamble button
-        Icon gamble = GuiHelper.createIcon(Material.EMERALD,
+        Icon gamble = ClickerGuiHelper.createIcon(Material.EMERALD,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Gamble",
                 "", ChatColor.GRAY + "Bet cookies against " + ChatColor.WHITE + targetName,
                 ChatColor.GRAY + "50/50 chance. Winner takes all!");

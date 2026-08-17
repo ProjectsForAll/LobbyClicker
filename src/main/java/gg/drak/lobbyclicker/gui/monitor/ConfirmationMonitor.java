@@ -1,6 +1,6 @@
 package gg.drak.lobbyclicker.gui.monitor;
 
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.MenuText;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Material;
@@ -39,7 +39,7 @@ public abstract class ConfirmationMonitor extends SimpleGuiMonitor {
                 buildConfirmation(infoItem, confirmLabel, confirmWarning, onConfirm, onCancel);
             });
         } else {
-            confirmIcon = GuiHelper.createIcon(Material.LIME_DYE,
+            confirmIcon = ClickerGuiHelper.createIcon(Material.LIME_DYE,
                     "<green><bold>" + MenuText.esc("CONFIRM") + "</bold></green>",
                     "",
                     "<red><bold>" + MenuText.esc(confirmWarning) + "</bold></red>",

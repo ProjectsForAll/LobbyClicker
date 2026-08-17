@@ -25,6 +25,7 @@ public abstract class PaginationMonitor extends SimpleGuiMonitor {
     protected int page;
     protected boolean wrapAround = true;
 
+    /** Inner grid plus room for BOU-style prev/next at slots 10 and 16. */
     public static final int[] PAGINATED_SLOTS = {
             11, 12, 13, 14, 15,
             19, 20, 21, 22, 23, 24, 25,

@@ -27,7 +27,7 @@ public class RealmSettingsGui extends MenuMonitor {
 
         // Delete
         RealmProfile profile = data.getActiveProfile();
-        Icon delete = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+        Icon delete = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Delete?",
                 "", ChatColor.GRAY + "Permanently delete this profile");
         if (profile != null) {
@@ -36,7 +36,7 @@ public class RealmSettingsGui extends MenuMonitor {
         addOption(delete);
 
         // Rename
-        Icon rename = GuiHelper.createIcon(Material.NAME_TAG,
+        Icon rename = ClickerGuiHelper.createIcon(Material.NAME_TAG,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Rename",
                 "", ChatColor.GRAY + "Rename this realm profile");
         rename.onClick(e -> {
@@ -83,7 +83,7 @@ public class RealmSettingsGui extends MenuMonitor {
         addOption(publicToggle);
 
         // Reset Realm
-        Icon reset = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+        Icon reset = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Reset Realm?",
                 "", ChatColor.GRAY + "Reset all realm data",
                 ChatColor.GRAY + "Keeps: settings, friends");

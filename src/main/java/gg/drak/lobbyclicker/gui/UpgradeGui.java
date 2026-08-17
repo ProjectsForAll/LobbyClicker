@@ -1,13 +1,12 @@
 package gg.drak.lobbyclicker.gui;
 
 import gg.drak.lobbyclicker.LobbyClicker;
+import gg.drak.lobbyclicker.achievements.AchievementManager;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
-import gg.drak.lobbyclicker.prestige.PrestigeManager;
 import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.redis.RedisSyncHandler;
-import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import mc.obliviate.inventory.Icon;
@@ -18,7 +17,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class UpgradeGui extends PaginationMonitor {
@@ -67,174 +68,68 @@ public class UpgradeGui extends PaginationMonitor {
             new ShopGui(p, viewerData, ownerData).open();
         });
 
-        // Cookie info at top
-        addItem(4, GuiHelper.createIcon(Material.COOKIE,
+        addItem(4, ClickerGuiHelper.createIcon(Material.COOKIE,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Realm Cookies",
                 "",
                 ChatColor.GRAY + "Cookies: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCookies()),
                 ChatColor.GRAY + "CPS: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCps()),
                 ChatColor.GRAY + "CPC: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc())));
 
-        // Layout: blank, blank, Click Power, blank, blank, then Cursor through Prism in order
-        List<UpgradeType> layout = new ArrayList<>();
-        layout.add(null); // blank
-        layout.add(null); // blank
-        layout.add(UpgradeType.CLICK_POWER);
-        layout.add(null); // blank
-        layout.add(null); // blank
-        layout.add(UpgradeType.CURSOR);
-        layout.add(UpgradeType.GRANDMA);
-        layout.add(UpgradeType.FARM);
-        layout.add(UpgradeType.MINE);
-        layout.add(UpgradeType.FACTORY);
-        layout.add(UpgradeType.BANK);
-        layout.add(UpgradeType.TEMPLE);
-        layout.add(UpgradeType.WIZARD_TOWER);
-        layout.add(UpgradeType.SHIPMENT);
-        layout.add(UpgradeType.ALCHEMY_LAB);
-        layout.add(UpgradeType.PORTAL);
-        layout.add(UpgradeType.TIME_MACHINE);
-        layout.add(UpgradeType.ANTIMATTER);
-        layout.add(UpgradeType.PRISM);
-        layout.add(UpgradeType.STARFORGE);
-        layout.add(UpgradeType.VOID_VAULT);
-        layout.add(UpgradeType.SINGULARITY);
-        layout.add(UpgradeType.OMNIBAKERY);
-
-        populatePagedContent(layout, (type, slot) -> {
-            if (type != null) {
-                addItem(slot, createUpgradeIcon(type));
-            }
-            // null entries stay as the monitor border/background
-        });
-
-        addPaginationArrows(layout, newPage -> {});
+        List<UpgradeType> layout = Arrays.asList(UpgradeType.values());
+        populatePagedContent(layout, (type, slot) -> addItem(slot, createUpgradeIcon(type)));
+        addPaginationArrows(layout, newPage -> { this.page = newPage; refreshDisplay(); });
     }
 
     private Icon createUpgradeIcon(UpgradeType type) {
         int owned = ownerData.getUpgradeCount(type);
         BigDecimal cost = type.getCost(owned);
         boolean canAfford = ownerData.canAfford(cost);
-
-        UpgradeType prev = type.getPreviousInChain();
-        boolean hasPrevious = prev != null && ownerData.getUpgradeCount(prev) > 0;
-        boolean chainRevealed = !type.isHidden() || owned > 0 || canAfford || hasPrevious;
-        int needPrestige = type.getRequiredPrestigeLevel();
-        int prestigeLevel = ownerData.getPrestigeLevel();
-        boolean meetsPrestige = needPrestige == 0 || prestigeLevel >= needPrestige;
-
-        if (!chainRevealed) {
-            List<String> lore = new ArrayList<>();
-            lore.add("");
-            lore.add(ChatColor.GRAY + "" + ChatColor.MAGIC + "??????????????????");
-            lore.add("");
-            lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
-            lore.add(ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + ChatColor.MAGIC + "??????");
-            lore.add("");
-            lore.add(ChatColor.GRAY + "Cost: " + ChatColor.RED + ChatColor.MAGIC + "??????" + ChatColor.RESET + ChatColor.RED + " cookies");
-            lore.add("");
-            lore.add(ChatColor.RED + "Earn more cookies to reveal!");
-
-            Icon icon = GuiHelper.createIcon(type.getMaterial(),
-                    ChatColor.RED + "" + ChatColor.MAGIC + "??????");
-            icon.onClick(e -> {
-                if (!e.isLeftClick()) return;
-                player.sendMessage(ChatColor.RED + "You haven't unlocked this upgrade yet!");
-                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
-            });
-            return icon;
-        }
-
         RealmProfile profile = ownerData.getActiveProfile();
-        BigDecimal pUpgMult = PrestigeManager.getUpgradeMultiplier(prestigeLevel);
-        BigDecimal pClickMult = PrestigeManager.getClickMultiplier(prestigeLevel, ownerData.getAura());
 
-        List<String> lore = new ArrayList<>();
+        List<String> lore = new java.util.ArrayList<>();
         lore.add("");
         lore.add(ChatColor.GRAY + type.getDescription());
-        if (needPrestige > 0 && !meetsPrestige) {
-            lore.add("");
-            lore.add(ChatColor.LIGHT_PURPLE + "Requires prestige " + ChatColor.WHITE + needPrestige
-                    + ChatColor.GRAY + " (yours: " + ChatColor.WHITE + prestigeLevel + ChatColor.GRAY + ")");
-        }
         lore.add("");
         lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
 
-        if (type.getCpsPerLevel().signum() > 0) {
-            BigDecimal baseCpsEach = type.getCpsPerLevel().multiply(pUpgMult);
-            BigDecimal effectiveCpsEach = baseCpsEach;
-            if (profile != null) {
-                effectiveCpsEach = type.getCpsPerLevel()
-                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
-                        .multiply(pUpgMult)
-                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER));
+        if (profile != null && type.getCpsPerLevel().signum() > 0) {
+            BigDecimal rawEach = type.getCpsPerLevel();
+            BigDecimal liveCps = ownerData.getCps();
+            BigDecimal rawTotal = profile.getRawCps();
+            BigDecimal share = BigDecimal.ZERO;
+            if (rawTotal.signum() > 0 && owned > 0) {
+                share = liveCps.multiply(profile.getBuildingRawCps(type))
+                        .divide(rawTotal, java.math.RoundingMode.HALF_UP);
             }
-            BigDecimal upgradeBonus = effectiveCpsEach.subtract(baseCpsEach);
-            lore.add(ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(effectiveCpsEach)
-                    + (upgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(upgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
-            BigDecimal totalCps = effectiveCpsEach.multiply(BigDecimal.valueOf(owned));
-            BigDecimal totalUpgradeBonus = upgradeBonus.multiply(BigDecimal.valueOf(owned));
-            lore.add(ChatColor.GRAY + "Total CPS: " + ChatColor.WHITE + "+" + FormatUtils.format(totalCps)
-                    + (totalUpgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(totalUpgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
-        }
-        if (type.getCpcPerLevel().signum() > 0) {
-            BigDecimal baseCpcEach = type.getCpcPerLevel().multiply(pClickMult);
-            BigDecimal effectiveCpcEach = baseCpcEach;
-            if (profile != null) {
-                effectiveCpcEach = type.getCpcPerLevel()
-                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.BUILDING_MULTIPLIER, type))
-                        .multiply(pClickMult)
-                        .multiply(profile.getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER));
-            }
-            BigDecimal upgradeBonus = effectiveCpcEach.subtract(baseCpcEach);
-            lore.add(ChatColor.GRAY + "CPC each: " + ChatColor.WHITE + "+" + FormatUtils.format(effectiveCpcEach)
-                    + (upgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(upgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
-            BigDecimal totalCpc = effectiveCpcEach.multiply(BigDecimal.valueOf(owned));
-            BigDecimal totalUpgradeBonus = upgradeBonus.multiply(BigDecimal.valueOf(owned));
-            lore.add(ChatColor.GRAY + "Total CPC: " + ChatColor.WHITE + "+" + FormatUtils.format(totalCpc)
-                    + (totalUpgradeBonus.signum() > 0 ? ChatColor.GRAY + " (+" + FormatUtils.format(totalUpgradeBonus) + " from " + ChatColor.AQUA + ChatColor.BOLD + "Upgrades" + ChatColor.GRAY + ")" : ""));
+            lore.add(ChatColor.GRAY + "Base CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(rawEach));
+            lore.add(ChatColor.GRAY + "Live share: " + ChatColor.WHITE + "+" + FormatUtils.format(share)
+                    + ChatColor.GRAY + " (includes aura, prestige, milk)");
         }
 
         lore.add("");
-        lore.add(ChatColor.GRAY + "Cost: " + (meetsPrestige && canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies");
+        lore.add(ChatColor.GRAY + "Cost: " + (canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies");
         lore.add("");
-        if (!meetsPrestige) {
-            lore.add(ChatColor.RED + "Prestige to unlock purchasing!");
-        } else {
-            lore.add(canAfford ? ChatColor.YELLOW + "Click to buy!" : ChatColor.RED + "Not enough cookies!");
-        }
+        lore.add(canAfford ? ChatColor.YELLOW + "Click to buy!" : ChatColor.RED + "Not enough cookies!");
 
-        String nameColor = !meetsPrestige ? ChatColor.LIGHT_PURPLE.toString()
-                : (canAfford ? ChatColor.GREEN.toString() : ChatColor.RED.toString());
-        Icon icon = GuiHelper.createIcon(type.getMaterial(), nameColor + ChatColor.BOLD + type.getDisplayName(),
+        String nameColor = canAfford ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
+        Icon icon = ClickerGuiHelper.createIcon(type.getMaterial(), nameColor + ChatColor.BOLD + type.getDisplayName(),
                 lore.toArray(new String[0]));
 
         icon.onClick(e -> {
             if (!e.isLeftClick()) return;
-            if (needPrestige > 0 && prestigeLevel < needPrestige) {
-                player.sendMessage(ChatColor.RED + "Reach prestige " + needPrestige + " to buy this helper!");
-                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
-                return;
-            }
             if (isOwnerRemote()) {
                 RedisSyncHandler.publishBuyUpgrade(ownerData.getIdentifier(), viewerData.getIdentifier(), type.name());
+            } else if (ownerData.buyUpgrade(type)) {
+                AchievementManager.check(ownerData);
                 if (viewerData.getSettings().isSoundEnabled(gg.drak.lobbyclicker.settings.SettingType.SOUND_BUY)) {
                     float vol = viewerData.getSettings().getVolume(gg.drak.lobbyclicker.settings.SettingType.VOLUME_BUY);
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, vol, 1.5f);
                 }
             } else {
-                if (ownerData.buyUpgrade(type)) {
-                    if (viewerData.getSettings().isSoundEnabled(gg.drak.lobbyclicker.settings.SettingType.SOUND_BUY)) {
-                        float vol = viewerData.getSettings().getVolume(gg.drak.lobbyclicker.settings.SettingType.VOLUME_BUY);
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, vol, 1.5f);
-                    }
-                } else {
-                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
-                }
-                refreshDisplay();
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f);
             }
+            refreshDisplay();
         });
-
         return icon;
     }
 }

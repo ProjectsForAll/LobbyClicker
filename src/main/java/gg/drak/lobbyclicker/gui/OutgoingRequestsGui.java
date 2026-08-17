@@ -50,7 +50,7 @@ public class OutgoingRequestsGui extends PaginationMonitor {
         List<String> outgoing = new ArrayList<>(data.getOutgoingFriendRequests());
 
         if (outgoing.isEmpty()) {
-            addItem(22, GuiHelper.createIcon(Material.PAPER,
+            addItem(22, ClickerGuiHelper.createIcon(Material.PAPER,
                     ChatColor.GRAY + "No outgoing requests",
                     "", ChatColor.GRAY + "You haven't sent any friend requests."));
         }

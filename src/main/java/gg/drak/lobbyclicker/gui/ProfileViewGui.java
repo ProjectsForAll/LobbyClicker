@@ -105,36 +105,36 @@ public class ProfileViewGui extends SimpleGuiMonitor {
         buildStandardActionBar(backAction);
 
         // Player head at top center
-        addItem(4, GuiHelper.playerHead(targetUuid,
+        addItem(4, ClickerGuiHelper.playerHead(targetUuid,
                 ChatColor.GOLD + "" + ChatColor.BOLD + targetName,
                 "", ChatColor.GRAY + "Profile: " + ChatColor.WHITE + profileName));
 
         // === Row 1: Economy stats ===
-        setContent(0, GuiHelper.createIcon(Material.COOKIE,
+        setContent(0, ClickerGuiHelper.createIcon(Material.COOKIE,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Cookies",
                 "",
                 ChatColor.GRAY + "Current: " + ChatColor.WHITE + FormatUtils.format(cookies),
                 ChatColor.GRAY + "Total Earned: " + ChatColor.WHITE + FormatUtils.format(totalEarned)));
 
-        setContent(1, GuiHelper.createIcon(Material.CLOCK,
+        setContent(1, ClickerGuiHelper.createIcon(Material.CLOCK,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Production",
                 "",
                 ChatColor.GRAY + "Per Second: " + ChatColor.WHITE + FormatUtils.format(cps),
                 ChatColor.GRAY + "Per Click: " + ChatColor.WHITE + FormatUtils.format(cpc)));
 
-        setContent(2, GuiHelper.createIcon(Material.BEACON,
+        setContent(2, ClickerGuiHelper.createIcon(Material.BEACON,
                 ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige",
                 "",
                 ChatColor.GRAY + "Level: " + ChatColor.WHITE + prestige,
                 ChatColor.GRAY + "Aura: " + ChatColor.WHITE + FormatUtils.format(aura)));
 
-        setContent(4, GuiHelper.createIcon(Material.ENDER_EYE,
+        setContent(4, ClickerGuiHelper.createIcon(Material.ENDER_EYE,
                 ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "Entropy",
                 "",
                 ChatColor.GRAY + "Clicker Entropy: " + ChatColor.WHITE + FormatUtils.format(entropy)));
 
         // === Row 2: Click stats ===
-        setContent(7, GuiHelper.createIcon(Material.STONE_BUTTON,
+        setContent(7, ClickerGuiHelper.createIcon(Material.STONE_BUTTON,
                 ChatColor.AQUA + "" + ChatColor.BOLD + "Click Stats",
                 "",
                 ChatColor.GRAY + "Realm Total: " + ChatColor.WHITE + FormatUtils.format(realmClicks),
@@ -143,7 +143,7 @@ public class ProfileViewGui extends SimpleGuiMonitor {
                 "",
                 ChatColor.GRAY + "Global Clicks: " + ChatColor.WHITE + FormatUtils.format(globalClicks)));
 
-        setContent(9, GuiHelper.createIcon(Material.NAME_TAG,
+        setContent(9, ClickerGuiHelper.createIcon(Material.NAME_TAG,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Profile Info",
                 "",
                 ChatColor.GRAY + "Name: " + ChatColor.WHITE + profileName,
@@ -160,7 +160,7 @@ public class ProfileViewGui extends SimpleGuiMonitor {
         else if (isObo) { status = "Online (another server)"; statusColor = ChatColor.AQUA; }
         else { status = "Offline"; statusColor = ChatColor.GRAY; }
 
-        setContent(11, GuiHelper.createIcon(isOnline ? Material.LIME_DYE : (isObo ? Material.LIGHT_BLUE_DYE : Material.GRAY_DYE),
+        setContent(11, ClickerGuiHelper.createIcon(isOnline ? Material.LIME_DYE : (isObo ? Material.LIGHT_BLUE_DYE : Material.GRAY_DYE),
                 statusColor + "" + ChatColor.BOLD + "Status",
                 "",
                 statusColor + status));

@@ -89,9 +89,22 @@ public class ClickerOperator extends DBOperator {
                 execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `CompletedQuests` TEXT NOT NULL DEFAULT '';", stmt -> {});
                 LobbyClicker.getInstance().logInfo("Added CompletedQuests column to Profiles table.");
             }
+            if (!existingProfileCols.contains("CompletedAchievements")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `CompletedAchievements` TEXT NOT NULL DEFAULT '';", stmt -> {});
+                execute("UPDATE `" + prefix + "Profiles` SET CompletedAchievements = CompletedQuests WHERE CompletedAchievements = '' OR CompletedAchievements IS NULL;", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added CompletedAchievements column to Profiles table.");
+            }
+            if (!existingProfileCols.contains("ExtraStats")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `ExtraStats` TEXT NOT NULL DEFAULT '';", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added ExtraStats column to Profiles table.");
+            }
             if (!existingProfileCols.contains("GoldenCookiesCollected")) {
                 execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `GoldenCookiesCollected` " + longType + " NOT NULL DEFAULT 0;", stmt -> {});
                 LobbyClicker.getInstance().logInfo("Added GoldenCookiesCollected column to Profiles table.");
+            }
+            if (!existingProfileCols.contains("GiftedCookies")) {
+                execute("ALTER TABLE `" + prefix + "Profiles` ADD COLUMN `GiftedCookies` TEXT NOT NULL DEFAULT '0';", stmt -> {});
+                LobbyClicker.getInstance().logInfo("Added GiftedCookies column to Profiles table.");
             }
         }
 
@@ -176,7 +189,10 @@ public class ClickerOperator extends DBOperator {
                     stmt.setString(15, totalEarned); // LifetimeCookiesEarned = TotalCookiesEarned for migration
                     stmt.setInt(16, CookieMath.digitCount(CookieMath.parse(totalEarned)));
                     stmt.setString(17, ""); // CompletedQuests
-                    stmt.setLong(18, 0L); // GoldenCookiesCollected
+                    stmt.setString(18, ""); // CompletedAchievements
+                    stmt.setString(19, ""); // ExtraStats
+                    stmt.setLong(20, 0L); // GoldenCookiesCollected
+                    stmt.setString(21, "0"); // GiftedCookies
                 } catch (Throwable e) {
                     LobbyClicker.getInstance().logWarning("Failed to migrate profile for " + uuid, e);
                 }
@@ -224,14 +240,35 @@ public class ClickerOperator extends DBOperator {
 
     private Set<String> getColumnNames(String tableName) {
         Set<String> cols = new HashSet<>();
-        executeQuery("SELECT * FROM `" + tableName + "` LIMIT 0;", stmt -> {}, rs -> {
-            try {
-                java.sql.ResultSetMetaData meta = rs.getMetaData();
-                for (int i = 1; i <= meta.getColumnCount(); i++) {
-                    cols.add(meta.getColumnName(i));
+        // Do not use SELECT ... LIMIT 0 here. DBOperator configures MySQL to use
+        // server-side prepared statements, and Connector/J can throw an
+        // ArrayIndexOutOfBoundsException while decoding an empty result set from
+        // that path. DatabaseMetaData gets the schema without executing a
+        // prepared result-set query and is supported by both configured drivers.
+        try (java.sql.Connection connection = getConnection()) {
+            if (connection == null) return cols;
+
+            String catalog = getConnectorSet().getType() == DatabaseType.MYSQL
+                    ? getConnectorSet().getDatabase()
+                    : null;
+            java.sql.DatabaseMetaData metadata = connection.getMetaData();
+            String tablePattern = tableName;
+            String searchEscape = metadata.getSearchStringEscape();
+            if (searchEscape != null && !searchEscape.isEmpty()) {
+                tablePattern = tablePattern.replace(searchEscape, searchEscape + searchEscape)
+                        .replace("%", searchEscape + "%")
+                        .replace("_", searchEscape + "_");
+            }
+            try (java.sql.ResultSet rs = metadata
+                    .getColumns(catalog, null, tablePattern, null)) {
+                while (rs.next()) {
+                    cols.add(rs.getString("COLUMN_NAME"));
                 }
-            } catch (Throwable ignored) {}
-        });
+            }
+        } catch (Throwable e) {
+            LobbyClicker.getInstance().logWarning(
+                    "Failed to read columns for table " + tableName, e);
+        }
         return cols;
     }
 
@@ -368,8 +405,12 @@ public class ClickerOperator extends DBOperator {
                 stmt.setString(14, profile.serializePurchasedUpgrades());
                 stmt.setString(15, profile.getLifetimeCookiesEarned().toPlainString());
                 stmt.setInt(16, profile.getLifetimeCookiesDigits());
-                stmt.setString(17, profile.serializeCompletedQuests());
-                stmt.setLong(18, profile.getGoldenCookiesCollected());
+                String achievements = profile.serializeCompletedAchievements();
+                stmt.setString(17, achievements);
+                stmt.setString(18, achievements);
+                stmt.setString(19, profile.serializeExtraStats());
+                stmt.setLong(20, profile.getGoldenCookiesCollected());
+                stmt.setString(21, profile.getGiftedCookies().toPlainString());
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Failed to push profile", e);
             }
@@ -473,10 +514,19 @@ public class ClickerOperator extends DBOperator {
                 p.setLifetimeCookiesEarned(p.getTotalCookiesEarned());
             }
             try {
-                p.setCompletedQuests(gg.drak.lobbyclicker.quests.Quest.deserialize(rs.getString("CompletedQuests")));
+                String ach = null;
+                try { ach = rs.getString("CompletedAchievements"); } catch (Throwable ignored) {}
+                if (ach == null || ach.isEmpty()) {
+                    try { ach = rs.getString("CompletedQuests"); } catch (Throwable ignored) {}
+                }
+                p.setCompletedQuests(gg.drak.lobbyclicker.achievements.Achievement.deserialize(ach));
+                try { p.applyExtraStats(rs.getString("ExtraStats")); } catch (Throwable ignored) {}
             } catch (Throwable ignored) {}
             try {
                 p.setGoldenCookiesCollected(rs.getLong("GoldenCookiesCollected"));
+            } catch (Throwable ignored) {}
+            try {
+                p.setGiftedCookies(CookieMath.parse(rs.getString("GiftedCookies")));
             } catch (Throwable ignored) {}
             p.setLastCurrentDigitCount(CookieMath.digitCount(p.getCookies()));
             p.setLastTotalDigitCount(CookieMath.digitCount(p.getTotalCookiesEarned()));

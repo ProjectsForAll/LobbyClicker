@@ -6,7 +6,7 @@ import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.database.ClickerOperator;
 import host.plas.bou.sql.ConnectorSet;
 import host.plas.bou.sql.DatabaseType;
-import org.bukkit.Bukkit;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -77,7 +77,7 @@ public class ClickerDataCommand implements CommandExecutor, TabCompleter {
                 }
 
                 int count = players.size();
-                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                FoliaScheduler.runForSender(sender, LobbyClicker.getInstance(), () -> {
                     LobbyClicker.setDatabase(targetOp);
                     for (PlayerData loaded : PlayerManager.getLoadedPlayers()) {
                         if (loaded.isFullyLoaded()) loaded.save(true);
@@ -89,7 +89,7 @@ public class ClickerDataCommand implements CommandExecutor, TabCompleter {
                 });
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Migration failed", e);
-                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                FoliaScheduler.runForSender(sender, LobbyClicker.getInstance(), () -> {
                     sender.sendMessage(ChatColor.RED + "Migration failed: " + e.getMessage());
                     migrating = false;
                 });
@@ -148,7 +148,7 @@ public class ClickerDataCommand implements CommandExecutor, TabCompleter {
                 }
 
                 int count = players.size();
-                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                FoliaScheduler.runForSender(sender, LobbyClicker.getInstance(), () -> {
                     LobbyClicker.setDatabase(targetOp);
                     for (PlayerData loaded : PlayerManager.getLoadedPlayers()) {
                         if (loaded.isFullyLoaded()) loaded.save(true);
@@ -166,7 +166,7 @@ public class ClickerDataCommand implements CommandExecutor, TabCompleter {
                 });
             } catch (Throwable e) {
                 LobbyClicker.getInstance().logWarning("Migration to remote DB failed", e);
-                Bukkit.getScheduler().runTask(LobbyClicker.getInstance(), () -> {
+                FoliaScheduler.runForSender(sender, LobbyClicker.getInstance(), () -> {
                     sender.sendMessage(ChatColor.RED + "Migration failed: " + e.getMessage());
                     migrating = false;
                 });

@@ -1,0 +1,24 @@
+package gg.drak.lobbyclicker.achievements;
+
+public enum AchievementType {
+    BAKED_THIS_ASCENSION,
+    RAW_CPS,
+    COOKIES_FROM_CLICKS,
+    BUILDING_COUNT,
+    COOKIES_FROM_BUILDING,
+    TOTAL_BUILDINGS,
+    UPGRADES_BOUGHT,
+    GOLDEN_CLICKED,
+    GOLDEN_EARLY,
+    GOLDEN_LATE,
+    PRESTIGE,
+    ONE_OF_EVERYTHING,
+    MATHEMATICIAN,
+    BASE_10,
+    CENTENNIAL,
+    HARDCORE,
+    NEVERCLICK,
+    TRUE_NEVERCLICK,
+    SPEED_BAKING,
+    HERE_YOU_GO
+}

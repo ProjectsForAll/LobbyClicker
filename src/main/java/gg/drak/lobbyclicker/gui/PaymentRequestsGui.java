@@ -45,7 +45,7 @@ public class PaymentRequestsGui extends PaginationMonitor {
                 .stream().filter(tx -> tx.getType() == TransactionType.PAYMENT).toList();
 
         if (payments.isEmpty()) {
-            addItem(22, GuiHelper.createIcon(Material.PAPER,
+            addItem(22, ClickerGuiHelper.createIcon(Material.PAPER,
                     ChatColor.GRAY + "No pending payments",
                     "", ChatColor.GRAY + "You have no incoming payment requests."));
         }

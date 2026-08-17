@@ -102,8 +102,9 @@ public class RedisSyncHandler {
                 + "|" + data.getSettings().serialize()
                 + "|" + profile.serializePurchasedUpgrades()
                 + "|" + profile.getLifetimeCookiesEarned().toPlainString()
-                + "|" + profile.serializeCompletedQuests()
-                + "|" + profile.getGoldenCookiesCollected();
+                + "|" + profile.serializeCompletedAchievements()
+                + "|" + profile.getGoldenCookiesCollected()
+                + "|" + profile.serializeExtraStats();
         rm.publishData(msg);
     }
 
@@ -156,6 +157,16 @@ public class RedisSyncHandler {
         if (rm == null) return;
         rm.publishData("SETTINGS_SYNC|" + rm.getServerId() + "|" + data.getIdentifier()
                 + "|" + data.getSettings().serialize());
+    }
+
+    /**
+     * Broadcast a reset-all event so every other server evicts its in-memory cache.
+     * Format: RESET_ALL|serverId|soft|hard
+     */
+    public static void publishResetAll(String mode) {
+        RedisManager rm = LobbyClicker.getRedisManager();
+        if (rm == null) return;
+        rm.publishData("RESET_ALL|" + rm.getServerId() + "|" + mode);
     }
 
     // ===================== RECEIVE HANDLERS =====================
@@ -271,6 +282,9 @@ public class RedisSyncHandler {
                 case "MESSAGE":
                     handleMessage(parts);
                     break;
+                case "RESET_ALL":
+                    handleResetAll();
+                    break;
             }
         } catch (Throwable e) {
             LobbyClicker.getInstance().logWarning("Failed to handle data sync message: " + message, e);
@@ -321,7 +335,10 @@ public class RedisSyncHandler {
                 profile.setLifetimeCookiesEarned(CookieMath.parse(parts[15]));
             }
             if (parts.length > 16) {
-                profile.setCompletedQuests(gg.drak.lobbyclicker.quests.Quest.deserialize(parts[16]));
+                profile.setCompletedQuests(gg.drak.lobbyclicker.achievements.Achievement.deserialize(parts[16]));
+            }
+            if (parts.length > 18) {
+                profile.applyExtraStats(parts[18]);
             }
             if (parts.length > 17) {
                 try { profile.setGoldenCookiesCollected(Long.parseLong(parts[17])); } catch (NumberFormatException ignored) {}
@@ -354,13 +371,16 @@ public class RedisSyncHandler {
         PlayerManager.getPlayer(ownerUuid).ifPresent(ownerData -> {
             if (!ownerData.isFullyLoaded()) return;
 
-            ownerData.addCookies(ownerData.getCpc());
+            BigDecimal clickAmount = ownerData.getCpc();
+            ownerData.addCookies(clickAmount);
             ownerData.setTimesClicked(ownerData.getTimesClicked() + 1);
 
             // Track other clicks on the profile (remote clicks are always from visitors)
             RealmProfile profile = ownerData.getActiveProfile();
             if (profile != null) {
+                profile.addCookiesFromClicks(clickAmount);
                 profile.setOtherClicks(profile.getOtherClicks() + 1);
+                gg.drak.lobbyclicker.achievements.AchievementManager.check(ownerData);
             }
 
             // Notify owner about remote click with friend-aware sounds
@@ -409,6 +429,7 @@ public class RedisSyncHandler {
             try {
                 gg.drak.lobbyclicker.upgrades.UpgradeType type = gg.drak.lobbyclicker.upgrades.UpgradeType.valueOf(upgradeTypeName);
                 if (ownerData.buyUpgrade(type)) {
+                    gg.drak.lobbyclicker.achievements.AchievementManager.check(ownerData);
                     // Notify the realm owner about the purchase
                     ownerData.asPlayer().ifPresent(owner -> {
                         if (ownerData.getSettings().isSoundEnabled(SettingType.SOUND_BUY)) {
@@ -451,6 +472,36 @@ public class RedisSyncHandler {
             msg.append("|").append(parts[i]);
         }
         target.sendMessage(msg.toString());
+    }
+
+    /**
+     * Handle RESET_ALL: another server ran /lcresetall and wrote zeroed profiles to the DB.
+     * Evict every loaded profile and player from this server's in-memory cache so the stale
+     * data is never pushed back to the DB via the next CookieTask DATA_SYNC tick.
+     * Online players' profiles are reloaded fresh from DB; offline cached entries are dropped.
+     */
+    private static void handleResetAll() {
+        // Already on main Bukkit thread (RedisManager dispatches handlers there)
+        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            p.closeInventory();
+        }
+        gg.drak.lobbyclicker.gui.ClickerGui.getOpenGuis().clear();
+        gg.drak.lobbyclicker.gui.UpgradeGui.getOpenGuis().clear();
+        gg.drak.lobbyclicker.gui.LeaderboardGui.getOpenGuis().clear();
+
+        for (PlayerData inMem : PlayerManager.getLoadedPlayers()) {
+            ProfileManager.unloadAllForOwner(inMem.getIdentifier());
+            LobbyClicker.getDatabase().pullProfilesByOwnerThreaded(inMem.getIdentifier())
+                    .thenAccept(freshProfiles -> {
+                        if (!freshProfiles.isEmpty()) {
+                            RealmProfile fresh = freshProfiles.get(0);
+                            ProfileManager.loadProfile(fresh);
+                            inMem.setActiveProfileId(fresh.getProfileId());
+                        } else {
+                            inMem.setActiveProfileId(null);
+                        }
+                    });
+        }
     }
 
     /**

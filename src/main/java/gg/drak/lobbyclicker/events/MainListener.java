@@ -54,13 +54,11 @@ public class MainListener extends AbstractConglomerate {
         // Clean up pending transactions
         PendingTransaction.removeAllFor(uuid);
 
-        // Clean up boosters
-        gg.drak.lobbyclicker.boosters.BoosterManager.clearAll(uuid);
-
         // Unregister GUIs and clear cached state
         ClickerGui.unregisterGui(player.getUniqueId());
         ClickerGui.clearClickHistory(player.getUniqueId());
         ClickerGui.clearGoldenState(player.getUniqueId());
         gg.drak.lobbyclicker.gui.UpgradeGui.unregisterGui(player.getUniqueId());
+        gg.drak.lobbyclicker.gui.ClickerUpgradeGui.unregisterGui(player.getUniqueId());
     }
 }

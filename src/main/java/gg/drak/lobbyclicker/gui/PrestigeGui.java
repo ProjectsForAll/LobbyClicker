@@ -35,65 +35,54 @@ public class PrestigeGui extends SimpleGuiMonitor {
         fillMonitorBorder();
         buildStandardActionBar(p -> new ClickerGui(p, data).open());
 
-        BigDecimal cost = PrestigeManager.getPrestigeCost(data.getPrestigeLevel());
         boolean canPrestige = PrestigeManager.canPrestige(data);
-        BigDecimal auraGain = canPrestige ? PrestigeManager.calculateAuraGain(data) : BigDecimal.ZERO;
+        BigDecimal auraGain = PrestigeManager.calculateAuraGain(data);
 
-        // Info sign
-        setContent(1, GuiHelper.createIcon(Material.OAK_SIGN,
+        setContent(1, ClickerGuiHelper.createIcon(Material.OAK_SIGN,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "How Prestige Works",
                 "",
                 ChatColor.WHITE + "What is Prestige?",
-                ChatColor.GRAY + "  Prestige resets your cookies and upgrades",
-                ChatColor.GRAY + "  in exchange for permanent bonuses.",
+                ChatColor.GRAY + "  Ascend to convert baked cookies into Aura.",
                 "",
                 ChatColor.GREEN + "Benefits:",
-                ChatColor.GRAY + "  +5% CPS per prestige level",
-                ChatColor.GRAY + "  +10% CPC per prestige level",
-                ChatColor.GRAY + "  +1 cookie/click per prestige level",
-                ChatColor.GRAY + "  +1% CPC per aura point",
+                ChatColor.GRAY + "  +1% CPS per prestige level",
+                ChatColor.GRAY + "  +1% CPS per Aura point",
                 "",
                 ChatColor.YELLOW + "Aura:",
-                ChatColor.GRAY + "  Excess cookies above the prestige cost",
-                ChatColor.GRAY + "  are converted into Clicker Aura.",
-                ChatColor.GRAY + "  Formula: (cookies - cost) / 1,000,000",
+                ChatColor.GRAY + "  floor(cbrt(cookies baked this run / 1T))",
                 "",
                 ChatColor.RED + "What gets reset:",
-                ChatColor.GRAY + "  Cookies, Total Earned, Upgrades, Clicks",
+                ChatColor.GRAY + "  Cookies, upgrades, clicks (this run)",
                 "",
                 ChatColor.GREEN + "What is kept:",
-                ChatColor.GRAY + "  Settings, Friends, Prestige Level, Aura"));
+                ChatColor.GRAY + "  Settings, friends, prestige, aura, achievements"));
 
-        // Info display
-        setContent(3, GuiHelper.createIcon(Material.NETHER_STAR,
+        setContent(3, ClickerGuiHelper.createIcon(Material.NETHER_STAR,
                 ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige Info",
                 "",
                 ChatColor.GRAY + "Current Prestige: " + ChatColor.WHITE + data.getPrestigeLevel(),
                 ChatColor.GRAY + "Current Aura: " + ChatColor.WHITE + FormatUtils.format(data.getAura()),
+                ChatColor.GRAY + "Baked this run: " + ChatColor.WHITE + FormatUtils.format(data.getTotalCookiesEarned()),
                 "",
-                ChatColor.GRAY + "Cost: " + (canPrestige ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies",
-                ChatColor.GRAY + "Your cookies: " + ChatColor.WHITE + FormatUtils.format(data.getCookies()),
-                "",
-                canPrestige ? ChatColor.GREEN + "Aura gained: " + ChatColor.GOLD + FormatUtils.format(auraGain) : ChatColor.RED + "Not enough cookies!",
+                canPrestige
+                        ? ChatColor.GREEN + "Aura gained: " + ChatColor.GOLD + FormatUtils.format(auraGain)
+                        : ChatColor.RED + "Bake at least 1 trillion cookies this run.",
                 "",
                 ChatColor.YELLOW + "Resets: " + ChatColor.GRAY + "Cookies, upgrades, clicks",
                 ChatColor.GREEN + "Keeps: " + ChatColor.GRAY + "Settings, friends, prestige, aura"));
 
-        // Prestige button
         if (canPrestige) {
-            Icon prestige = GuiHelper.createIcon(Material.BEACON,
+            Icon prestige = ClickerGuiHelper.createIcon(Material.BEACON,
                     ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige",
                     "", ChatColor.YELLOW + "Click to prestige!",
                     "", ChatColor.GREEN + "Aura gained: " + ChatColor.GOLD + FormatUtils.format(auraGain));
             prestige.onClick(e -> new PrestigeConfirmGui(player, data).open());
             setContent(5, prestige);
         } else {
-            Icon locked = GuiHelper.createIcon(Material.BEACON,
+            setContent(5, ClickerGuiHelper.createIcon(Material.BEACON,
                     ChatColor.GRAY + "" + ChatColor.BOLD + "Prestige",
-                    "", ChatColor.RED + "Not enough cookies!",
-                    "", ChatColor.GRAY + "Need: " + ChatColor.WHITE + FormatUtils.format(cost),
-                    ChatColor.GRAY + "Have: " + ChatColor.WHITE + FormatUtils.format(data.getCookies()));
-            setContent(5, locked);
+                    "", ChatColor.RED + "Need 1 trillion cookies baked this run",
+                    "", ChatColor.GRAY + "Have: " + ChatColor.WHITE + FormatUtils.format(data.getTotalCookiesEarned())));
         }
     }
 }

@@ -51,7 +51,7 @@ public class VolumeAdjustGui extends SimpleGuiMonitor {
         String volStr = String.format("%.2f", volume);
 
         // Center display
-        setContent(3, GuiHelper.createIcon(Material.NOTE_BLOCK,
+        setContent(3, ClickerGuiHelper.createIcon(Material.NOTE_BLOCK,
                 ChatColor.AQUA + "" + ChatColor.BOLD + volumeType.displayName(),
                 "",
                 ChatColor.GRAY + "Current Volume: " + ChatColor.WHITE + volStr,
@@ -60,37 +60,37 @@ public class VolumeAdjustGui extends SimpleGuiMonitor {
                 ChatColor.GRAY + "Use buttons to adjust"));
 
         // -1.0 (content 0)
-        Icon minus1 = GuiHelper.createIcon(Material.RED_STAINED_GLASS_PANE,
+        Icon minus1 = ClickerGuiHelper.createIcon(Material.RED_STAINED_GLASS_PANE,
                 ChatColor.RED + "-1.0");
         minus1.onClick(e -> adjust(-100));
         setContent(0, minus1);
 
         // -0.1 (content 1)
-        Icon minus01 = GuiHelper.createIcon(Material.RED_STAINED_GLASS_PANE,
+        Icon minus01 = ClickerGuiHelper.createIcon(Material.RED_STAINED_GLASS_PANE,
                 ChatColor.RED + "-0.1");
         minus01.onClick(e -> adjust(-10));
         setContent(1, minus01);
 
         // -0.01 (content 2)
-        Icon minus001 = GuiHelper.createIcon(Material.RED_STAINED_GLASS_PANE,
+        Icon minus001 = ClickerGuiHelper.createIcon(Material.RED_STAINED_GLASS_PANE,
                 ChatColor.RED + "-0.01");
         minus001.onClick(e -> adjust(-1));
         setContent(2, minus001);
 
         // +0.01 (content 4)
-        Icon plus001 = GuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
+        Icon plus001 = ClickerGuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
                 ChatColor.GREEN + "+0.01");
         plus001.onClick(e -> adjust(1));
         setContent(4, plus001);
 
         // +0.1 (content 5)
-        Icon plus01 = GuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
+        Icon plus01 = ClickerGuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
                 ChatColor.GREEN + "+0.1");
         plus01.onClick(e -> adjust(10));
         setContent(5, plus01);
 
         // +1.0 (content 6)
-        Icon plus1 = GuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
+        Icon plus1 = ClickerGuiHelper.createIcon(Material.LIME_STAINED_GLASS_PANE,
                 ChatColor.GREEN + "+1.0");
         plus1.onClick(e -> adjust(100));
         setContent(6, plus1);

@@ -14,7 +14,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import org.bukkit.scheduler.BukkitTask;
+import gg.drak.lobbyclicker.utils.FoliaScheduler;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -31,7 +31,7 @@ public class LeaderboardGui extends PaginationMonitor {
 
     private static final ConcurrentHashMap<UUID, LeaderboardGui> OPEN_GUIS = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<UUID, LeaderboardGui> getOpenGuis() { return OPEN_GUIS; }
-    private BukkitTask refreshTask;
+    private FoliaScheduler.PluginTask refreshTask;
 
     public LeaderboardGui(Player player, PlayerData data) {
         this(player, data, 0, null);
@@ -59,15 +59,14 @@ public class LeaderboardGui extends PaginationMonitor {
         OPEN_GUIS.put(player.getUniqueId(), this);
 
         // Refresh display every 1 second while open
-        refreshTask = Bukkit.getScheduler().runTaskTimer(
-                gg.drak.lobbyclicker.LobbyClicker.getInstance(), () -> {
+        refreshTask = FoliaScheduler.runForEntityTimer(player, gg.drak.lobbyclicker.LobbyClicker.getInstance(), () -> {
                     if (!player.isOnline() || !player.getOpenInventory().getTopInventory().equals(getInventory())) {
                         stopRefreshTask();
                         OPEN_GUIS.remove(player.getUniqueId());
                         return;
                     }
                     buildDisplay();
-                }, 20L, 20L); // 1 second interval
+                }, 20L, 20L);
     }
 
     private void stopRefreshTask() {
@@ -129,7 +128,7 @@ public class LeaderboardGui extends PaginationMonitor {
         displayEntries.sort((a, b) -> b.getLifetimeCookiesEarned().compareTo(a.getLifetimeCookiesEarned()));
 
         if (displayEntries.isEmpty()) {
-            setContent(0, GuiHelper.createIcon(Material.PAPER, ChatColor.GRAY + "No entries yet",
+            setContent(0, ClickerGuiHelper.createIcon(Material.PAPER, ChatColor.GRAY + "No entries yet",
                     ChatColor.GRAY + "Be the first to earn cookies!"));
             addPaginationArrows(displayEntries, newPage -> new LeaderboardGui(player, data, newPage).open());
             return;

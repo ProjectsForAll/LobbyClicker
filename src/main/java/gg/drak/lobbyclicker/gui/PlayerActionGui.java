@@ -72,7 +72,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
 
         // Friend / Unfriend
         if (isFriend) {
-            Icon unfriend = GuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Unfriend",
+            Icon unfriend = ClickerGuiHelper.createIcon(Material.RED_DYE, ChatColor.RED + "Unfriend",
                     "", ChatColor.GRAY + "Remove from friends list");
             unfriend.onClick(e -> {
                 viewerData.getFriends().remove(targetUuid);
@@ -88,15 +88,15 @@ public class PlayerActionGui extends SimpleGuiMonitor {
             boolean hasIncoming = viewerData.getIncomingFriendRequests().contains(targetUuid);
 
             if (hasIncoming) {
-                Icon accept = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "Accept Friend Request",
+                Icon accept = ClickerGuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "Accept Friend Request",
                         "", ChatColor.GRAY + "They sent you a request!");
                 accept.onClick(e -> acceptFriendRequest(player));
                 addItem(10, accept);
             } else if (hasOutgoing) {
-                addItem(10, GuiHelper.createIcon(Material.CLOCK, ChatColor.YELLOW + "Request Pending",
+                addItem(10, ClickerGuiHelper.createIcon(Material.CLOCK, ChatColor.YELLOW + "Request Pending",
                         "", ChatColor.GRAY + "Waiting for response..."));
             } else if (!isBlocked) {
-                Icon sendReq = GuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "Send Friend Request",
+                Icon sendReq = ClickerGuiHelper.createIcon(Material.LIME_DYE, ChatColor.GREEN + "Send Friend Request",
                         "", ChatColor.GRAY + "Send a friend request");
                 sendReq.onClick(e -> {
                     viewerData.getOutgoingFriendRequests().add(targetUuid);
@@ -127,7 +127,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
         }
 
         // Visit Realm
-        Icon visit = GuiHelper.createIcon(Material.ENDER_PEARL, ChatColor.AQUA + "Visit Realm",
+        Icon visit = ClickerGuiHelper.createIcon(Material.ENDER_PEARL, ChatColor.AQUA + "Visit Realm",
                 "", ChatColor.GRAY + "Visit their clicker realm");
         visit.onClick(e -> {
             PlayerData targetData = PlayerManager.getPlayer(targetUuid).orElse(null);
@@ -197,20 +197,20 @@ public class PlayerActionGui extends SimpleGuiMonitor {
         addItem(12, visit);
 
         // Transfer
-        Icon transfer = GuiHelper.createIcon(Material.ENDER_CHEST, ChatColor.LIGHT_PURPLE + "Transfer Realm",
+        Icon transfer = ClickerGuiHelper.createIcon(Material.ENDER_CHEST, ChatColor.LIGHT_PURPLE + "Transfer Realm",
                 "", ChatColor.GRAY + "Transfer your realm to this player");
         transfer.onClick(e -> new TransferConfirmGui(player, viewerData, targetUuid).open());
         addItem(13, transfer);
 
         // Money Actions
-        Icon money = GuiHelper.createIcon(Material.GOLD_INGOT, ChatColor.GOLD + "Money Actions",
+        Icon money = ClickerGuiHelper.createIcon(Material.GOLD_INGOT, ChatColor.GOLD + "Money Actions",
                 "", ChatColor.GRAY + "Pay or gamble cookies");
         money.onClick(e -> new MoneyActionsGui(player, viewerData, targetUuid, returnTo).open());
         addItem(14, money);
 
         // Ban / Unban
         if (isBanned) {
-            Icon unban = GuiHelper.createIcon(Material.IRON_DOOR, ChatColor.YELLOW + "Unban",
+            Icon unban = ClickerGuiHelper.createIcon(Material.IRON_DOOR, ChatColor.YELLOW + "Unban",
                     "", ChatColor.GRAY + "Allow them to visit your realm again");
             unban.onClick(e -> {
                 viewerData.getBans().remove(targetUuid);
@@ -221,7 +221,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
             });
             addItem(15, unban);
         } else {
-            Icon ban = GuiHelper.createIcon(Material.IRON_DOOR, ChatColor.RED + "Ban",
+            Icon ban = ClickerGuiHelper.createIcon(Material.IRON_DOOR, ChatColor.RED + "Ban",
                     "", ChatColor.GRAY + "Prevent from visiting your realm");
             ban.onClick(e -> {
                 viewerData.getBans().add(targetUuid);
@@ -235,7 +235,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
 
         // Block / Unblock
         if (isBlocked) {
-            Icon unblock = GuiHelper.createIcon(Material.BARRIER, ChatColor.YELLOW + "Unblock",
+            Icon unblock = ClickerGuiHelper.createIcon(Material.BARRIER, ChatColor.YELLOW + "Unblock",
                     "", ChatColor.GRAY + "Allow friend requests & realm visits");
             unblock.onClick(e -> {
                 viewerData.getBlocks().remove(targetUuid);
@@ -246,7 +246,7 @@ public class PlayerActionGui extends SimpleGuiMonitor {
             });
             addItem(16, unblock);
         } else {
-            Icon block = GuiHelper.createIcon(Material.BARRIER, ChatColor.DARK_RED + "Block",
+            Icon block = ClickerGuiHelper.createIcon(Material.BARRIER, ChatColor.DARK_RED + "Block",
                     "", ChatColor.GRAY + "Ban + prevent friend requests");
             block.onClick(e -> {
                 viewerData.getBlocks().add(targetUuid);

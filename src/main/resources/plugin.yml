@@ -38,6 +38,14 @@ commands:
     description: Data management for LobbyClicker
     usage: /<command> migrate <to-db|to-sqlite>
     permission: lobbyclicker.admin
+  lcdb:
+    description: LobbyClicker database migration and import
+    usage: /<command> <migrate <MYSQL|SQLITE>|import>
+    permission: lobbyclicker.admin
+  lcresetall:
+    description: Reset all player data (soft keeps a downscaled fraction, hard wipes to zero)
+    usage: /<command> <soft|hard>
+    permission: lobbyclicker.admin
 
 permissions:
   lobbyclicker.use:

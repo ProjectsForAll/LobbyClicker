@@ -28,10 +28,10 @@ public class RoleSelectionGui extends BaseGui {
     @Override
     public void onOpen(InventoryOpenEvent event) {
         Player player = (Player) event.getPlayer();
-        fillGui(GuiHelper.filler());
+        fillGui(ClickerGuiHelper.filler());
 
         // Home button
-        Icon home = GuiHelper.homeButton();
+        Icon home = ClickerGuiHelper.homeButton();
         home.onClick(e -> new ClickerGui(player, data).open());
         addItem(0, home);
 
@@ -41,7 +41,7 @@ public class RoleSelectionGui extends BaseGui {
         String targetName = targetUuid.substring(0, 8);
         try { String n = Bukkit.getOfflinePlayer(UUID.fromString(targetUuid)).getName(); if (n != null) targetName = n; } catch (Exception ignored) {}
 
-        addItem(4, GuiHelper.playerHead(targetUuid, ChatColor.WHITE + targetName,
+        addItem(4, ClickerGuiHelper.playerHead(targetUuid, ChatColor.WHITE + targetName,
                 "", ChatColor.GRAY + "Current role: " + ChatColor.WHITE + currentRole.getDisplayName()));
 
         // Role buttons
@@ -55,7 +55,7 @@ public class RoleSelectionGui extends BaseGui {
                 ChatColor.RED, "Co-owner, full access");
 
         // Back
-        Icon back = GuiHelper.backButton("Back");
+        Icon back = ClickerGuiHelper.backButton("Back");
         back.onClick(e -> new RealmPlayerManageGui(player, data, targetUuid, returnContext).open());
         addItem(22, back);
     }
@@ -63,7 +63,7 @@ public class RoleSelectionGui extends BaseGui {
     private void addRoleButton(Player player, int slot, RealmRole role, RealmRole currentRole, Material mat, ChatColor color, String desc) {
         boolean isCurrent = role == currentRole;
         String status = isCurrent ? ChatColor.GREEN + " (Current)" : "";
-        Icon icon = GuiHelper.createIcon(isCurrent ? Material.LIME_DYE : mat,
+        Icon icon = ClickerGuiHelper.createIcon(isCurrent ? Material.LIME_DYE : mat,
                 color + "" + ChatColor.BOLD + role.getDisplayName() + status,
                 "", ChatColor.GRAY + desc,
                 "", isCurrent ? ChatColor.GRAY + "Already assigned" : ChatColor.YELLOW + "Click to assign");

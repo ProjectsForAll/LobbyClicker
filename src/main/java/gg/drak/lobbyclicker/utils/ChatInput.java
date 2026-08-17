@@ -8,7 +8,6 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.function.Consumer;
 
@@ -19,16 +18,15 @@ import java.util.function.Consumer;
 public class ChatInput implements Listener {
     private final Player player;
     private final Consumer<String> callback;
-    private final BukkitTask timeoutTask;
+    private final FoliaScheduler.PluginTask timeoutTask;
 
     private ChatInput(Player player, Consumer<String> callback) {
         this.player = player;
         this.callback = callback;
-        this.timeoutTask = org.bukkit.Bukkit.getScheduler().runTaskLater(LobbyClicker.getInstance(), () -> {
+        this.timeoutTask = FoliaScheduler.runForEntityLater(player, LobbyClicker.getInstance(), () -> {
             HandlerList.unregisterAll(this);
             if (player.isOnline()) {
-                org.bukkit.Bukkit.getScheduler().runTask(LobbyClicker.getInstance(),
-                        () -> callback.accept(null));
+                FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> callback.accept(null));
             }
         }, 600L); // 30 seconds
     }
@@ -45,9 +43,7 @@ public class ChatInput implements Listener {
         String message = event.getMessage().trim();
         timeoutTask.cancel();
         HandlerList.unregisterAll(this);
-        // Run callback on main thread
-        org.bukkit.Bukkit.getScheduler().runTask(LobbyClicker.getInstance(),
-                () -> callback.accept(message));
+        FoliaScheduler.runForEntity(player, LobbyClicker.getInstance(), () -> callback.accept(message));
     }
 
     @EventHandler

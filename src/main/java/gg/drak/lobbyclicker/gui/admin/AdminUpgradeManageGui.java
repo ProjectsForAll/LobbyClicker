@@ -2,7 +2,7 @@ package gg.drak.lobbyclicker.gui.admin;
 
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.PaginationMonitor;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
@@ -43,7 +43,7 @@ public class AdminUpgradeManageGui extends PaginationMonitor {
         fillMonitorBorder();
 
         int b = (getSize() / 9 - 1) * 9;
-        Icon back = GuiHelper.createIcon(Material.DARK_OAK_DOOR,
+        Icon back = ClickerGuiHelper.createIcon(Material.DARK_OAK_DOOR,
                 ChatColor.RED + "" + ChatColor.BOLD + "Back", "", ChatColor.GRAY + "Back to player");
         back.onClick(e -> new AdminPlayerManageGui(player, targetUuid, targetName).open());
         addItem(b + 7, back);
@@ -54,11 +54,11 @@ public class AdminUpgradeManageGui extends PaginationMonitor {
             if (opt.isPresent()) data = opt.get().waitUntilFullyLoaded();
         }
         if (data == null) {
-            addItem(22, GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Could not load data"));
+            addItem(22, ClickerGuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Could not load data"));
             return;
         }
 
-        addItem(4, GuiHelper.createIcon(Material.DIAMOND,
+        addItem(4, ClickerGuiHelper.createIcon(Material.DIAMOND,
                 ChatColor.AQUA + "" + ChatColor.BOLD + targetName + "'s Upgrades",
                 "", ChatColor.GRAY + "Left-click: set count",
                 ChatColor.GRAY + "Right-click: +1",
@@ -69,7 +69,7 @@ public class AdminUpgradeManageGui extends PaginationMonitor {
 
         populatePagedContent(types, (type, slot) -> {
             int count = finalData.getUpgradeCount(type);
-            Icon icon = GuiHelper.createIcon(type.getMaterial(),
+            Icon icon = ClickerGuiHelper.createIcon(type.getMaterial(),
                     ChatColor.GREEN + "" + ChatColor.BOLD + type.getDisplayName(),
                     "", ChatColor.GRAY + "Count: " + ChatColor.WHITE + count,
                     ChatColor.GRAY + "CPS each: " + ChatColor.WHITE + FormatUtils.format(type.getCpsPerLevel()),

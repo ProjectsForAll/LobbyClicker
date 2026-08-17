@@ -3,7 +3,7 @@ package gg.drak.lobbyclicker.gui.admin;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.gui.ClickerGui;
-import gg.drak.lobbyclicker.gui.GuiHelper;
+import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.gui.monitor.MonitorStyle;
 import gg.drak.lobbyclicker.gui.monitor.SimpleGuiMonitor;
 import gg.drak.lobbyclicker.upgrades.UpgradeType;
@@ -44,18 +44,18 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
         fillMonitorBorder();
 
         int b = (getSize() / 9 - 1) * 9;
-        Icon back = GuiHelper.createIcon(Material.DARK_OAK_DOOR,
+        Icon back = ClickerGuiHelper.createIcon(Material.DARK_OAK_DOOR,
                 ChatColor.RED + "" + ChatColor.BOLD + "Back", "", ChatColor.GRAY + "Back to player list");
         back.onClick(e -> new AdminPlayerListGui(player).open());
         addItem(b + 7, back);
-        Icon close = GuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
+        Icon close = ClickerGuiHelper.createIcon(Material.BARRIER, ChatColor.RED + "Close");
         close.onClick(e -> player.closeInventory());
         addItem(b + 8, close);
 
         // Load player data
         PlayerData data = getTargetData();
         if (data == null) {
-            setContent(10, GuiHelper.createIcon(Material.BARRIER,
+            setContent(10, ClickerGuiHelper.createIcon(Material.BARRIER,
                     ChatColor.RED + "Could not load player data"));
             return;
         }
@@ -77,13 +77,13 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
                 infoLore.add(ChatColor.GRAY + "  " + type.getDisplayName() + ": " + ChatColor.WHITE + count);
             }
         }
-        addItem(4, GuiHelper.createIcon(Material.NETHER_STAR,
+        addItem(4, ClickerGuiHelper.createIcon(Material.NETHER_STAR,
                 ChatColor.GOLD + "" + ChatColor.BOLD + targetName,
                 infoLore.toArray(new String[0])));
 
         // Row 1: Cookie management
         // Set Cookies
-        Icon setCookies = GuiHelper.createIcon(Material.GOLD_INGOT,
+        Icon setCookies = ClickerGuiHelper.createIcon(Material.GOLD_INGOT,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Set Cookies",
                 "", ChatColor.GRAY + "Current: " + ChatColor.WHITE + FormatUtils.format(data.getCookies()),
                 "", ChatColor.YELLOW + "Click to set amount");
@@ -100,7 +100,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
         setContent(0, setCookies);
 
         // Add Cookies
-        Icon addCookies = GuiHelper.createIcon(Material.GOLD_NUGGET,
+        Icon addCookies = ClickerGuiHelper.createIcon(Material.GOLD_NUGGET,
                 ChatColor.GREEN + "" + ChatColor.BOLD + "Add Cookies",
                 "", ChatColor.YELLOW + "Click to add amount");
         addCookies.onClick(e -> promptAmount(player, "Add how many cookies?", amount -> {
@@ -114,7 +114,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
         setContent(1, addCookies);
 
         // Set Prestige
-        Icon prestige = GuiHelper.createIcon(Material.BEACON,
+        Icon prestige = ClickerGuiHelper.createIcon(Material.BEACON,
                 ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Set Prestige",
                 "", ChatColor.GRAY + "Current: " + ChatColor.WHITE + data.getPrestigeLevel(),
                 "", ChatColor.YELLOW + "Click to set level");
@@ -129,7 +129,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
         setContent(2, prestige);
 
         // Set Aura
-        Icon aura = GuiHelper.createIcon(Material.EXPERIENCE_BOTTLE,
+        Icon aura = ClickerGuiHelper.createIcon(Material.EXPERIENCE_BOTTLE,
                 ChatColor.AQUA + "" + ChatColor.BOLD + "Set Aura",
                 "", ChatColor.GRAY + "Current: " + ChatColor.WHITE + FormatUtils.format(data.getAura()),
                 "", ChatColor.YELLOW + "Click to set amount");
@@ -145,7 +145,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
 
         // Row 2: More actions
         // Reset
-        Icon reset = GuiHelper.createIcon(Material.FLINT_AND_STEEL,
+        Icon reset = ClickerGuiHelper.createIcon(Material.FLINT_AND_STEEL,
                 ChatColor.RED + "" + ChatColor.BOLD + "Reset Player",
                 "", ChatColor.GRAY + "Resets cookies, upgrades, prestige",
                 "", ChatColor.RED + "Shift-click to confirm");
@@ -169,7 +169,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
 
         // Open For
         boolean targetOnline = Bukkit.getPlayer(UUID.fromString(targetUuid)) != null;
-        Icon openFor = GuiHelper.createIcon(
+        Icon openFor = ClickerGuiHelper.createIcon(
                 targetOnline ? Material.COOKIE : Material.GRAY_DYE,
                 (targetOnline ? ChatColor.GOLD : ChatColor.DARK_GRAY) + "" + ChatColor.BOLD + "Open Clicker For",
                 "", targetOnline ? ChatColor.YELLOW + "Opens their clicker GUI" : ChatColor.RED + "Player is offline");
@@ -186,7 +186,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
         setContent(8, openFor);
 
         // Profiles
-        Icon profiles = GuiHelper.createIcon(Material.BOOK,
+        Icon profiles = ClickerGuiHelper.createIcon(Material.BOOK,
                 ChatColor.GOLD + "" + ChatColor.BOLD + "Manage Profiles",
                 "", ChatColor.GRAY + "View and manage profiles",
                 "", ChatColor.YELLOW + "Click to open");
@@ -194,7 +194,7 @@ public class AdminPlayerManageGui extends SimpleGuiMonitor {
         setContent(9, profiles);
 
         // Manage Upgrades
-        Icon upgrades = GuiHelper.createIcon(Material.DIAMOND,
+        Icon upgrades = ClickerGuiHelper.createIcon(Material.DIAMOND,
                 ChatColor.AQUA + "" + ChatColor.BOLD + "Manage Upgrades",
                 "", ChatColor.GRAY + "Click to open upgrade manager");
         upgrades.onClick(e -> new AdminUpgradeManageGui(player, targetUuid, targetName).open());

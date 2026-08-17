@@ -1,0 +1,7 @@
+# Cookie Clicker upgrade tree (Minecraft names).
+# Runtime catalog is built in ClickerUpgradeCatalog to match this schema:
+# id, name, description, material, cost, effect, value, building, required
+# Effects: CPC_MULTIPLIER, CPS_MULTIPLIER, BUILDING_MULTIPLIER,
+#          GOLDEN_*, FINGER_ADDITIVE, FINGER_MULTIPLIER, SYNERGY
+schema: 1
+source: ClickerUpgradeCatalog

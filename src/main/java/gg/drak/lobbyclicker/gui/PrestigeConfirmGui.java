@@ -1,5 +1,6 @@
 package gg.drak.lobbyclicker.gui;
 
+import gg.drak.lobbyclicker.achievements.AchievementManager;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.gui.monitor.ConfirmationMonitor;
 import gg.drak.lobbyclicker.prestige.PrestigeManager;
@@ -26,14 +27,12 @@ public class PrestigeConfirmGui extends ConfirmationMonitor {
         super.onOpen(event);
         setPlayerContext(data, null);
 
-        BigDecimal cost = PrestigeManager.getPrestigeCost(data.getPrestigeLevel());
         BigDecimal auraGain = PrestigeManager.canPrestige(data) ? PrestigeManager.calculateAuraGain(data) : BigDecimal.ZERO;
 
-        Icon info = GuiHelper.createIcon(Material.BEACON,
+        Icon info = ClickerGuiHelper.createIcon(Material.BEACON,
                 ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige",
                 "",
                 ChatColor.GRAY + "Level: " + ChatColor.WHITE + data.getPrestigeLevel() + " → " + (data.getPrestigeLevel() + 1),
-                ChatColor.GRAY + "Cost: " + ChatColor.WHITE + FormatUtils.format(cost),
                 ChatColor.GREEN + "Aura gained: " + ChatColor.GOLD + FormatUtils.format(auraGain),
                 "",
                 ChatColor.RED + "Resets: cookies, upgrades, clicks");
@@ -41,12 +40,13 @@ public class PrestigeConfirmGui extends ConfirmationMonitor {
         buildConfirmation(info, "Prestige", "This cannot be undone!",
                 p -> {
                     if (!PrestigeManager.canPrestige(data)) {
-                        p.sendMessage(ChatColor.RED + "You can no longer afford to prestige.");
+                        p.sendMessage(ChatColor.RED + "You no longer have enough baked cookies to prestige.");
                         new ClickerGui(p, data).open();
                         return;
                     }
                     BigDecimal gained = PrestigeManager.calculateAuraGain(data);
                     PrestigeManager.performPrestige(data);
+                    AchievementManager.check(data);
                     data.save(true);
                     p.sendMessage(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige! " +
                             ChatColor.YELLOW + "You are now prestige " + ChatColor.WHITE + data.getPrestigeLevel() +
