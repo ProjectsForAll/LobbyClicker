@@ -9,6 +9,9 @@ authors:
 
 folia-supported: true
 
+libraries:
+${librariesBlock}
+
 depend:
   - BukkitOfUtils
 

@@ -68,6 +68,11 @@ dependencies {
     compileOnly(COMP_ONLY)
     shadow(SHADOW)
 
+    // Paper downloads these libraries from Maven Central and adds them to this plugin's classpath.
+    PAPER_LIBRARIES.each { coordinate ->
+        compileOnly(coordinate)
+    }
+
     // Other Plugins
     compileOnly(OTHER_PLUGINS)
 }
@@ -81,12 +86,14 @@ processResources {
     inputs.property('name', "${project.name}")
     inputs.property('version', "${project.version}")
     inputs.property('main', "${project.ext.pluginMain}")
+    inputs.property('libraries', project.ext.PAPER_LIBRARIES.join('|'))
 
     filesMatching('**/plugin.yml') {
         expand (
                 'name': "${project.name}",
                 'version': "${project.version}",
                 'main': "${project.ext.pluginMain}",
+                'librariesBlock': project.ext.PAPER_LIBRARIES.collect { "  - ${it}" }.join('\n'),
         )
     }
 }
@@ -96,13 +103,6 @@ shadowJar {
 
     buildDir = "target/"
     archiveFileName = "${project.name}-${project.version}.jar"
-
-    minimize {
-        exclude(dependency('io.lettuce:.*'))
-        exclude(dependency('io.netty:.*'))
-        exclude(dependency('org.reactivestreams:.*'))
-        exclude(dependency('reactor.core:.*'))
-    }
 }
 
 artifacts {

@@ -1,6 +1,9 @@
 ext {
-    IMPL = [
+    // Downloaded by Paper from Maven Central at runtime instead of being shaded.
+    PAPER_LIBRARIES = [
             'io.lettuce:lettuce-core:6.3.2.RELEASE',
+    ]
+    IMPL = [
     ]
     SHADOW = [
     ]
