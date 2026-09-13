@@ -49,7 +49,8 @@ public class PrestigeGui extends SimpleGuiMonitor {
                 ChatColor.GRAY + "  +1% CPS per Aura point",
                 "",
                 ChatColor.YELLOW + "Aura:",
-                ChatColor.GRAY + "  floor(cbrt(cookies baked this run / 1T))",
+                ChatColor.GRAY + "  floor(cbrt(all-time cookies / 1T)) - aura held",
+                ChatColor.GRAY + "  Each point costs more than the last.",
                 "",
                 ChatColor.RED + "What gets reset:",
                 ChatColor.GRAY + "  Cookies, upgrades, clicks (this run)",
@@ -63,10 +64,12 @@ public class PrestigeGui extends SimpleGuiMonitor {
                 ChatColor.GRAY + "Current Prestige: " + ChatColor.WHITE + data.getPrestigeLevel(),
                 ChatColor.GRAY + "Current Aura: " + ChatColor.WHITE + FormatUtils.format(data.getAura()),
                 ChatColor.GRAY + "Baked this run: " + ChatColor.WHITE + FormatUtils.format(data.getTotalCookiesEarned()),
+                ChatColor.GRAY + "Baked all-time: " + ChatColor.WHITE + FormatUtils.format(data.getLifetimeCookiesEarned()),
                 "",
                 canPrestige
                         ? ChatColor.GREEN + "Aura gained: " + ChatColor.GOLD + FormatUtils.format(auraGain)
-                        : ChatColor.RED + "Bake at least 1 trillion cookies this run.",
+                        : ChatColor.RED + "Need " + FormatUtils.format(PrestigeManager.cookiesUntilNextAura(data)) +
+                          " more all-time cookies.",
                 "",
                 ChatColor.YELLOW + "Resets: " + ChatColor.GRAY + "Cookies, upgrades, clicks",
                 ChatColor.GREEN + "Keeps: " + ChatColor.GRAY + "Settings, friends, prestige, aura"));
@@ -81,8 +84,10 @@ public class PrestigeGui extends SimpleGuiMonitor {
         } else {
             setContent(5, ClickerGuiHelper.createIcon(Material.BEACON,
                     ChatColor.GRAY + "" + ChatColor.BOLD + "Prestige",
-                    "", ChatColor.RED + "Need 1 trillion cookies baked this run",
-                    "", ChatColor.GRAY + "Have: " + ChatColor.WHITE + FormatUtils.format(data.getTotalCookiesEarned())));
+                    "", ChatColor.RED + "Not enough all-time cookies for more Aura",
+                    "", ChatColor.GRAY + "Need " + ChatColor.WHITE +
+                        FormatUtils.format(PrestigeManager.cookiesUntilNextAura(data)) + ChatColor.GRAY + " more",
+                    ChatColor.GRAY + "All-time: " + ChatColor.WHITE + FormatUtils.format(data.getLifetimeCookiesEarned())));
         }
     }
 }

@@ -39,13 +39,15 @@ public class PrestigeConfirmGui extends ConfirmationMonitor {
 
         buildConfirmation(info, "Prestige", "This cannot be undone!",
                 p -> {
-                    if (!PrestigeManager.canPrestige(data)) {
+                    // Recompute at click time - the GUI may have been open a while,
+                    // and the gain is what actually gets granted.
+                    BigDecimal gained = PrestigeManager.calculateAuraGain(data);
+                    if (gained.signum() <= 0) {
                         p.sendMessage(ChatColor.RED + "You no longer have enough baked cookies to prestige.");
                         new ClickerGui(p, data).open();
                         return;
                     }
-                    BigDecimal gained = PrestigeManager.calculateAuraGain(data);
-                    PrestigeManager.performPrestige(data);
+                    PrestigeManager.performPrestige(data, gained);
                     AchievementManager.check(data);
                     data.save(true);
                     p.sendMessage(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Prestige! " +

@@ -503,6 +503,12 @@ public class RealmProfile {
         }
         this.goldenCookiesCollected += other.goldenCookiesCollected;
         this.prestigeLevel = Math.max(this.prestigeLevel, other.prestigeLevel);
-        this.aura = this.aura.max(other.aura);
+        // Aura is capped by what the merged lifetime total actually entitles the
+        // player to. Taking a bare max of two auras against a summed lifetime can
+        // leave aura above the curve, which would block prestiging forever
+        // (gain = entitled - held would stay negative).
+        BigDecimal mergedAura = this.aura.max(other.aura);
+        BigDecimal entitled = PrestigeManager.totalAuraEarnable(this.lifetimeCookiesEarned);
+        this.aura = mergedAura.min(entitled.max(BigDecimal.ZERO));
     }
 }

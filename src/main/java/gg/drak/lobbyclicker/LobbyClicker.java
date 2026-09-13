@@ -57,6 +57,9 @@ public final class LobbyClicker extends BetterPlugin {
         setDatabaseConfig(new DatabaseConfig());
 
         setDatabase(new ClickerOperator());
+        // Build the pool and run schema creation/migration once, up front, rather
+        // than lazily on every threaded query.
+        getDatabase().ensureUsable();
 
         setMainListener(new MainListener());
         registerListener(new gg.drak.lobbyclicker.gui.ClickerHubListener());
@@ -144,16 +147,36 @@ public final class LobbyClicker extends BetterPlugin {
         }
         ClickerGui.getOpenGuis().clear();
 
-        if (getRedisManager() != null) getRedisManager().shutdown();
-
+        // Save everything BEFORE tearing down Redis and the connection pool.
         // Save all loaded profiles
         for (gg.drak.lobbyclicker.realm.RealmProfile profile : gg.drak.lobbyclicker.realm.ProfileManager.getAllLoadedProfiles()) {
-            getDatabase().putProfileSync(profile);
+            try {
+                getDatabase().putProfileSync(profile);
+            } catch (Throwable t) {
+                logWarning("Failed to save profile " + profile.getProfileId() + " on shutdown", t);
+            }
         }
 
         PlayerManager.getLoadedPlayers().forEach(playerData -> {
-            playerData.saveAndUnload(false);
+            try {
+                playerData.saveAndUnload(false);
+            } catch (Throwable t) {
+                logWarning("Failed to save player " + playerData.getIdentifier() + " on shutdown", t);
+            }
         });
+
+        if (getRedisManager() != null) getRedisManager().shutdown();
+
+        // Close the Hikari pool last. Without this the data source and its
+        // housekeeping threads leak on every /reload or disable cycle.
+        if (getDatabase() != null) {
+            try {
+                getDatabase().shutdown();
+                getDatabase().resetSchemaReady();
+            } catch (Throwable t) {
+                logWarning("Failed to shut down database", t);
+            }
+        }
     }
 
     private void registerCommand(String name, Object executor) {

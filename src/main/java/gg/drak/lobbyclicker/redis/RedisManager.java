@@ -147,6 +147,14 @@ public class RedisManager {
             }, "LobbyClicker-RedisShutdown");
             closer.setDaemon(true);
             closer.start();
+            // Daemon threads do not keep the JVM alive, so on a full server stop
+            // the process can exit before the QUIT messages flush and other
+            // servers keep showing these players online. Wait briefly for it.
+            try {
+                closer.join(4000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         } catch (Throwable e) {
             LobbyClicker.getInstance().logWarning("Error shutting down Redis", e);
         }

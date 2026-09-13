@@ -40,7 +40,18 @@ public class CookieMath {
             }
             x = next;
         }
-        return floor(x);
+        // Newton on DECIMAL128 can land a hair either side of an exact root, and
+        // floor() would turn cbrt(8T/1T)=2.9999999 into 2. Correct the result so
+        // it is the true integer cbrt: the largest n with n^3 <= val.
+        BigDecimal n = floor(x);
+        if (n.signum() < 0) n = ZERO;
+        while (n.signum() > 0 && n.multiply(n, MC).multiply(n, MC).compareTo(val) > 0) {
+            n = n.subtract(ONE);
+        }
+        while (n.add(ONE).multiply(n.add(ONE), MC).multiply(n.add(ONE), MC).compareTo(val) <= 0) {
+            n = n.add(ONE);
+        }
+        return n;
     }
 
     public static BigDecimal pow(BigDecimal base, int exponent) {

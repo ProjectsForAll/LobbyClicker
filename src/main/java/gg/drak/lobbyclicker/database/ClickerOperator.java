@@ -25,6 +25,33 @@ public class ClickerOperator extends DBOperator {
         super(connectorSet, LobbyClicker.getInstance());
     }
 
+    /** Set once the schema has been created/migrated, so it is not redone per query. */
+    private final java.util.concurrent.atomic.AtomicBoolean schemaReady =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /**
+     * Schema setup is a one-time cost, but every threaded read/write calls this.
+     * The superclass implementation re-runs CREATE TABLE, the DatabaseMetaData
+     * column probe and all ALTERs on each call, which turns a shutdown with N
+     * online players into N rounds of DDL on the disable thread. Worse, it
+     * rebuilds the Hikari pool if it is closed, so a late write after shutdown
+     * would resurrect a pool nobody closes. Do the work once.
+     */
+    @Override
+    public void ensureUsable() {
+        if (schemaReady.get()) return;
+        synchronized (schemaReady) {
+            if (schemaReady.get()) return;
+            super.ensureUsable();
+            schemaReady.set(true);
+        }
+    }
+
+    /** Allows the schema check to run again after a reconnect. */
+    public void resetSchemaReady() {
+        schemaReady.set(false);
+    }
+
     @Override
     public void ensureTables() {
         // Create new-schema tables
