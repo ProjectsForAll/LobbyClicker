@@ -145,6 +145,7 @@ public class ClickerUpgradeGui extends PaginationMonitor {
             case GOLDEN_FREQ_MULTIPLIER -> "Golden cookies appear ×" + upgrade.getEffectValue() + " as often";
             case GOLDEN_REWARD_MULTIPLIER -> "Golden cookie rewards ×" + upgrade.getEffectValue();
             case GOLDEN_DURATION_MULTIPLIER -> "Golden cookies last ×" + upgrade.getEffectValue() + " as long";
+            case GOLDEN_AUTO_COLLECT -> "Cookie clicks auto-collect golden cookies";
             case FINGER_ADDITIVE -> "+" + upgrade.getEffectValue() + " per non-autoclicker building";
             case FINGER_MULTIPLIER -> "Thousand Fingers gain ×" + upgrade.getEffectValue();
             case SYNERGY -> "+" + upgrade.getEffectValue().multiply(java.math.BigDecimal.valueOf(100)).stripTrailingZeros().toPlainString()

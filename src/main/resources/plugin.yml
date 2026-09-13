@@ -57,6 +57,9 @@ permissions:
   lobbyclicker.admin:
     description: Allows admin commands for LobbyClicker
     default: op
+  lobbyclicker.golden-cookie.auto-collect:
+    description: Clicking a realm's cookie also collects any waiting golden cookie
+    default: false
   lobbyclicker.profiles.max.1:
     description: Allows 1 profile slot
     default: true

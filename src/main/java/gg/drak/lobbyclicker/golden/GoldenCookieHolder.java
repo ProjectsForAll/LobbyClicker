@@ -8,12 +8,12 @@ import gg.drak.lobbyclicker.gui.ClickerGuiHelper;
 import gg.drak.lobbyclicker.realm.RealmProfile;
 import gg.drak.lobbyclicker.settings.SettingType;
 import gg.drak.lobbyclicker.social.RealmManager;
+import gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect;
 import gg.drak.lobbyclicker.utils.FormatUtils;
 import gg.drak.lobbyclicker.utils.FoliaScheduler;
 import mc.obliviate.inventory.Icon;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
@@ -25,19 +25,33 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Tracks golden cookie state per realm owner. Any GUI viewing this realm
  * can look up the holder to display and handle the golden cookie.
+ *
+ * <p>A spawned cookie's lifetime is wall-clock, not tick-counted: it expires
+ * {@link #BASE_LIFETIME_MILLIS} after spawning regardless of whether any GUI is
+ * open, so closing, reopening or navigating away neither cancels nor extends it.
  */
 public class GoldenCookieHolder {
     private static final ConcurrentHashMap<String, GoldenCookieHolder> HOLDERS = new ConcurrentHashMap<>();
     private static final Random RANDOM = new Random();
     private static final int[] GOLDEN_COOKIE_SLOTS = {10, 11, 12, 19, 20, 21, 28, 29, 30, 37, 38, 39};
 
+    /** Base time a spawned cookie stays claimable, before duration upgrades. */
+    private static final long BASE_LIFETIME_MILLIS = 30_000L;
+
+    /** A claim within this window of spawn counts as "reflexes"; within this window of expiry counts as "clutch". */
+    private static final long TIMING_WINDOW_MILLIS = 1_000L;
+
+    /** Sentinel spawn id meaning "claim whatever is active", used by auto-collect. */
+    private static final long ANY_SPAWN = -1L;
+
     private final String ownerUuid;
 
     // Current golden cookie state
+    private long spawnId = 0;
     private int slot = -1;
     private CookieType cookieType = CookieType.NULL;
-    private int ticksLeft = 0;
     private long spawnedAtMillis = 0;
+    private long expiresAtMillis = 0;
     private BigDecimal reward = BigDecimal.ZERO;
     private String tierName = "";
 
@@ -71,14 +85,36 @@ public class GoldenCookieHolder {
         if (h != null) h.stopTask();
     }
 
+    public static void remove(UUID ownerUuid) {
+        remove(ownerUuid.toString());
+    }
+
     // --- Getters ---
 
     public int getSlot() { return slot; }
     public CookieType getCookieType() { return cookieType; }
     public BigDecimal getReward() { return reward; }
     public String getTierName() { return tierName; }
-    public boolean hasActiveCookie() { return slot >= 0 && cookieType != CookieType.NULL; }
     public static int[] getSlots() { return GOLDEN_COOKIE_SLOTS; }
+
+    /** Milliseconds until the active cookie vanishes, or 0 when none is claimable. */
+    public long getMillisRemaining() {
+        if (!hasActiveCookie()) return 0L;
+        return Math.max(0L, expiresAtMillis - System.currentTimeMillis());
+    }
+
+    /**
+     * True while a cookie is spawned and still within its lifetime. An expired cookie
+     * is reaped here, so render paths see a consistent answer without the tick task.
+     */
+    public synchronized boolean hasActiveCookie() {
+        if (slot < 0 || cookieType == CookieType.NULL) return false;
+        if (System.currentTimeMillis() >= expiresAtMillis) {
+            clearCookie();
+            return false;
+        }
+        return true;
+    }
 
     // --- Task management ---
 
@@ -106,40 +142,27 @@ public class GoldenCookieHolder {
     // --- Core tick ---
 
     private void tick() {
-        // Check if owner is still online or has viewers
         PlayerData ownerData = PlayerManager.getPlayer(ownerUuid).orElse(null);
         if (ownerData == null) {
             stopTask();
             return;
         }
 
-        // Check if anyone is viewing this realm (owner on ClickerGui or visitors)
-        boolean anyoneViewing = false;
-        ClickerGui ownerGui = ClickerGui.getOpenGuis().get(UUID.fromString(ownerUuid));
-        if (ownerGui != null) anyoneViewing = true;
-        if (!anyoneViewing) {
-            for (String vuuid : RealmManager.getViewers(ownerUuid)) {
-                if (ClickerGui.getOpenGuis().containsKey(UUID.fromString(vuuid))) {
-                    anyoneViewing = true;
-                    break;
-                }
-            }
+        // A cookie left over from an earlier viewing session expires on its own clock;
+        // clear the display for anyone who is watching now.
+        if (slot >= 0 && !hasActiveCookie()) {
+            pushClear();
+            return;
         }
-        if (!anyoneViewing) {
+
+        if (!isAnyoneViewing()) {
             stopTask();
             return;
         }
 
-        // If a golden cookie is active, count down
-        if (slot >= 0) {
-            ticksLeft--;
-            if (ticksLeft <= 0) {
-                clearCookie();
-            }
-            return;
-        }
+        // A claimable cookie blocks further spawns; its expiry is wall-clock, not counted here.
+        if (hasActiveCookie()) return;
 
-        // Timer logic
         if (frenzyRemaining > 0) {
             frenzyRemaining--;
             nextSpawnCountdown--;
@@ -186,6 +209,14 @@ public class GoldenCookieHolder {
         }
     }
 
+    private boolean isAnyoneViewing() {
+        if (ClickerGui.getOpenGuis().containsKey(UUID.fromString(ownerUuid))) return true;
+        for (String vuuid : RealmManager.getViewers(ownerUuid)) {
+            if (ClickerGui.getOpenGuis().containsKey(UUID.fromString(vuuid))) return true;
+        }
+        return false;
+    }
+
     // --- Spawn ---
 
     private void spawnCookie(PlayerData ownerData) {
@@ -193,38 +224,37 @@ public class GoldenCookieHolder {
 
         BigDecimal multiplier = BigDecimal.valueOf(0.1 + RANDOM.nextDouble() * 1.9);
         BigDecimal bonus = ownerData.getClickerEntropy().multiply(multiplier);
-        BigDecimal rewardMult = ownerData.getEffectMultiplier(
-                gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER);
-        bonus = bonus.multiply(rewardMult);
+        bonus = bonus.multiply(ownerData.getEffectMultiplier(ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER));
 
         double normalized = multiplier.doubleValue() / 2.0;
         CookieType type;
-        String name;
         if (normalized >= 0.95) {
             type = CookieType.LEGENDARY;
-            name = "Legendary Cookie";
         } else if (normalized >= 0.85) {
             type = CookieType.GRAND;
-            name = "Jackpot";
         } else if (normalized >= 0.50) {
             type = CookieType.MEDIUM;
-            name = "Golden Cookie";
         } else {
             type = CookieType.SMALL;
-            name = "Lucky Cookie";
         }
 
         double durMult = ownerData.getEffectMultiplier(
-                gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_DURATION_MULTIPLIER).doubleValue();
+                ClickerUpgradeEffect.GOLDEN_DURATION_MULTIPLIER).doubleValue();
+        long lifetime = Math.max(1_000L, (long) (BASE_LIFETIME_MILLIS * durMult));
 
-        this.slot = newSlot;
-        this.cookieType = type;
-        this.reward = bonus;
-        this.tierName = name;
-        this.ticksLeft = Math.max(2, (int) (10 * durMult));
-        this.spawnedAtMillis = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        synchronized (this) {
+            this.spawnId++;
+            this.slot = newSlot;
+            this.cookieType = type;
+            this.reward = bonus;
+            this.tierName = type.getDisplayName();
+            this.spawnedAtMillis = now;
+            this.expiresAtMillis = now + lifetime;
+        }
 
-        // Play spawn sound for anyone viewing
+        pushRender();
+
         if (!LobbyClicker.getMainConfig().isNotificationsDisabled()) {
             notifyViewers(ownerUuid, p -> {
                 PlayerData pd = PlayerManager.getPlayer(p.getUniqueId().toString()).orElse(null);
@@ -238,41 +268,60 @@ public class GoldenCookieHolder {
     // --- Claim ---
 
     /**
-     * Claim the golden cookie. Cookies go to the REALM OWNER. Returns true if successful.
+     * Claim the golden cookie for the realm owner. Returns true if this call is the one
+     * that took it — concurrent claims from several viewers resolve to exactly one winner.
      */
     public boolean claim(Player clicker, PlayerData clickerData, PlayerData ownerData) {
-        if (slot < 0 || cookieType == CookieType.NULL) return false;
+        return claim(clicker, clickerData, ownerData, ANY_SPAWN);
+    }
 
-        BigDecimal claimedReward = this.reward;
-        String claimedTierName = this.tierName;
+    /**
+     * Claim only if the currently active cookie is the one identified by {@code spawnId}.
+     * Icons captured for an earlier spawn are inert, so a click that arrives after that
+     * cookie is gone cannot collect a later one in its place.
+     */
+    private boolean claim(Player clicker, PlayerData clickerData, PlayerData ownerData, long spawnId) {
+        BigDecimal claimedReward;
+        String claimedTierName;
+        boolean early;
+        boolean late;
 
-        // Add cookies to owner
+        synchronized (this) {
+            if (!hasActiveCookie()) return false;
+            if (spawnId != ANY_SPAWN && spawnId != this.spawnId) return false;
+
+            claimedReward = this.reward;
+            claimedTierName = this.tierName;
+
+            long now = System.currentTimeMillis();
+            early = now - spawnedAtMillis <= TIMING_WINDOW_MILLIS;
+            late = expiresAtMillis - now <= TIMING_WINDOW_MILLIS;
+
+            clearCookie();
+        }
+
         ownerData.addCookies(claimedReward);
 
-        // Increment golden cookie counter on owner's profile
         RealmProfile profile = ownerData.getActiveProfile();
         if (profile != null) {
             profile.setGoldenCookiesCollected(profile.getGoldenCookiesCollected() + 1);
-            boolean early = spawnedAtMillis > 0 && System.currentTimeMillis() - spawnedAtMillis < 1000L;
-            boolean late = ticksLeft <= 1;
             gg.drak.lobbyclicker.achievements.AchievementManager.markGoldenTiming(profile, early, late);
             gg.drak.lobbyclicker.achievements.AchievementManager.check(ownerData);
         }
 
-        // Clear the cookie
-        clearCookie();
+        pushClear();
+        refreshViewerDisplays();
 
         if (!LobbyClicker.getMainConfig().isNotificationsDisabled()) {
-            // Notify clicker
             clicker.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + claimedTierName + "! " +
                     ChatColor.YELLOW + "+" + FormatUtils.format(claimedReward) + " cookies");
             if (clickerData.getSettings().isSoundEnabled(SettingType.SOUND_CLICKER)) {
                 clicker.playSound(clicker.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
             }
 
-            // Broadcast to others in realm
             String broadcastMsg = ChatColor.GOLD + clickerData.getName() + ChatColor.YELLOW +
-                    " picked up a golden cookie worth " + ChatColor.GOLD + FormatUtils.format(claimedReward) + ChatColor.YELLOW + " cookies!";
+                    " picked up a golden cookie worth " + ChatColor.GOLD + FormatUtils.format(claimedReward) +
+                    ChatColor.YELLOW + " cookies!";
             if (!ownerData.getIdentifier().equals(clickerData.getIdentifier())) {
                 ownerData.asPlayer().ifPresent(op -> op.sendMessage(broadcastMsg));
             }
@@ -286,6 +335,47 @@ public class GoldenCookieHolder {
         return true;
     }
 
+    /**
+     * Claim on behalf of a clicker who has auto-collect, either from the
+     * {@code lobbyclicker.golden-cookie.auto-collect} permission or the realm's
+     * Cookie Magnet upgrade. No-op when no cookie is claimable.
+     */
+    public boolean autoCollect(Player clicker, PlayerData clickerData, PlayerData ownerData) {
+        if (!hasActiveCookie()) return false;
+        return claim(clicker, clickerData, ownerData);
+    }
+
+    // --- Display propagation ---
+
+    /** Draw the active cookie into every open GUI viewing this realm. */
+    public void pushRender() {
+        forEachOpenGui(ClickerGui::renderGoldenCookie);
+    }
+
+    /** Blank the golden cookie slot in every open GUI viewing this realm. */
+    public void pushClear() {
+        forEachOpenGui(ClickerGui::clearGoldenCookieSlot);
+    }
+
+    private void refreshViewerDisplays() {
+        forEachOpenGui(ClickerGui::refreshDisplay);
+    }
+
+    private void forEachOpenGui(java.util.function.Consumer<ClickerGui> action) {
+        ClickerGui ownerGui = ClickerGui.getOpenGuis().get(UUID.fromString(ownerUuid));
+        if (ownerGui != null) runOnGuiOwner(ownerGui, action);
+        for (String vuuid : RealmManager.getViewers(ownerUuid)) {
+            ClickerGui gui = ClickerGui.getOpenGuis().get(UUID.fromString(vuuid));
+            if (gui != null) runOnGuiOwner(gui, action);
+        }
+    }
+
+    private void runOnGuiOwner(ClickerGui gui, java.util.function.Consumer<ClickerGui> action) {
+        Player p = gui.getViewer();
+        if (p == null || !p.isOnline()) return;
+        FoliaScheduler.runForEntity(p, LobbyClicker.getInstance(), () -> action.accept(gui));
+    }
+
     // --- Internal helpers ---
 
     private void clearCookie() {
@@ -293,8 +383,8 @@ public class GoldenCookieHolder {
         this.cookieType = CookieType.NULL;
         this.reward = BigDecimal.ZERO;
         this.tierName = "";
-        this.ticksLeft = 0;
         this.spawnedAtMillis = 0;
+        this.expiresAtMillis = 0;
     }
 
     private int getWeightedSpawnDelay() {
@@ -304,7 +394,7 @@ public class GoldenCookieHolder {
         double raw = Math.pow(RANDOM.nextDouble(), 2.0);
         int baseDelay = 30 + (int) (raw * 270);
         double freqMult = ownerData.getEffectMultiplier(
-                gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect.GOLDEN_FREQ_MULTIPLIER).doubleValue();
+                ClickerUpgradeEffect.GOLDEN_FREQ_MULTIPLIER).doubleValue();
         return Math.max(5, (int) (baseDelay / freqMult));
     }
 
@@ -324,15 +414,16 @@ public class GoldenCookieHolder {
     /**
      * Build an Icon for the golden cookie at the current slot, for display in any GUI viewing this realm.
      */
-    public Icon buildIcon(PlayerData clickerData, PlayerData ownerData) {
+    public synchronized Icon buildIcon(PlayerData clickerData, PlayerData ownerData) {
         if (!hasActiveCookie()) return null;
+        final long boundSpawn = spawnId;
         Icon icon = ClickerGuiHelper.createIcon(cookieType.getMaterial(),
                 ChatColor.GOLD + "" + ChatColor.BOLD + tierName + "!",
                 "", ChatColor.YELLOW + "Click for +" + FormatUtils.format(reward) + " cookies!",
-                ChatColor.GRAY + "Hurry, it won't last long!");
+                ChatColor.GRAY + "Expires in " + ChatColor.WHITE + ((getMillisRemaining() + 999L) / 1000L) + "s");
         icon.onClick(e -> {
             Player p = (Player) e.getWhoClicked();
-            claim(p, clickerData, ownerData);
+            claim(p, clickerData, ownerData, boundSpawn);
         });
         return icon;
     }

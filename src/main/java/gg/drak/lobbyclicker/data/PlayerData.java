@@ -295,6 +295,11 @@ public class PlayerData implements Identifiable {
         return p != null ? p.getEffectMultiplier(effectType) : java.math.BigDecimal.ONE;
     }
 
+    public boolean hasEffect(gg.drak.lobbyclicker.upgrades.ClickerUpgradeEffect effectType) {
+        RealmProfile p = getActiveProfile();
+        return p != null && p.hasEffect(effectType);
+    }
+
     // Milestone delegation
     public int getLastCurrentDigitCount() {
         RealmProfile p = getActiveProfile();

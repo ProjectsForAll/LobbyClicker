@@ -235,6 +235,17 @@ public class RealmProfile {
         return mult;
     }
 
+    /**
+     * Whether any purchased upgrade carries the given effect. For flag effects, whose
+     * value is meaningless, this is the question to ask instead of the multiplier.
+     */
+    public boolean hasEffect(ClickerUpgradeEffect effectType) {
+        for (ClickerUpgrade upgrade : purchasedUpgrades) {
+            if (upgrade.getEffect() == effectType) return true;
+        }
+        return false;
+    }
+
     public BigDecimal getClickerEntropy() {
         BigDecimal entropy = BigDecimal.valueOf(timesClicked);
         for (UpgradeType type : UpgradeType.values()) {

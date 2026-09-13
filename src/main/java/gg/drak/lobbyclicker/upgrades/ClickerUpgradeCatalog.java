@@ -133,6 +133,8 @@ public final class ClickerUpgradeCatalog {
                 Material.GOLDEN_APPLE, "7777777777", ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER, "2", null, 0));
         add(new ClickerUpgrade("GOLDEN_RUSH", "Gilded Fortune", "Golden cookies are worth twice as much.",
                 Material.GLISTERING_MELON_SLICE, "777777777777", ClickerUpgradeEffect.GOLDEN_REWARD_MULTIPLIER, "2", null, 0));
+        add(new ClickerUpgrade("COOKIE_MAGNET", "Cookie Magnet", "Clicking the cookie also collects any waiting golden cookie.",
+                Material.LODESTONE, "7777777777777", ClickerUpgradeEffect.GOLDEN_AUTO_COLLECT, "1", null, 0));
     }
 
     private static void addGlobal() {
