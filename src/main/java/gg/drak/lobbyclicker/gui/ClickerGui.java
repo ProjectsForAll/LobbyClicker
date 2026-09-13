@@ -415,7 +415,10 @@ public class ClickerGui extends SimpleGuiMonitor {
             updateStats();
             updateDigitDisplay();
 
-            if (hasGoldenAutoCollect()) {
+            // A remote owner's PlayerData here is a stale copy — clicks reach them over Redis
+            // rather than being credited locally, and there is no such channel for a golden
+            // cookie claim, so auto-collect stays on realms whose owner this server owns.
+            if (!ownerIsRemote && hasGoldenAutoCollect()) {
                 goldenHolder().autoCollect(player, viewerData, ownerData);
             }
 
@@ -644,6 +647,10 @@ public class ClickerGui extends SimpleGuiMonitor {
      * Blank the golden cookie slot; interior slots of the monitor border are empty anyway.
      * The icon registration has to go as well as the item: click dispatch looks handlers up
      * by slot alone, so a registration left behind would keep accepting claims on thin air.
+     *
+     * <p>Dropping the registration also drops the AIR filler the border put there, leaving the
+     * slot unregistered and so unpainted on redraw. That is right only while the interior
+     * filler is AIR; give this slot its filler back if that ever changes.
      */
     public void clearGoldenCookieSlot() {
         if (renderedGoldenSlot < 0) return;
