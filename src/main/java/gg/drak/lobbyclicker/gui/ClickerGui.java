@@ -318,21 +318,16 @@ public class ClickerGui extends SimpleGuiMonitor {
     }
 
     /**
-     * Update the cookie item's lore without re-registering the click handler.
+     * Rewrite the cookie item so its lore tracks the live per-click value.
+     * Mutating the ItemStack already in the open inventory would change server state without
+     * sending the client anything, leaving a stale tooltip on screen; going through addItem()
+     * pushes the update the same way every other refresh in this GUI does. Slot 22's clicks are
+     * intercepted in {@link #onClick}, so replacing the icon does not disturb click handling.
      */
     private void updateCookieLore() {
-        ItemStack cookieItem = getInventory().getItem(22);
-        if (cookieItem != null && cookieItem.getType() == Material.COOKIE) {
-            ItemMeta meta = cookieItem.getItemMeta();
-            if (meta != null) {
-                meta.setLore(java.util.Arrays.asList(
-                        MenuText.itemLine(""),
-                        MenuText.itemLine(ChatColor.YELLOW + "Click to earn cookies!"),
-                        MenuText.itemLine(ChatColor.GRAY + "Per click: " + ChatColor.WHITE + FormatUtils.format(ownerData.getCpc())),
-                        MenuText.itemLine(ChatColor.GRAY + "Your clicks: " + ChatColor.WHITE + FormatUtils.format(viewerData.getGlobalClicks()))));
-                cookieItem.setItemMeta(meta);
-            }
-        }
+        ItemStack existing = getInventory().getItem(22);
+        if (existing == null || existing.getType() != Material.COOKIE) return;
+        addCookieItem(player);
     }
 
     private void addCookieItem(Player player) {
