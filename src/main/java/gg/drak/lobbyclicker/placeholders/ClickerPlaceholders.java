@@ -4,33 +4,24 @@ import gg.drak.lobbyclicker.LobbyClicker;
 import gg.drak.lobbyclicker.data.PlayerData;
 import gg.drak.lobbyclicker.data.PlayerManager;
 import gg.drak.lobbyclicker.utils.FormatUtils;
-import me.clip.placeholderapi.expansion.PlaceholderExpansion;
-import org.bukkit.entity.Player;
+import host.plas.bou.compat.papi.expansion.BetterExpansion;
+import host.plas.bou.compat.papi.expansion.PlaceholderContext;
+import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public class ClickerPlaceholders extends PlaceholderExpansion {
-    @Override
-    public @NotNull String getIdentifier() {
-        return "lobbyclicker";
+public class ClickerPlaceholders extends BetterExpansion {
+    public ClickerPlaceholders() {
+        super(LobbyClicker.getInstance(), () -> "lobbyclicker", () -> "Drak", () -> "1.0.0", true, true);
     }
 
     @Override
-    public @NotNull String getAuthor() {
-        return "Drak";
+    public @Nullable String replace(PlaceholderContext context) {
+        return onRequest(context.getPlayer(), context.getRawParams());
     }
 
     @Override
-    public @NotNull String getVersion() {
-        return "1.0.0";
-    }
-
-    @Override
-    public boolean persist() {
-        return true;
-    }
-
-    @Override
-    public String onPlaceholderRequest(Player player, @NotNull String params) {
+    public String onRequest(OfflinePlayer player, @NotNull String params) {
         // Server-level placeholders (no player needed)
         switch (params.toLowerCase()) {
             case "server_id":

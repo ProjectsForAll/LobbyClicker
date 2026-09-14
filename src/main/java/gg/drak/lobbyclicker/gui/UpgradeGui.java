@@ -90,26 +90,31 @@ public class UpgradeGui extends PaginationMonitor {
         lore.add("");
         lore.add(ChatColor.GRAY + type.getDescription());
         lore.add("");
-        lore.add(ChatColor.GRAY + "Owned: " + ChatColor.WHITE + owned);
+        lore.add(ChatColor.GRAY + "owned: " + ChatColor.WHITE + owned);
 
         if (profile != null && type.getCpsPerLevel().signum() > 0) {
-            BigDecimal rawEach = type.getCpsPerLevel();
-            BigDecimal liveCps = ownerData.getCps();
-            BigDecimal rawTotal = profile.getRawCps();
-            BigDecimal share = BigDecimal.ZERO;
-            if (rawTotal.signum() > 0 && owned > 0) {
-                share = liveCps.multiply(profile.getBuildingRawCps(type))
-                        .divide(rawTotal, java.math.RoundingMode.HALF_UP);
-            }
-            lore.add(ChatColor.GRAY + "Base CPS each: " + ChatColor.WHITE + "+" + FormatUtils.format(rawEach));
-            lore.add(ChatColor.GRAY + "Live share: " + ChatColor.WHITE + "+" + FormatUtils.format(share)
-                    + ChatColor.GRAY + " (includes aura, prestige, milk)");
+            // "base" is the catalog rate; "actual" is that rate after every multiplier the
+            // profile carries — building and synergy upgrades, prestige, aura, milk — so the
+            // two numbers show what the helper is worth before and after the realm's bonuses.
+            BigDecimal global = profile.getGlobalCpsMultiplier();
+            BigDecimal baseEach = type.getCpsPerLevel();
+            BigDecimal actualEach = profile.getBuildingRawCpsEach(type).multiply(global);
+            BigDecimal count = BigDecimal.valueOf(owned);
+            BigDecimal baseTotal = baseEach.multiply(count);
+            BigDecimal actualTotal = profile.getBuildingRawCps(type).multiply(global);
+
+            lore.add(ChatColor.GRAY + "each: " + ChatColor.WHITE + "+" + FormatUtils.formatRate(baseEach)
+                    + " " + ChatColor.AQUA + "(+" + FormatUtils.formatRate(actualEach) + ")"
+                    + " " + ChatColor.GOLD + "cps");
+            lore.add(ChatColor.GRAY + "total: " + ChatColor.WHITE + "+" + FormatUtils.formatRate(baseTotal)
+                    + " " + ChatColor.AQUA + "(+" + FormatUtils.formatRate(actualTotal) + ")"
+                    + " " + ChatColor.GOLD + "cps");
         }
 
         lore.add("");
-        lore.add(ChatColor.GRAY + "Cost: " + (canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies");
+        lore.add(ChatColor.GRAY + "cost: " + (canAfford ? ChatColor.GREEN : ChatColor.RED) + FormatUtils.format(cost) + " cookies");
         lore.add("");
-        lore.add(canAfford ? ChatColor.YELLOW + "Click to buy!" : ChatColor.RED + "Not enough cookies!");
+        lore.add(canAfford ? ChatColor.YELLOW + "click to buy!" : ChatColor.RED + "not enough cookies!");
 
         String nameColor = canAfford ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
         Icon icon = ClickerGuiHelper.createIcon(type.getMaterial(), nameColor + ChatColor.BOLD + type.getDisplayName(),

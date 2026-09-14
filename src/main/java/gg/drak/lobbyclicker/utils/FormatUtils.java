@@ -39,6 +39,29 @@ public class FormatUtils {
         }
     }
 
+    /**
+     * Like {@link #format(BigDecimal)} but keeps significant digits below 1000 instead of
+     * flooring them away. Rates such as an autoclicker's 0.1 cps are meaningful at that scale,
+     * and flooring would render them as a flat "0".
+     */
+    public static String formatRate(BigDecimal value) {
+        if (value == null) return "0";
+        if (value.signum() < 0) return "-" + formatRate(value.negate());
+        if (value.compareTo(new BigDecimal("1000")) >= 0) return format(value);
+        if (value.signum() == 0) return "0";
+
+        // Two decimals below 10, one below 100, none above: enough precision to see a
+        // change without a wall of digits. Trailing zeros are dropped so 2.00 reads "2".
+        int scale = value.compareTo(BigDecimal.TEN) < 0 ? 2
+                : value.compareTo(new BigDecimal("100")) < 0 ? 1 : 0;
+        BigDecimal rounded = value.setScale(scale, RoundingMode.FLOOR);
+        if (rounded.signum() == 0) {
+            // Too small for the chosen scale; show enough digits to stay non-zero.
+            rounded = value.round(new java.math.MathContext(2, RoundingMode.FLOOR));
+        }
+        return rounded.stripTrailingZeros().toPlainString();
+    }
+
     public static String format(double value) {
         return format(BigDecimal.valueOf(value));
     }

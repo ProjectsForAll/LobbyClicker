@@ -122,15 +122,23 @@ public class RealmProfile {
 
     // --- Stats ---
 
-    public BigDecimal getBuildingRawCps(UpgradeType type) {
-        int count = getUpgradeCount(type);
-        if (count <= 0) return BigDecimal.ZERO;
+    /**
+     * Per-unit raw CpS for one building, before the profile-wide multipliers in
+     * {@link #getGlobalCpsMultiplier()}. CURSOR folds in the whole finger bonus per unit,
+     * which is what makes autoclickers scale with the rest of the realm.
+     */
+    public BigDecimal getBuildingRawCpsEach(UpgradeType type) {
         BigDecimal each = type.getCpsPerLevel().multiply(getBuildingMultiplier(type));
         if (type == UpgradeType.CURSOR) {
             each = each.add(getFingerBonus());
         }
-        each = each.multiply(getSynergyMultiplier(type));
-        return each.multiply(BigDecimal.valueOf(count));
+        return each.multiply(getSynergyMultiplier(type));
+    }
+
+    public BigDecimal getBuildingRawCps(UpgradeType type) {
+        int count = getUpgradeCount(type);
+        if (count <= 0) return BigDecimal.ZERO;
+        return getBuildingRawCpsEach(type).multiply(BigDecimal.valueOf(count));
     }
 
     public BigDecimal getRawCps() {
@@ -141,17 +149,27 @@ public class RealmProfile {
         return baseCps;
     }
 
-    public BigDecimal getCps() {
-        return getRawCps()
-                .multiply(PrestigeManager.getUpgradeMultiplier(prestigeLevel))
+    /**
+     * The profile-wide factors applied on top of raw building output: prestige, aura,
+     * CPS_MULTIPLIER upgrades and milk. Kept separate from {@link #getRawCps()} so a single
+     * building's displayed contribution can be scaled by the same chain the total uses.
+     */
+    public BigDecimal getGlobalCpsMultiplier() {
+        return PrestigeManager.getUpgradeMultiplier(prestigeLevel)
                 .multiply(PrestigeManager.getAuraCpsMultiplier(aura))
                 .multiply(getEffectMultiplier(ClickerUpgradeEffect.CPS_MULTIPLIER))
                 .multiply(AchievementManager.milkMultiplier(this));
     }
 
+    public BigDecimal getCps() {
+        return getRawCps().multiply(getGlobalCpsMultiplier());
+    }
+
     public BigDecimal getCpc() {
-        BigDecimal click = BigDecimal.ONE.multiply(getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER));
-        click = click.add(getFingerBonus());
+        // The finger bonus is part of what a click is worth, so it is inside the
+        // multiplier: mouse upgrades double the fingers too, not just the base click.
+        BigDecimal click = BigDecimal.ONE.add(getFingerBonus());
+        click = click.multiply(getEffectMultiplier(ClickerUpgradeEffect.CPC_MULTIPLIER));
         return click.multiply(PrestigeManager.getClickMultiplier(prestigeLevel, aura));
     }
 
